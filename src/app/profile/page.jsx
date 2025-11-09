@@ -55,113 +55,194 @@ export default function ProfilePage() {
     }
   }, [router]);
 
-  // Fetch KYC data from backend
-  // Fetch KYC data from backend
-const fetchKYCData = async () => {
-  try {
-    const response = await fetch('http://localhost:5000/api/kyc/me', {
-      headers: {
-        'Authorization': `Bearer ${authToken}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (response.ok) {
-      const kycData = await response.json();
-      console.log('KYC Data:', kycData);
-      
-      // Update KYC status
-      setKycStatus({
-        pan: { 
-          status: kycData.pan?.status || 'NOT_SUBMITTED', 
-          message: kycData.pan ? `PAN: ${kycData.pan.status}` : 'PAN not submitted'
-        },
-        bank: { 
-          status: kycData.bank?.status || 'NOT_SUBMITTED', 
-          message: kycData.bank ? `Bank: ${kycData.bank.status}` : 'Bank details not submitted'
+  // NEW: Fetch user data from /api/user endpoint
+  const fetchUserData = async () => {
+    try {
+      console.log('Fetching user data from API...');
+      const response = await fetch('http://localhost:5000/api/user', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
         }
       });
-
-      // Update form data with KYC information
-      if (kycData.pan) {
-        setUserData(prev => ({
-          ...prev,
-          panFullName: kycData.pan.full_name || '',
-          panNumber: kycData.pan.pan_masked || ''
-        }));
-      }
-
-      if (kycData.bank) {
-        setUserData(prev => ({
-          ...prev,
-          bankFullName: kycData.bank.full_name || '',
-          bankName: kycData.bank.bank_name || '',
-          ifscCode: kycData.bank.ifsc_code || '',
-          accountNumber: kycData.bank.account_masked || ''
-        }));
-      }
       
-      // Update Personal Details from profile data
-      if (kycData.profile) {
-        const profile = kycData.profile;
-        setUserData(prev => ({
-          ...prev,
-          // Combine first_name and last_name with space for fullName
-          fullName: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
-          email: profile.email || '',
-          phoneNumber: profile.phone || '',
-          // Add other profile fields if available in your API
-          // gender: profile.gender || '',
-          // dateOfBirth: profile.date_of_birth || '',
-          // pincode: profile.pincode || '',
-          // houseOrFlatOrApartmentNo: profile.address_line1 || '',
-          // area: profile.area || '',
-          // city: profile.city || '',
-          // state: profile.state || ''
-        }));
+      if (response.ok) {
+        const userDataFromApi = await response.json();
+        console.log('User data from API:', userDataFromApi);
+        
+        // Update form fields with data from API
+        if (userDataFromApi.user || userDataFromApi) {
+          const user = userDataFromApi.user || userDataFromApi;
+          
+          // Format date of birth if available
+          let formattedDob = '';
+          if (user.dob) {
+            try {
+              const dobDate = new Date(user.dob);
+              formattedDob = dobDate.toISOString().split('T')[0];
+            } catch (error) {
+              console.error('Error formatting date of birth:', error);
+            }
+          }
+
+          setUserData(prev => ({
+            ...prev,
+            // Personal Details
+            fullName: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+            email: user.email || '',
+            phoneNumber: user.phone || '',
+            gender: user.gender || '',
+            dateOfBirth: formattedDob,
+            pincode: user.pincode || '',
+            houseOrFlatOrApartmentNo: user.address1 || '',
+            area: user.address2 || '',
+            city: user.city || '',
+            state: user.state || ''
+          }));
+
+          // Update session storage
+          if (user.first_name || user.last_name) {
+            sessionStorage.setItem('username', `${user.first_name || ''} ${user.last_name || ''}`.trim());
+          }
+          if (user.phone) {
+            sessionStorage.setItem('phoneNumber', user.phone);
+          }
+          if (user.email) {
+            sessionStorage.setItem('userEmail', user.email);
+          }
+        }
+      } else {
+        console.log('User API returned:', response.status, ' - Using KYC data as fallback');
       }
-      
-    } else {
-      console.error('Failed to fetch KYC data');
+    } catch (err) {
+      console.error('Error fetching user data:', err);
     }
-  } catch (err) {
-    console.error('Error fetching KYC data:', err);
-  }
-};
+  };
 
-  // Fetch user profile data from session storage and API
+  // Fetch KYC data from backend - UPDATED VERSION
+  const fetchKYCData = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/kyc/me', {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const kycData = await response.json();
+        console.log('KYC Data:', kycData);
+        
+        // Update KYC status
+        setKycStatus({
+          pan: { 
+            status: kycData.pan?.status || 'NOT_SUBMITTED', 
+            message: kycData.pan ? `PAN: ${kycData.pan.status}` : 'PAN not submitted'
+          },
+          bank: { 
+            status: kycData.bank?.status || 'NOT_SUBMITTED', 
+            message: kycData.bank ? `Bank: ${kycData.bank.status}` : 'Bank details not submitted'
+          }
+        });
+
+        // Update form data with KYC information
+        if (kycData.pan) {
+          setUserData(prev => ({
+            ...prev,
+            panFullName: kycData.pan.full_name || '',
+            panNumber: kycData.pan.pan_number || kycData.pan.pan_masked || ''
+          }));
+        }
+
+        if (kycData.bank) {
+          setUserData(prev => ({
+            ...prev,
+            bankFullName: kycData.bank.full_name || '',
+            bankName: kycData.bank.bank_name || '',
+            ifscCode: kycData.bank.ifsc_code || '',
+            accountNumber: kycData.bank.account_no || kycData.bank.account_masked || ''
+          }));
+        }
+        
+        // Update Personal Details from profile data - COMPLETE MAPPING
+        if (kycData.profile) {
+          const profile = kycData.profile;
+          
+          // Format date of birth if available
+          let formattedDob = '';
+          if (profile.dob) {
+            try {
+              const dobDate = new Date(profile.dob);
+              formattedDob = dobDate.toISOString().split('T')[0];
+            } catch (error) {
+              console.error('Error formatting date of birth:', error);
+            }
+          }
+
+          setUserData(prev => ({
+            ...prev,
+            // Personal Details
+            fullName: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
+            email: profile.email || '',
+            phoneNumber: profile.phone || '',
+            gender: profile.gender || '',
+            dateOfBirth: formattedDob,
+            pincode: profile.pincode || '',
+            houseOrFlatOrApartmentNo: profile.address1 || '',
+            area: profile.address2 || '',
+            city: profile.city || '',
+            state: profile.state || ''
+          }));
+
+          // Also update session storage with current data
+          if (profile.first_name || profile.last_name) {
+            sessionStorage.setItem('username', `${profile.first_name || ''} ${profile.last_name || ''}`.trim());
+          }
+          if (profile.phone) {
+            sessionStorage.setItem('phoneNumber', profile.phone);
+          }
+          if (profile.email) {
+            sessionStorage.setItem('userEmail', profile.email);
+          }
+        }
+        
+      } else {
+        console.error('Failed to fetch KYC data');
+      }
+    } catch (err) {
+      console.error('Error fetching KYC data:', err);
+    }
+  };
+
+  // Fetch user profile data from session storage and API - UPDATED VERSION
   const fetchUserProfile = async () => {
     try {
       setLoading(true);
       
-      // Get basic user info from session storage
+      // Only set basic info if not already set from KYC data
+      const currentUserData = { ...userData };
+      
+      // Get basic user info from session storage as fallback
       const userEmail = sessionStorage.getItem('userEmail');
       const username = sessionStorage.getItem('username');
-      const phoneNumber = sessionStorage.getItem('phoneNumber'); // You need to store this during login
+      const phoneNumber = sessionStorage.getItem('phoneNumber');
 
-      // Update user data with session storage info
-      setUserData(prev => ({
-        ...prev,
-        fullName: username || '',
-        email: userEmail || '',
-        phoneNumber: phoneNumber || ''
-      }));
+      // Only update if fields are empty (not set from KYC data)
+      const updates = {};
+      if (!currentUserData.fullName && username) {
+        updates.fullName = username;
+      }
+      if (!currentUserData.email && userEmail) {
+        updates.email = userEmail;
+      }
+      if (!currentUserData.phoneNumber && phoneNumber) {
+        updates.phoneNumber = phoneNumber;
+      }
 
-      // If you have a profile API endpoint, fetch additional data here
-      // const response = await fetch('http://localhost:5000/api/profile', {
-      //   headers: {
-      //     'Authorization': `Bearer ${authToken}`,
-      //     'Content-Type': 'application/json'
-      //   }
-      // });
-      
-      // if (response.ok) {
-      //   const profileData = await response.json();
-      //   setUserData(prev => ({
-      //     ...prev,
-      //     ...profileData
-      //   }));
-      // }
+      if (Object.keys(updates).length > 0) {
+        setUserData(prev => ({ ...prev, ...updates }));
+      }
 
     } catch (err) {
       console.error('Error fetching user profile:', err);
@@ -170,10 +251,30 @@ const fetchKYCData = async () => {
     }
   };
 
+  // UPDATED: Handle initial data loading with priority order
   useEffect(() => {
     if (authToken) {
-      fetchKYCData();
-      fetchUserProfile();
+      const loadAllData = async () => {
+        try {
+          setLoading(true);
+          
+          // 1. First try to get data from /api/user (most current)
+          await fetchUserData();
+          
+          // 2. Then fetch KYC data (for PAN/bank info and as fallback)
+          await fetchKYCData();
+          
+          // 3. Finally use session storage as last resort
+          await fetchUserProfile();
+          
+        } catch (error) {
+          console.error('Error loading profile data:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      loadAllData();
     }
   }, [authToken]);
 
@@ -227,32 +328,74 @@ const fetchKYCData = async () => {
     setPanPhotoPreview(null);
   };
 
-  // Update Personal Details
+  // UPDATED: Update Personal Details with immediate data refresh
   const updatePersonalDetails = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/profile', { // You need to implement this endpoint
+      // Split full name into first and last name
+      const nameParts = userData.fullName.split(' ');
+      const first_name = nameParts[0] || '';
+      const last_name = nameParts.slice(1).join(' ') || '';
+
+      // Get current user info from session storage
+      const username = sessionStorage.getItem('username') || '';
+      const userEmail = sessionStorage.getItem('userEmail') || '';
+      
+      // Prepare payload - only include fields that have values
+      const payload = {
+        first_name,
+        last_name,
+        phone: userData.phoneNumber || '',
+        gender: userData.gender || '',
+        pincode: userData.pincode || '',
+        address1: userData.houseOrFlatOrApartmentNo || '',
+        address2: userData.area || '',
+        city: userData.city || '',
+        state: userData.state || '',
+      };
+
+      // Only add date of birth if it's provided and valid
+      if (userData.dateOfBirth) {
+        payload.dob = userData.dateOfBirth;
+      }
+
+      // Add identification fields that backend might need
+      payload.email = userEmail;
+      payload.username = username;
+
+      console.log('Sending update payload:', payload);
+
+      const response = await fetch('http://localhost:5000/api/user', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          gender: userData.gender,
-          dateOfBirth: userData.dateOfBirth,
-          pincode: userData.pincode,
-          houseOrFlatOrApartmentNo: userData.houseOrFlatOrApartmentNo,
-          area: userData.area,
-          city: userData.city,
-          state: userData.state,
-        }),
+        body: JSON.stringify(payload),
       });
+      
+      const responseData = await response.json();
+      console.log('Update response:', responseData);
       
       if (response.ok) {
         alert('Personal details updated successfully!');
         setEditMode(false);
+        
+        // Update session storage with new data
+        sessionStorage.setItem('username', `${first_name} ${last_name}`.trim());
+        if (userData.phoneNumber) {
+          sessionStorage.setItem('phoneNumber', userData.phoneNumber);
+        }
+        
+        // NEW: Immediately refresh data from API to confirm updates
+        await fetchUserData();
+        
       } else {
-        const errorData = await response.json();
-        alert('Failed to update personal details: ' + (errorData.message || 'Unknown error'));
+        // Handle specific error cases
+        if (responseData.message?.includes('already exists')) {
+          alert('Update failed: User identification conflict. Please try with different credentials.');
+        } else {
+          alert('Failed to update personal details: ' + (responseData.message || 'Unknown error'));
+        }
       }
     } catch (err) {
       console.error('Update error:', err);
@@ -369,8 +512,8 @@ const fetchKYCData = async () => {
     router.push('/Authentication');
   };
 
-  // Enhanced renderInputField function with better control
-  const renderInputField = (label, name, type = 'text', alwaysDisabled = false) => (
+  // Enhanced renderInputField function with loading states
+  const renderInputField = (label, name, type = 'text', alwaysDisabled = false, placeholder = "") => (
     <div>
       <label className="block text-sm text-gray-600 mb-2">{label}</label>
       <input
@@ -384,8 +527,15 @@ const fetchKYCData = async () => {
             ? 'border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed' 
             : 'border-gray-400 bg-white'
         }`}
-        placeholder={loading ? "Loading..." : ""}
+        placeholder={loading ? "Loading..." : placeholder}
       />
+      {loading && userData[name] === '' && (
+        <div className="mt-1">
+          <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
+            <div className="h-full bg-[#50C2C9] animate-pulse" style={{ width: '60%' }}></div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -420,6 +570,16 @@ const fetchKYCData = async () => {
           </span>
         </div>
       </div>
+
+      {/* Loading Indicator */}
+      {loading && (
+        <div className="px-4 py-2">
+          <div className="flex items-center justify-center space-x-2 text-sm text-[#50C2C9]">
+            <div className="w-4 h-4 border-2 border-[#50C2C9] border-t-transparent rounded-full animate-spin"></div>
+            <span>Loading your profile data...</span>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="bg-white">
@@ -468,9 +628,9 @@ const fetchKYCData = async () => {
       <div className="px-4 py-4 space-y-6 pb-24">
         {activeTab === 'Personal Details' && (
           <div className="space-y-4">
-            {renderInputField('Full Name', 'fullName', 'text', true)} {/* Always disabled */}
-            {renderInputField('Email', 'email', 'email', true)} {/* Always disabled */}
-            {renderInputField('Phone Number', 'phoneNumber', 'tel', true)} {/* Always disabled */}
+            {renderInputField('Full Name', 'fullName', 'text', true)}
+            {renderInputField('Email', 'email', 'email', true)}
+            {renderInputField('Phone Number', 'phoneNumber', 'tel', true)}
             {renderInputField('Gender', 'gender')}
             {renderInputField('Date of Birth', 'dateOfBirth', 'date')}
             {renderInputField('Pincode', 'pincode', 'number')}

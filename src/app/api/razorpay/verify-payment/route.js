@@ -1,65 +1,52 @@
 import { NextResponse } from 'next/server';
-import Razorpay from 'razorpay';
 import crypto from 'crypto';
-
-const razorpay = new Razorpay({
-  key_id: 'rzp_test_aOTAZ3JhbITtOK',
-  key_secret: 'dH82ObyAQVjPkzTxtfvyHyyy',
-});
 
 export async function POST(request) {
   try {
-    const { 
-      razorpay_order_id, 
-      razorpay_payment_id, 
+    const body = await request.json();
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
       razorpay_signature,
-      selectedMetal,
-      amount,
-      months,
-      day
-    } = await request.json();
+      sipId
+    } = body;
 
-    console.log('Verifying payment:', { razorpay_order_id, razorpay_payment_id });
+    console.log('🔵 Verifying payment:', { razorpay_order_id, razorpay_payment_id, sipId });
 
-    // Verify payment signature
-    const body = razorpay_order_id + "|" + razorpay_payment_id;
-    const expectedSignature = crypto
-      .createHmac('sha256', 'dH82ObyAQVjPkzTxtfvyHyyy')
-      .update(body.toString())
+    // Verify signature
+    const secret = 'dH82ObyAQVjPkzTxtfvyHyyy';
+    const generatedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(razorpay_order_id + '|' + razorpay_payment_id)
       .digest('hex');
 
-    const isAuthentic = expectedSignature === razorpay_signature;
+    console.log('🔑 Signature verification:', {
+      generatedSignature,
+      receivedSignature: razorpay_signature,
+      isValid: generatedSignature === razorpay_signature
+    });
 
-    console.log('Signature verification:', { isAuthentic, expectedSignature, receivedSignature: razorpay_signature });
-
-    if (isAuthentic) {
-      // Payment is authentic
+    if (generatedSignature === razorpay_signature) {
+      // Payment verified successfully
+      console.log('✅ Payment verified successfully');
+      
       return NextResponse.json({
         success: true,
-        data: {
-          razorpay_order_id,
-          razorpay_payment_id,
-          razorpay_signature,
-          selectedMetal,
-          amount,
-          months,
-          day,
-          payment_date: new Date().toISOString(),
-          status: 'completed'
-        }
+        message: 'Payment verified successfully',
+        paymentId: razorpay_payment_id,
+        orderId: razorpay_order_id
       });
     } else {
-      // Payment verification failed
-      return NextResponse.json({
-        success: false,
-        error: 'Payment verification failed'
-      }, { status: 400 });
+      console.error('❌ Payment verification failed - signature mismatch');
+      return NextResponse.json(
+        { error: 'Payment verification failed - invalid signature' },
+        { status: 400 }
+      );
     }
-
   } catch (error) {
-    console.error('Payment verification error:', error);
+    console.error('❌ Payment verification error:', error);
     return NextResponse.json(
-      { success: false, error: 'Payment verification failed' },
+      { error: `Payment verification failed: ${error.message}` },
       { status: 500 }
     );
   }

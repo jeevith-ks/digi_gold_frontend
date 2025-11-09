@@ -1,44 +1,74 @@
-// app/api/razorpay/create-order/route.js
-import Razorpay from 'razorpay';
 import { NextResponse } from 'next/server';
-
-const razorpay = new Razorpay({
-  key_id: 'rzp_test_aOTAZ3JhbITtOK',
-  key_secret: 'dH82ObyAQVjPkzTxtfvyHyyy',
-});
 
 export async function POST(request) {
   try {
-    const { amount, currency = 'INR' } = await request.json();
+    console.log('🔵 Razorpay API called');
+    
+    const { amount, currency = 'INR', metalType, sipMonths } = await request.json();
+    
+    console.log('📦 Received data:', { amount, metalType, sipMonths });
 
-    if (!amount || amount <= 0) {
+    // Validate required fields
+    if (!amount || isNaN(amount)) {
+      console.error('❌ Invalid amount:', amount);
       return NextResponse.json(
-        { error: 'Invalid amount' },
+        { error: 'Valid amount is required' },
         { status: 400 }
       );
     }
 
+    // Initialize Razorpay with hardcoded credentials
+    const Razorpay = require('razorpay');
+    const razorpay = new Razorpay({
+      key_id: 'rzp_test_aOTAZ3JhbITtOK',
+      key_secret: 'dH82ObyAQVjPkzTxtfvyHyyy',
+    });
+
+    // Create order
+    const orderAmount = Math.round(amount * 100); // Convert to paise
+    
     const options = {
-      amount: Math.round(amount * 100), // Amount in paise
+      amount: orderAmount,
       currency: currency,
-      receipt: `sip_${Date.now()}`, // Unique receipt ID
+      receipt: `sip_${Date.now()}`,
       payment_capture: 1, // Auto capture payment
+      notes: {
+        metalType: metalType,
+        sipMonths: sipMonths,
+        type: 'sip_payment'
+      }
     };
 
+    console.log('🔄 Creating Razorpay order with options:', options);
+    
     const order = await razorpay.orders.create(options);
+    
+    console.log('✅ Order created successfully:', {
+      id: order.id,
+      amount: order.amount,
+      currency: order.currency
+    });
 
     return NextResponse.json({
       id: order.id,
-      amount: order.amount,
       currency: order.currency,
+      amount: order.amount,
       receipt: order.receipt,
     });
-
+    
   } catch (error) {
-    console.error('Error creating Razorpay order:', error);
+    console.error('❌ Razorpay order creation error:', error);
     return NextResponse.json(
-      { error: 'Failed to create order' },
+      { error: `Failed to create payment order: ${error.message}` },
       { status: 500 }
     );
   }
+}
+
+// Handle unsupported methods
+export async function GET() {
+  return NextResponse.json(
+    { error: 'Method not allowed. Use POST instead.' },
+    { status: 405 }
+  );
 }
