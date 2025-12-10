@@ -279,7 +279,7 @@ const PreciousMetalsApp = () => {
 
   const navItems = [
     { icon: <Home className="w-6 h-6" />, label: 'Home', active: true, href: '/Home' },
-    { icon: <Bell className="w-6 h-6" />, label: 'Notification', href: '/notification' },
+    { icon: <Bell className="w-6 h-6" />, label: 'Notification', href: '/Notifications' },
     { icon: <PiggyBank className="w-6 h-6" />, label: 'Savings', href: '/savings' },
     { icon: <CreditCard className="w-6 h-6" />, label: 'Passbook', href: '/Passbook' },
     { icon: <User className="w-6 h-6" />, label: 'Profile', href: '/profile' }

@@ -43,7 +43,7 @@ export default function AuthPage() {
 
       // Automatically set userType based on email
       if (name === 'email') {
-        const isAdminEmail = value.toLowerCase() === 'jeevithcse2022@gmail.com';
+        const isAdminEmail = value.toLowerCase() === 'admin@example.com';
         updatedData.userType = isAdminEmail ? 'admin' : 'customer';
       }
 
@@ -58,7 +58,7 @@ export default function AuthPage() {
     setIsLoading(true);
 
     // Determine user type based on email
-    const isAdminEmail = formData.email.toLowerCase() === 'jeevithcse2022@gmail.com';
+    const isAdminEmail = formData.email.toLowerCase() === 'admin@example.com';
     const finalUserType = isAdminEmail ? 'admin' : 'customer';
 
     if (isLogin) {
@@ -106,11 +106,11 @@ export default function AuthPage() {
         return;
       }
 
-      if (formData.password.length < 6) {
-        alert("Password must be at least 6 characters long!");
-        setIsLoading(false);
-        return;
-      }
+      // if (formData.password.length < 4) {
+      //   alert("Password must be at least 4 characters long!");
+      //   setIsLoading(false);
+      //   return;
+      // }
 
       // Phone number validation (basic)
       if (!formData.phone.trim()) {
@@ -255,7 +255,7 @@ export default function AuthPage() {
               </p>
               
               {/* Show admin indicator during registration */}
-              {!isLogin && formData.email.toLowerCase() === 'jeevithcse2022@gmail.com' && (
+              {!isLogin && formData.email.toLowerCase() === 'admin@example.com' && (
                 <div className="mt-2 px-3 py-1 bg-yellow-500 bg-opacity-20 border border-yellow-400 border-opacity-50 rounded-full inline-block">
                   <p className="text-yellow-300 text-sm font-medium">
                     🛡️ Admin account detected

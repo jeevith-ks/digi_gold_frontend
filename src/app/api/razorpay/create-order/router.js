@@ -43,7 +43,7 @@ export async function POST(request) {
     
     const order = await razorpay.orders.create(options);
     
-    console.log('✅ Order created successfully:', {
+    console.log('✅ Order created successfully: c-o', {
       id: order.id,
       amount: order.amount,
       currency: order.currency

@@ -23,6 +23,7 @@ const SIPPage = () => {
   const [investmentAmount, setInvestmentAmount] = useState(100000);
   const [manualAmount, setManualAmount] = useState('');
   const [showAmountInput, setShowAmountInput] = useState(false);
+  const [amountPayingValues, setAmountPayingValues] = useState({});
 
   useEffect(() => {
     const storedUserType = sessionStorage.getItem('userType');
@@ -36,11 +37,81 @@ const SIPPage = () => {
       setActiveTab(storedSipType === 'fixed' ? 'All' : 'New SIP');
     }
 
-    fetchSIPData();
+    // Load saved amount paying values from sessionStorage
+    const savedAmounts = sessionStorage.getItem('amountPayingValues');
+    if (savedAmounts) {
+      setAmountPayingValues(JSON.parse(savedAmounts));
+    }
+
+    // Initial fetch based on user type
+    if (storedUserType === 'admin') {
+      fetchAllSIPs(); // Admin needs to see all SIPs
+    } else {
+      fetchUserSIPs(); // Customer sees their own SIPs
+    }
   }, []);
 
-  // Fetch user's personal SIP data (for both tabs initially)
-  const fetchSIPData = async () => {
+  // Save amount paying values to sessionStorage whenever they change
+  useEffect(() => {
+    if (Object.keys(amountPayingValues).length > 0) {
+      sessionStorage.setItem('amountPayingValues', JSON.stringify(amountPayingValues));
+    }
+  }, [amountPayingValues]);
+
+  // Fetch all SIPs for admin
+  const fetchAllSIPs = async () => {
+    try {
+      setLoading(true);
+      const token = sessionStorage.getItem('authToken');
+      
+      if (!token) {
+        setError('Authentication required');
+        return;
+      }
+
+      const response = await fetch('http://localhost:5000/api/sip/all', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('All SIP Data fetched (Admin):', data);
+        
+        // For admin, separate fixed and flexible SIPs
+        const transformedFixedSips = transformFixedSIPsData(data.sipsFixed || [], true);
+        const transformedFlexibleSips = transformFlexibleSIPData(data.sipsFlexible || [], true);
+        
+        setAllFixedSips(transformedFixedSips);
+        setSipPlans(transformedFlexibleSips);
+        
+        // Load saved amounts
+        const savedAmounts = sessionStorage.getItem('amountPayingValues');
+        if (savedAmounts) {
+          setAmountPayingValues(JSON.parse(savedAmounts));
+        } else {
+          const initialAmounts = {};
+          [...transformedFixedSips, ...transformedFlexibleSips].forEach(plan => {
+            initialAmounts[plan.id] = '';
+          });
+          setAmountPayingValues(initialAmounts);
+        }
+      } else {
+        const errorData = await response.json();
+        setError(errorData.message || 'Failed to fetch SIP data');
+      }
+    } catch (err) {
+      console.error('Error fetching SIP data:', err);
+      setError('Network error while fetching SIP data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch user's personal SIP data - for customers only
+  const fetchUserSIPs = async () => {
     try {
       setLoading(true);
       const token = sessionStorage.getItem('authToken');
@@ -59,9 +130,28 @@ const SIPPage = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('SIP Data fetched:', data);
+        console.log('User SIP Data fetched:', data);
+        
+        // Transform and set data
         const transformedPlans = transformSIPData(data);
         setSipPlans(transformedPlans);
+        
+        // For customers in Fixed tab, we need to fetch opted fixed SIPs separately
+        if (activeTab === 'All') {
+          fetchOptedFixedSIPs();
+        }
+        
+        // Load saved amounts
+        const savedAmounts = sessionStorage.getItem('amountPayingValues');
+        if (savedAmounts) {
+          setAmountPayingValues(JSON.parse(savedAmounts));
+        } else {
+          const initialAmounts = {};
+          transformedPlans.forEach(plan => {
+            initialAmounts[plan.id] = '';
+          });
+          setAmountPayingValues(initialAmounts);
+        }
       } else {
         const errorData = await response.json();
         setError(errorData.message || 'Failed to fetch SIP data');
@@ -74,161 +164,106 @@ const SIPPage = () => {
     }
   };
 
-  // NEW: Fetch fixed SIPs based on user type
-  const fetchFixedSIPs = async () => {
+  // Fetch opted fixed SIPs for customers
+  const fetchOptedFixedSIPs = async () => {
     try {
-      setLoading(true);
       const token = sessionStorage.getItem('authToken');
       
       if (!token) {
-        setError('Authentication required');
         return;
       }
 
-      let url = 'http://localhost:5000/api/sip/';
-      let method = 'GET';
-      let body = null;
-
-      if (userType === 'admin') {
-        // Admin calls /api/sip/all with userType in body
-        url = 'http://localhost:5000/api/sip/all';
-        method = 'POST';
-        body = JSON.stringify({ userType: 'admin' });
-      }
-      // For customers, we use the default /api/sip/ endpoint (GET)
-
-      const options = {
-        method: method,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      };
-
-      if (body) {
-        options.body = body;
-      }
-
-      const response = await fetch(url, options);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Fixed SIPs Data fetched:', data);
-        const transformedFixedSips = transformFixedSIPsData(data, userType);
-        setAllFixedSips(transformedFixedSips);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.message || 'Failed to fetch fixed SIPs data');
-      }
+      // Note: Based on your backend, opted fixed SIPs are included in the /api/sip/ endpoint
+      // So we don't need a separate call if we already have the data
+      // This function is kept for future expansion if needed
+      console.log('Opted fixed SIPs are included in the main fetch');
+      
     } catch (err) {
-      console.error('Error fetching fixed SIPs data:', err);
-      setError('Network error while fetching fixed SIPs data');
-    } finally {
-      setLoading(false);
+      console.error('Error fetching opted fixed SIPs:', err);
     }
   };
 
-  // Transform fixed SIPs data based on user type
-  const transformFixedSIPsData = (apiData, userType) => {
+  // Transform fixed SIPs data for admin view
+  const transformFixedSIPsData = (fixedSips, isAdmin = false) => {
     const fixedPlans = [];
 
-    if (userType === 'admin') {
-      // Admin view: Show all users' fixed SIPs
-      if (apiData.sipsFixed && apiData.sipsFixed.length > 0) {
-        apiData.sipsFixed.forEach((fixedSip, index) => {
-          const totalAmount = fixedSip.total_amount_paid ? parseFloat(fixedSip.total_amount_paid) : 0;
-          const monthlyAmount = fixedSip.sipPlanAdmin?.monthly_amount || 0;
-          
-          fixedPlans.push({
-            id: fixedSip.id,
-            name: fixedSip.sipPlanAdmin?.Yojna_name || `Fixed SIP Plan ${index + 1}`,
-            type: 'Fixed SIP',
-            dueDate: formatDate(fixedSip.next_due_date),
-            createdDate: formatDate(fixedSip.created_at), 
-            investMin: `₹${formatCurrency(monthlyAmount)}`,
-            totalAmount: `₹${formatCurrency(totalAmount)}`,
-            monthlyAmount: monthlyAmount,
-            color: 'bg-[#50C2C9]',
-            status: fixedSip.status,
-            monthsPaid: fixedSip.months_paid || 0,
-            nextDueDate: fixedSip.next_due_date,
-            isFixed: true,
-            createdAt: fixedSip.created_at,
-            metalType: getDisplayMetalType(fixedSip.sipPlanAdmin?.metal_type) || '22KT Gold',
-            totalMonths: fixedSip.sipPlanAdmin?.total_months || 12,
-            userId: fixedSip.user_id,
-            userName: `User ${fixedSip.user_id?.substring(0, 8)}...`,
-            isAdminView: true
-          });
+    if (fixedSips && fixedSips.length > 0) {
+      fixedSips.forEach((fixedSip, index) => {
+        const totalAmount = fixedSip.total_amount_paid ? parseFloat(fixedSip.total_amount_paid) : 0;
+        const monthlyAmount = fixedSip.sipPlanAdmin?.range_amount || 0;
+        
+        fixedPlans.push({
+          id: fixedSip.id,
+          name: fixedSip.sipPlanAdmin?.Yojna_name || `Fixed SIP Plan ${index + 1}`,
+          type: 'Fixed SIP',
+          dueDate: formatDate(fixedSip.next_due_date),
+          createdDate: formatDate(fixedSip.created_at), 
+          investMin: `₹${formatCurrency(monthlyAmount)}`,
+          totalAmount: `₹${formatCurrency(totalAmount)}`,
+          monthlyAmount: monthlyAmount,
+          color: 'bg-[#50C2C9]',
+          status: fixedSip.status,
+          monthsPaid: fixedSip.months_paid || 0,
+          nextDueDate: fixedSip.next_due_date,
+          isFixed: true,
+          createdAt: fixedSip.created_at,
+          metalType: getDisplayMetalType(fixedSip.sipPlanAdmin?.metal_type) || '22KT Gold',
+          totalMonths: fixedSip.sipPlanAdmin?.total_months || 12,
+          userId: fixedSip.user_id,
+          userName: `User ${fixedSip.user_id?.substring(0, 8)}...`,
+          isAdminView: isAdmin
         });
-      }
-    } else {
-      // Customer view: Show their fixed SIPs
-      if (apiData.sipsFixed && apiData.sipsFixed.length > 0) {
-        apiData.sipsFixed.forEach((fixedSip, index) => {
-          const totalAmount = fixedSip.total_amount_paid ? parseFloat(fixedSip.total_amount_paid) : 0;
-          const monthlyAmount = fixedSip.sipPlanAdmin?.monthly_amount || 0;
-          
-          fixedPlans.push({
-            id: fixedSip.id,
-            name: fixedSip.sipPlanAdmin?.Yojna_name || `Fixed SIP Plan ${index + 1}`,
-            type: 'Fixed SIP',
-            dueDate: formatDate(fixedSip.next_due_date),
-            createdDate: formatDate(fixedSip.created_at), 
-            investMin: `₹${formatCurrency(monthlyAmount)}`,
-            totalAmount: `₹${formatCurrency(totalAmount)}`,
-            monthlyAmount: monthlyAmount,
-            color: 'bg-[#50C2C9]',
-            redirect: '/Sip_card_details',
-            status: fixedSip.status,
-            monthsPaid: fixedSip.months_paid || 0,
-            nextDueDate: fixedSip.next_due_date,
-            isFixed: true,
-            createdAt: fixedSip.created_at,
-            metalType: getDisplayMetalType(fixedSip.sipPlanAdmin?.metal_type) || '22KT Gold',
-            totalMonths: fixedSip.sipPlanAdmin?.total_months || 12,
-            isAdminView: false
-          });
-        });
-      }
-    }
-
-    // If no fixed SIPs found, show sample data
-    if (fixedPlans.length === 0) {
-      fixedPlans.push({
-        id: 1,
-        name: 'SWARN SANCHAY YOJNA (22KT)',
-        type: 'Fixed SIP',
-        dueDate: '08/12/2025',
-        createdDate: formatDate(new Date()),
-        investMin: '₹2,000',
-        totalAmount: '₹0',
-        monthlyAmount: 2000,
-        color: 'bg-[#50C2C9]',
-        redirect: '/Sip_card_details',
-        status: 'ACTIVE',
-        monthsPaid: 0,
-        totalMonths: 24,
-        isFixed: true,
-        createdAt: new Date().toISOString(),
-        metalType: '22KT Gold',
-        nextDueDate: '2025-12-08T18:29:06.953Z',
-        isAdminView: userType === 'admin'
       });
     }
 
     return fixedPlans;
   };
 
-  // Transform user's personal SIP data for flexible tab
+  // Transform flexible SIP data
+  const transformFlexibleSIPData = (flexibleSips, isAdmin = false) => {
+    const flexiblePlans = [];
+
+    if (flexibleSips && flexibleSips.length > 0) {
+      flexibleSips.forEach((flexibleSip, index) => {
+        const totalAmount = flexibleSip.total_amount_paid ? parseFloat(flexibleSip.total_amount_paid) : 0;
+        
+        flexiblePlans.push({
+          id: flexibleSip.id,
+          name: `Flexible SIP - ${getDisplayMetalType(flexibleSip.metal_type)}`,
+          type: 'Flexible SIP',
+          dueDate: formatDate(flexibleSip.next_due_date),
+          createdDate: formatDate(flexibleSip.created_at),
+          investMin: `₹${formatCurrency(totalAmount)}`,
+          totalAmount: `₹${formatCurrency(totalAmount)}`,
+          monthlyAmount: 0,
+          color: 'bg-[#50C2C9]',
+          redirect: '/Sip_card_details',
+          status: flexibleSip.status,
+          monthsPaid: flexibleSip.months_paid || 0,
+          totalMonths: flexibleSip.total_months || 12,
+          metalType: getDisplayMetalType(flexibleSip.metal_type),
+          isFixed: false,
+          createdAt: flexibleSip.created_at,
+          nextDueDate: flexibleSip.next_due_date,
+          userId: flexibleSip.user_id,
+          userName: isAdmin ? `User ${flexibleSip.user_id?.substring(0, 8)}...` : null,
+          isAdminView: isAdmin
+        });
+      });
+    }
+
+    return flexiblePlans;
+  };
+
+  // Transform user's personal SIP data
   const transformSIPData = (apiData) => {
     const plans = [];
 
-    // User's fixed SIPs
+    // Process fixed SIPs (opted ones)
     if (apiData.sipsFixed && apiData.sipsFixed.length > 0) {
       apiData.sipsFixed.forEach((fixedSip, index) => {
         const totalAmount = fixedSip.total_amount_paid ? parseFloat(fixedSip.total_amount_paid) : 0;
-        const monthlyAmount = fixedSip.sipPlanAdmin?.monthly_amount || 0;
+        const monthlyAmount = fixedSip.sipPlanAdmin?.range_amount || 0;
         
         plans.push({
           id: fixedSip.id,
@@ -252,7 +287,7 @@ const SIPPage = () => {
       });
     }
 
-    // User's flexible SIPs
+    // Process flexible SIPs
     if (apiData.sipsFlexible && apiData.sipsFlexible.length > 0) {
       apiData.sipsFlexible.forEach((flexibleSip, index) => {
         const totalAmount = flexibleSip.total_amount_paid ? parseFloat(flexibleSip.total_amount_paid) : 0;
@@ -336,10 +371,43 @@ const SIPPage = () => {
     
     console.log('SIP type stored:', sipType);
     
-    // When switching to Fixed tab, fetch fixed SIPs based on user type
-    if (tab === 'All') {
-      fetchFixedSIPs();
+    // Fetch appropriate data based on user type and tab
+    if (userType === 'admin') {
+      // Admin: Always show all SIPs
+      fetchAllSIPs();
+    } else {
+      // Customer: Fetch user SIPs
+      fetchUserSIPs();
     }
+  };
+
+  // Handle amount paying input change and save to sessionStorage
+  const handleAmountPayingChange = (planId, value) => {
+    const numericValue = value.replace(/[^0-9]/g, '');
+    
+    console.log('💾 Amount paying change:', { planId, value, numericValue });
+    
+    let newValue = '';
+    if (numericValue !== '') {
+      newValue = `₹${formatCurrency(parseInt(numericValue))}`;
+    }
+
+    const newAmountPayingValues = {
+      ...amountPayingValues,
+      [planId]: newValue
+    };
+
+    setAmountPayingValues(newAmountPayingValues);
+    
+    // Immediately save to sessionStorage
+    sessionStorage.setItem('amountPayingValues', JSON.stringify(newAmountPayingValues));
+    
+    console.log('💾 Saved amount to sessionStorage:', {
+      planId,
+      value: newValue,
+      numericValue: parseInt(numericValue) || 0,
+      allValues: newAmountPayingValues
+    });
   };
 
   const handlePay = (id, plan, e) => {
@@ -347,15 +415,52 @@ const SIPPage = () => {
     setSelectedSIPId(id);
     setSelectedPlan(plan);
     setShowPaymentDialog(true);
-    setManualAmount('');
-    setShowAmountInput(false);
+    
+    // Pre-fill the manual amount with the amount paying value if available
+    const amountPayingValue = amountPayingValues[id];
+    if (amountPayingValue && amountPayingValue !== '') {
+      setManualAmount(amountPayingValue);
+      setShowAmountInput(true);
+      
+      // Also store in sessionStorage for Razorpay to access
+      sessionStorage.setItem('currentPaymentAmount', amountPayingValue);
+      sessionStorage.setItem('currentSIPId', id);
+    } else {
+      setManualAmount('');
+      setShowAmountInput(false);
+      sessionStorage.removeItem('currentPaymentAmount');
+      sessionStorage.removeItem('currentSIPId');
+    }
   };
 
   // Handle Create Fixed SIP for Admin
   const handleCreateFixedSIP = () => {
     if (userType === 'admin') {
-      router.push('/swarn_yojana_22k');
+      // router.push('/swarn_yojana_22k');
+      router.push('/admin_sip_plans');
     }
+  };
+
+  // Enhanced amount parsing function
+  const parseAmount = (amountString) => {
+    if (!amountString) return 0;
+    
+    console.log('🔍 Parsing amount:', amountString);
+    
+    // Remove ₹ symbol, commas, and any whitespace
+    const cleanedAmount = amountString.replace(/[₹,]/g, '').trim();
+    
+    // Parse as float
+    const amount = parseFloat(cleanedAmount);
+    
+    console.log('🔍 Parsed amount result:', {
+      original: amountString,
+      cleaned: cleanedAmount,
+      parsed: amount
+    });
+    
+    // Return 0 if invalid, otherwise return the amount
+    return isNaN(amount) ? 0 : amount;
   };
 
   const loadRazorpayScript = () => {
@@ -385,6 +490,7 @@ const SIPPage = () => {
           razorpay_payment_id: paymentResponse.razorpay_payment_id,
           razorpay_signature: paymentResponse.razorpay_signature,
           sipId: selectedSIPId,
+          amount: paymentResponse.amount / 100,
         }),
       });
 
@@ -392,7 +498,19 @@ const SIPPage = () => {
       
       if (verifyResponse.ok) {
         alert('Payment successful! Your SIP payment has been processed.');
-        fetchSIPData();
+        
+        // Clear the stored amount after successful payment
+        const newAmountPayingValues = { ...amountPayingValues };
+        delete newAmountPayingValues[selectedSIPId];
+        setAmountPayingValues(newAmountPayingValues);
+        sessionStorage.setItem('amountPayingValues', JSON.stringify(newAmountPayingValues));
+        
+        // Refresh data
+        if (userType === 'admin') {
+          fetchAllSIPs();
+        } else {
+          fetchUserSIPs();
+        }
       } else {
         alert(`Payment verification failed: ${verifyData.error}`);
       }
@@ -401,6 +519,7 @@ const SIPPage = () => {
     }
   };
 
+  // Enhanced payment method handler with sessionStorage integration
   const handlePaymentMethod = async (method) => {
     setShowPaymentDialog(false);
     
@@ -413,45 +532,107 @@ const SIPPage = () => {
       try {
         let amount;
         
+        // Determine the amount to use
         if (showAmountInput && manualAmount) {
-          amount = parseFloat(manualAmount.replace(/[₹,]/g, ''));
+          amount = parseAmount(manualAmount);
+          console.log('💰 Using MANUAL amount:', {
+            manualAmount,
+            parsedAmount: amount,
+            planType: selectedPlan.type
+          });
         } else {
-          amount = selectedPlan.monthlyAmount || parseFloat(selectedPlan.investMin.replace(/[₹,]/g, ''));
+          amount = selectedPlan.monthlyAmount || parseAmount(selectedPlan.investMin);
+          console.log('💰 Using DEFAULT amount:', {
+            defaultAmount: selectedPlan.investMin,
+            parsedAmount: amount,
+            planType: selectedPlan.type
+          });
         }
 
+        // Enhanced validation
         if (isNaN(amount) || amount <= 0) {
-          throw new Error(`Invalid amount: ${amount}`);
+          throw new Error(`Invalid amount: Please enter a valid payment amount`);
         }
 
+        if (amount < 1) {
+          throw new Error('Minimum payment amount is ₹1');
+        }
+
+        console.log('💰 Final payment details:', {
+          amount,
+          manualAmount,
+          showAmountInput,
+          planType: selectedPlan.type,
+          planName: selectedPlan.name,
+          isFlexible: !selectedPlan.isFixed,
+          amountInPaise: amount 
+        });
+
+        // Store payment details in sessionStorage for Razorpay
+        sessionStorage.setItem('razorpayAmount', amount.toString());
+        sessionStorage.setItem('razorpaySIPId', selectedSIPId);
+        sessionStorage.setItem('razorpayPlanType', selectedPlan.type);
+        sessionStorage.setItem('razorpayMetalType', selectedPlan.metalType || '22KT Gold');
+
+        const razorpayAmount = amount; // Convert to paise for Razorpay
+        
+        console.log('💰 Razorpay amount in paise:', razorpayAmount);
+
+        console.log('📞 Calling Razorpay API...');
         const response = await fetch('/api/razorpay', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            amount: amount,
+            amount: razorpayAmount,
             metalType: selectedPlan.metalType || '22KT Gold',
             sipMonths: selectedPlan.totalMonths || 12,
+            sipType: selectedPlan.isFixed ? 'fixed' : 'flexible',
+            sipId: selectedSIPId,
+            isManualAmount: showAmountInput && manualAmount,
+            manualAmount: showAmountInput && manualAmount ? manualAmount : 'default'
           }),
         });
 
+        console.log('📋 API Response status:', response.status);
+        
         if (!response.ok) {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('text/html')) {
+            throw new Error('API route not found. Please check the server configuration.');
+          }
+          
           const errorData = await response.json();
+          console.error('❌ API Error response:', errorData);
           throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
         }
 
         const orderData = await response.json();
+        console.log('✅ Order created:', orderData);
 
         await loadRazorpayScript();
         
+        // Enhanced Razorpay options with prefill from sessionStorage
+        const storedAmount = sessionStorage.getItem('currentPaymentAmount');
         const options = {
           key: 'rzp_test_aOTAZ3JhbITtOK',
           amount: orderData.amount,
           currency: orderData.currency || 'INR',
           name: 'Gold SIP Investment',
-          description: `${selectedPlan.metalType} SIP Payment - ${selectedPlan.name}`,
+          description: `${selectedPlan.metalType} ${selectedPlan.type} Payment - ${selectedPlan.name}`,
           order_id: orderData.id,
           handler: async function (response) {
+            console.log('✅ Payment successful:', response);
+            
+            // Clear session storage after successful payment
+            sessionStorage.removeItem('currentPaymentAmount');
+            sessionStorage.removeItem('currentSIPId');
+            sessionStorage.removeItem('razorpayAmount');
+            sessionStorage.removeItem('razorpaySIPId');
+            sessionStorage.removeItem('razorpayPlanType');
+            sessionStorage.removeItem('razorpayMetalType');
+            
             await verifyPayment(response);
           },
           prefill: {
@@ -459,11 +640,20 @@ const SIPPage = () => {
             email: 'customer@example.com',
             contact: '9999999999'
           },
+          notes: {
+            sipType: selectedPlan.isFixed ? 'fixed' : 'flexible',
+            sipId: selectedSIPId,
+            metalType: selectedPlan.metalType,
+            isManualAmount: showAmountInput && manualAmount ? 'yes' : 'no',
+            manualAmount: storedAmount || (showAmountInput && manualAmount ? manualAmount : 'default'),
+            storedAmount: storedAmount || 'none'
+          },
           theme: {
             color: '#50C2C9'
           },
           modal: {
             ondismiss: function() {
+              console.log('Payment modal closed');
               alert('Payment was cancelled. You can try again.');
             }
           }
@@ -472,12 +662,14 @@ const SIPPage = () => {
         const razorpay = new window.Razorpay(options);
         
         razorpay.on('payment.failed', function (response) {
+          console.error('❌ Payment failed:', response.error);
           alert(`Payment failed: ${response.error.description}. Please try again.`);
         });
 
         razorpay.open();
         
       } catch (error) {
+        console.error('❌ Payment initialization error:', error);
         alert(`Failed to initialize payment: ${error.message}`);
       }
     } else if (method === 'Offline') {
@@ -490,9 +682,38 @@ const SIPPage = () => {
     return new Intl.NumberFormat('en-IN').format(amount);
   };
 
+  // Enhanced manual amount input handling
   const handleManualAmountChange = (e) => {
     const value = e.target.value.replace(/[^0-9]/g, '');
-    setManualAmount(value ? `₹${formatCurrency(parseInt(value))}` : '');
+    const numericValue = value ? parseInt(value) : 0;
+    
+    console.log('⌨️ Manual amount input:', { value, numericValue });
+    
+    if (numericValue > 0) {
+      const formattedAmount = `₹${formatCurrency(numericValue)}`;
+      setManualAmount(formattedAmount);
+      
+      // Also update the amount paying value for this plan
+      if (selectedSIPId) {
+        handleAmountPayingChange(selectedSIPId, value);
+      }
+    } else {
+      setManualAmount('');
+    }
+  };
+
+  // Clear manual amount when switching to default
+  const handleUseDefaultAmount = () => {
+    setShowAmountInput(false);
+    setManualAmount('');
+    
+    // Also clear from sessionStorage
+    if (selectedSIPId) {
+      const newAmountPayingValues = { ...amountPayingValues };
+      delete newAmountPayingValues[selectedSIPId];
+      setAmountPayingValues(newAmountPayingValues);
+      sessionStorage.setItem('amountPayingValues', JSON.stringify(newAmountPayingValues));
+    }
   };
 
   const createFlexibleSIP = async () => {
@@ -523,7 +744,12 @@ const SIPPage = () => {
       const responseData = await response.json();
       
       if (response.ok) {
-        await fetchSIPData();
+        // Refresh data based on user type
+        if (userType === 'admin') {
+          await fetchAllSIPs();
+        } else {
+          await fetchUserSIPs();
+        }
         setShowCreateFlexibleSIPDialog(false);
         setMetalType('gold22K');
         setTotalMonths(12);
@@ -539,18 +765,39 @@ const SIPPage = () => {
     }
   };
 
-  // Determine which plans to display based on active tab
+  // Determine which plans to display based on active tab and user type
   const getDisplayPlans = () => {
-    if (activeTab === 'All') {
-      // Show fixed SIPs from the fixed API call
-      return allFixedSips;
+    if (userType === 'admin') {
+      // Admin view
+      if (activeTab === 'All') {
+        // Fixed tab: Show all fixed SIPs
+        return allFixedSips.filter(plan => plan.isFixed);
+      } else {
+        // Flexible tab: Show all flexible SIPs
+        return sipPlans.filter(plan => !plan.isFixed);
+      }
     } else {
-      // Show user's flexible SIPs from their personal data
-      return sipPlans.filter(plan => !plan.isFixed);
+      // Customer view
+      if (activeTab === 'All') {
+        // Fixed tab: Show only opted fixed SIPs
+        return sipPlans.filter(plan => plan.isFixed);
+      } else {
+        // Flexible tab: Show only created flexible SIPs
+        return sipPlans.filter(plan => !plan.isFixed);
+      }
     }
   };
 
   const displayPlans = getDisplayPlans();
+
+  // Refresh function for Fixed tab
+  const handleRefresh = () => {
+    if (userType === 'admin') {
+      fetchAllSIPs();
+    } else {
+      fetchUserSIPs();
+    }
+  };
 
   return (
     <div className="w-full max-w-sm mx-auto bg-white min-h-screen flex flex-col relative">
@@ -575,6 +822,21 @@ const SIPPage = () => {
           </div>
           <p className="text-xs text-purple-600 text-center mt-1">
             Showing all fixed SIPs from all users
+          </p>
+        </div>
+      )}
+
+      {/* Customer Info Banner */}
+      {userType === 'customer' && activeTab === 'All' && (
+        <div className="px-4 py-3 bg-blue-50 border-b border-blue-200">
+          <div className="flex items-center justify-center space-x-2">
+            <Users className="w-4 h-4 text-blue-600" />
+            <p className="text-sm text-blue-700 font-medium">
+              Your Opted Fixed SIPs
+            </p>
+          </div>
+          <p className="text-xs text-blue-600 text-center mt-1">
+            Showing only fixed SIPs you have opted for
           </p>
         </div>
       )}
@@ -624,7 +886,7 @@ const SIPPage = () => {
             </div>
             <p className="text-red-600 mb-4">{error}</p>
             <button
-              onClick={activeTab === 'All' ? fetchFixedSIPs : fetchSIPData}
+              onClick={handleRefresh}
               className="bg-[#50C2C9] text-white px-4 py-2 rounded-lg hover:bg-[#45b1b9] transition-colors"
             >
               Retry
@@ -659,7 +921,7 @@ const SIPPage = () => {
                   </div>
                   
                   {/* User Info for Admin View */}
-                  {userType === 'admin' && activeTab === 'All' && plan.userName && (
+                  {userType === 'admin' && plan.userName && (
                     <div className="mt-2 flex items-center space-x-1">
                       <Users className="w-3 h-3 text-white opacity-80" />
                       <span className="text-xs text-white opacity-80">{plan.userName}</span>
@@ -705,14 +967,19 @@ const SIPPage = () => {
                     </div>
                   </div>
 
-                  {/* Row 3: Monthly Amount */}
+                  {/* Row 3: Monthly Amount - EDITABLE FIELD */}
                   <div className="flex items-center space-x-2">
                     <DollarSign className="w-4 h-4 flex-shrink-0 text-white" />
-                    <span className="text-sm whitespace-nowrap text-white">Monthly Amount:</span>
+                    <span className="text-sm whitespace-nowrap text-white">Amount Paying:</span>
                     <div className="bg-white bg-opacity-20 px-2 py-1 rounded-full min-w-[80px] text-center">
-                      <span className="text-sm font-medium text-black">
-                        {plan.investMin}
-                      </span>
+                      <input
+                        type="text"
+                        value={amountPayingValues[plan.id] || ''}
+                        onChange={(e) => handleAmountPayingChange(plan.id, e.target.value)}
+                        placeholder="₹0"
+                        className="w-full bg-transparent border-none text-sm font-medium text-black text-center focus:outline-none focus:ring-0 focus:bg-white focus:bg-opacity-30 focus:rounded px-1"
+                        style={{ color: 'black' }}
+                      />
                     </div>
                   </div>
 
@@ -727,20 +994,8 @@ const SIPPage = () => {
                   </div>
                 </div>
 
-                {/* Pay Button - Show for customers, hide for admin */}
-                {userType !== 'admin' && activeTab === 'All' && (
-                  <div className="flex justify-end pt-3">
-                    <button
-                      onClick={(e) => handlePay(plan.id, plan, e)}
-                      className="bg-white text-[#50C2C9] px-6 py-2 rounded-md font-semibold hover:bg-opacity-90 transition-colors shadow-md"
-                    >
-                      Pay
-                    </button>
-                  </div>
-                )}
-
-                {/* Pay Button for Flexible SIPs */}
-                {activeTab === 'New SIP' && (
+                {/* Pay Button - Show for customers in both tabs, hide for admin */}
+                {(userType !== 'admin' || activeTab === 'New SIP') && (
                   <div className="flex justify-end pt-3">
                     <button
                       onClick={(e) => handlePay(plan.id, plan, e)}
@@ -759,9 +1014,13 @@ const SIPPage = () => {
               </div>
               <p className="text-gray-600 mb-2">No {activeTab === 'All' ? 'Fixed' : 'Flexible'} SIP plans found</p>
               <p className="text-sm text-gray-500">
-                {activeTab === 'All' 
-                  ? 'Fixed SIP plans will appear here' 
-                  : 'Flexible SIP plans will appear here'
+                {userType === 'admin' 
+                  ? activeTab === 'All' 
+                    ? 'No fixed SIPs from any users' 
+                    : 'No flexible SIPs from any users'
+                  : activeTab === 'All' 
+                    ? 'You have not opted for any fixed SIPs' 
+                    : 'You have not created any flexible SIPs'
                 }
               </p>
             </div>
@@ -776,7 +1035,8 @@ const SIPPage = () => {
                   if (userType === 'customer') {
                     setShowCreateFlexibleSIPDialog(true);
                   } else {
-                    router.push('/sip');
+                    // Admin can also create flexible SIPs if needed
+                    setShowCreateFlexibleSIPDialog(true);
                   }
                 }}
                 className="bg-[#50C2C9] text-white px-6 py-3 rounded-lg font-semibold shadow-md hover:bg-[#45b1b9] transition-all flex items-center space-x-2"
@@ -797,21 +1057,19 @@ const SIPPage = () => {
               </button>
             )}
 
-            {/* Refresh Button for Fixed Tab */}
-            {activeTab === 'All' && (
-              <button
-                onClick={fetchFixedSIPs}
-                className="bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold shadow-md hover:bg-gray-700 transition-all flex items-center space-x-2"
-              >
-                <Users className="w-4 h-4" />
-                <span>Refresh</span>
-              </button>
-            )}
+            {/* Refresh Button for Both Tabs */}
+            <button
+              onClick={handleRefresh}
+              className="bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold shadow-md hover:bg-gray-700 transition-all flex items-center space-x-2"
+            >
+              <Users className="w-4 h-4" />
+              <span>Refresh</span>
+            </button>
           </div>
         </div>
       )}
 
-      {/* Payment Dialog with Manual Amount Input */}
+      {/* Enhanced Payment Dialog with Manual Amount Input */}
       {showPaymentDialog && (
         <div className="fixed inset-0 flex items-center justify-center z-50 px-4">
           <div 
@@ -834,37 +1092,49 @@ const SIPPage = () => {
               <p className="text-sm text-gray-500">
                 {selectedPlan?.name}
               </p>
+              <div className="mt-2 inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                {selectedPlan?.type}
+              </div>
             </div>
 
-            {/* Manual Amount Input Section */}
+            {/* Enhanced Manual Amount Input Section */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-3">
-                Payment Amount
+                Payment Amount {selectedPlan?.type === 'Flexible SIP' && '(You can enter any amount)'}
               </label>
               
               {/* Default Amount Display */}
               {!showAmountInput && (
                 <div className="space-y-3">
                   <div 
-                    className="border-2 border-[#50C2C9] bg-blue-50 rounded-lg p-4 cursor-pointer"
+                    className="border-2 border-[#50C2C9] bg-blue-50 rounded-lg p-4 cursor-pointer hover:bg-blue-100 transition-colors"
                     onClick={() => setShowAmountInput(true)}
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-gray-900">Default Amount</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {selectedPlan?.type === 'Flexible SIP' ? 'Suggested Amount' : 'Default Amount'}
+                        </p>
                         <p className="text-lg font-bold text-[#50C2C9]">{selectedPlan?.investMin}</p>
-                        <p className="text-xs text-gray-500">Monthly installment amount</p>
+                        <p className="text-xs text-gray-500">
+                          {selectedPlan?.type === 'Flexible SIP' 
+                            ? 'Click to enter custom amount' 
+                            : 'Monthly installment amount'
+                          }
+                        </p>
                       </div>
                       <Edit className="w-4 h-4 text-[#50C2C9]" />
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 text-center">
-                    Click to enter custom amount
-                  </p>
+                  {selectedPlan?.type === 'Flexible SIP' && (
+                    <p className="text-xs text-green-600 text-center font-medium">
+                      💡 For Flexible SIP, you can pay any amount you want!
+                    </p>
+                  )}
                 </div>
               )}
 
-              {/* Manual Amount Input */}
+              {/* Enhanced Manual Amount Input */}
               {showAmountInput && (
                 <div className="space-y-3">
                   <div className="relative">
@@ -876,16 +1146,33 @@ const SIPPage = () => {
                       className="w-full p-4 border-2 border-[#50C2C9] rounded-lg focus:ring-2 focus:ring-[#50C2C9] focus:border-transparent text-lg font-medium text-black"
                       autoFocus
                     />
-                    <button
-                      onClick={() => setShowAmountInput(false)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex space-x-1">
+                      <button
+                        onClick={handleUseDefaultAmount}
+                        className="text-gray-400 hover:text-gray-600"
+                        title="Use default amount"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                  <p className="text-xs text-gray-500">
-                    Enter the amount you want to pay for this SIP installment
-                  </p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-xs text-gray-500">
+                      Enter the amount you want to pay
+                    </p>
+                    {manualAmount && (
+                      <p className="text-xs font-medium text-green-600">
+                        Will pay: {manualAmount}
+                      </p>
+                    )}
+                  </div>
+                  {selectedPlan?.type === 'Flexible SIP' && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-2">
+                      <p className="text-xs text-green-700 text-center">
+                        ✅ This amount will be added to your Flexible SIP balance
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -897,7 +1184,7 @@ const SIPPage = () => {
                 disabled={showAmountInput && !manualAmount}
                 className="w-full bg-[#50C2C9] text-white py-4 rounded-lg font-semibold hover:bg-[#45b1b9] transition-all shadow-md flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span>Pay Online</span>
+                <span>Pay {showAmountInput && manualAmount ? manualAmount : selectedPlan?.investMin} Online</span>
               </button>
 
               <button
@@ -908,26 +1195,36 @@ const SIPPage = () => {
               </button>
             </div>
 
-            {/* Payment Summary */}
+            {/* Enhanced Payment Summary */}
             <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-              <p className="text-xs text-gray-700">
-                <strong>Payment Summary:</strong>
+              <p className="text-xs text-gray-700 font-medium mb-2">
+                Payment Summary
               </p>
-              <div className="text-xs text-gray-600 mt-1 space-y-1">
+              <div className="text-xs text-gray-600 space-y-1">
                 <div className="flex justify-between">
                   <span>SIP Plan:</span>
-                  <span className="text-black">{selectedPlan?.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Amount:</span>
-                  <span className="font-semibold text-black">
-                    {showAmountInput && manualAmount ? manualAmount : selectedPlan?.investMin}
-                  </span>
+                  <span className="text-black font-medium">{selectedPlan?.name}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Type:</span>
-                  <span className="text-black">{selectedPlan?.type}</span>
+                  <span className={`font-medium ${
+                    selectedPlan?.type === 'Flexible SIP' ? 'text-green-600' : 'text-blue-600'
+                  }`}>
+                    {selectedPlan?.type}
+                  </span>
                 </div>
+                <div className="flex justify-between">
+                  <span>Amount:</span>
+                  <span className="font-semibold text-black text-sm">
+                    {showAmountInput && manualAmount ? manualAmount : selectedPlan?.investMin}
+                  </span>
+                </div>
+                {showAmountInput && manualAmount && selectedPlan?.type === 'Flexible SIP' && (
+                  <div className="flex justify-between">
+                    <span>Payment Type:</span>
+                    <span className="font-medium text-green-600">Custom Amount</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

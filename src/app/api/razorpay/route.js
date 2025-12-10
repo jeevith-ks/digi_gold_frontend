@@ -2,11 +2,18 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request) {
   try {
-    console.log('🔵 Razorpay API called');
+    console.log('🔵 Razorpay create-order API called');
     
-    const { amount, currency = 'INR', metalType, sipMonths } = await request.json();
+    const { amount, currency = 'INR', metalType, sipMonths, sipId, isManualAmount, manualAmount } = await request.json();
     
-    console.log('📦 Received data:', { amount, metalType, sipMonths });
+    console.log('📦 Received data:', { 
+      amount, 
+      metalType, 
+      sipMonths, 
+      sipId,
+      isManualAmount,
+      manualAmount 
+    });
 
     // Validate required fields
     if (!amount || isNaN(amount)) {
@@ -35,6 +42,9 @@ export async function POST(request) {
       notes: {
         metalType: metalType,
         sipMonths: sipMonths,
+        sipId: sipId,
+        isManualAmount: isManualAmount ? 'yes' : 'no',
+        manualAmount: manualAmount || 'default',
         type: 'sip_payment'
       }
     };
@@ -43,10 +53,11 @@ export async function POST(request) {
     
     const order = await razorpay.orders.create(options);
     
-    console.log('✅ Order created successfully:', {
+    console.log('✅ Order created successfully:-r', {
       id: order.id,
       amount: order.amount,
-      currency: order.currency
+      currency: order.currency,
+      receipt: order.receipt
     });
 
     return NextResponse.json({

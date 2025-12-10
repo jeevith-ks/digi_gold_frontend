@@ -40,6 +40,7 @@ export default function ProfilePage() {
   const [panPhoto, setPanPhoto] = useState(null);
   const [panPhotoPreview, setPanPhotoPreview] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [dataLoadedFromAPI, setDataLoadedFromAPI] = useState(false);
 
   const router = useRouter();
 
@@ -55,11 +56,11 @@ export default function ProfilePage() {
     }
   }, [router]);
 
-  // NEW: Fetch user data from /api/user endpoint
+  // Fetch user data from /api/user endpoint
   const fetchUserData = async () => {
     try {
       console.log('Fetching user data from API...');
-      const response = await fetch('http://localhost:5000/api/user', {
+      const response = await fetch('http://localhost:5000/api/user/details', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -83,11 +84,14 @@ export default function ProfilePage() {
               formattedDob = dobDate.toISOString().split('T')[0];
             } catch (error) {
               console.error('Error formatting date of birth:', error);
+              if (typeof user.dob === 'string') {
+                formattedDob = user.dob.split('T')[0];
+              }
             }
           }
 
-          setUserData(prev => ({
-            ...prev,
+          // Create updates object with ONLY personal details
+          const personalUpdates = {
             // Personal Details
             fullName: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
             email: user.email || '',
@@ -98,7 +102,16 @@ export default function ProfilePage() {
             houseOrFlatOrApartmentNo: user.address1 || '',
             area: user.address2 || '',
             city: user.city || '',
-            state: user.state || ''
+            state: user.state || '',
+          };
+
+          console.log('Personal updates to apply:', personalUpdates);
+          
+          // Apply updates to userData
+          setUserData(prev => ({
+            ...prev,
+            ...personalUpdates
+            // NOTE: We're NOT clearing KYC fields here
           }));
 
           // Update session storage
@@ -111,16 +124,22 @@ export default function ProfilePage() {
           if (user.email) {
             sessionStorage.setItem('userEmail', user.email);
           }
+          
+          console.log('User data updated from API successfully');
+          setDataLoadedFromAPI(true);
+          return true;
         }
       } else {
-        console.log('User API returned:', response.status, ' - Using KYC data as fallback');
+        console.log('User API returned:', response.status);
+        return false;
       }
     } catch (err) {
       console.error('Error fetching user data:', err);
+      return false;
     }
   };
 
-  // Fetch KYC data from backend - UPDATED VERSION
+  // Fetch KYC data from backend
   const fetchKYCData = async () => {
     try {
       const response = await fetch('http://localhost:5000/api/kyc/me', {
@@ -146,126 +165,83 @@ export default function ProfilePage() {
           }
         });
 
-        // Update form data with KYC information
+        // Create updates object for KYC fields
+        const kycUpdates = {};
+        
         if (kycData.pan) {
-          setUserData(prev => ({
-            ...prev,
-            panFullName: kycData.pan.full_name || '',
-            panNumber: kycData.pan.pan_number || kycData.pan.pan_masked || ''
-          }));
+          kycUpdates.panFullName = kycData.pan.full_name || '';
+          kycUpdates.panNumber = kycData.pan.pan_number || kycData.pan.pan_masked || '';
         }
 
         if (kycData.bank) {
+          kycUpdates.bankFullName = kycData.bank.full_name || '';
+          kycUpdates.bankName = kycData.bank.bank_name || '';
+          kycUpdates.ifscCode = kycData.bank.ifsc_code || '';
+          kycUpdates.accountNumber = kycData.bank.account_no || kycData.bank.account_masked || '';
+        }
+        
+        console.log('KYC updates to apply:', kycUpdates);
+        
+        // Apply KYC updates WITHOUT affecting personal details
+        if (Object.keys(kycUpdates).length > 0) {
           setUserData(prev => ({
             ...prev,
-            bankFullName: kycData.bank.full_name || '',
-            bankName: kycData.bank.bank_name || '',
-            ifscCode: kycData.bank.ifsc_code || '',
-            accountNumber: kycData.bank.account_no || kycData.bank.account_masked || ''
+            ...kycUpdates
           }));
         }
         
-        // Update Personal Details from profile data - COMPLETE MAPPING
-        if (kycData.profile) {
-          const profile = kycData.profile;
-          
-          // Format date of birth if available
-          let formattedDob = '';
-          if (profile.dob) {
-            try {
-              const dobDate = new Date(profile.dob);
-              formattedDob = dobDate.toISOString().split('T')[0];
-            } catch (error) {
-              console.error('Error formatting date of birth:', error);
-            }
-          }
-
-          setUserData(prev => ({
-            ...prev,
-            // Personal Details
-            fullName: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
-            email: profile.email || '',
-            phoneNumber: profile.phone || '',
-            gender: profile.gender || '',
-            dateOfBirth: formattedDob,
-            pincode: profile.pincode || '',
-            houseOrFlatOrApartmentNo: profile.address1 || '',
-            area: profile.address2 || '',
-            city: profile.city || '',
-            state: profile.state || ''
-          }));
-
-          // Also update session storage with current data
-          if (profile.first_name || profile.last_name) {
-            sessionStorage.setItem('username', `${profile.first_name || ''} ${profile.last_name || ''}`.trim());
-          }
-          if (profile.phone) {
-            sessionStorage.setItem('phoneNumber', profile.phone);
-          }
-          if (profile.email) {
-            sessionStorage.setItem('userEmail', profile.email);
-          }
-        }
-        
+        return true;
       } else {
         console.error('Failed to fetch KYC data');
+        return false;
       }
     } catch (err) {
       console.error('Error fetching KYC data:', err);
+      return false;
     }
   };
 
-  // Fetch user profile data from session storage and API - UPDATED VERSION
-  const fetchUserProfile = async () => {
-    try {
-      setLoading(true);
-      
-      // Only set basic info if not already set from KYC data
-      const currentUserData = { ...userData };
-      
-      // Get basic user info from session storage as fallback
+  // Load session storage data as last resort
+  const loadSessionStorageData = () => {
+    // Only load from session storage if data wasn't loaded from API
+    if (!dataLoadedFromAPI) {
       const userEmail = sessionStorage.getItem('userEmail');
       const username = sessionStorage.getItem('username');
       const phoneNumber = sessionStorage.getItem('phoneNumber');
 
-      // Only update if fields are empty (not set from KYC data)
       const updates = {};
-      if (!currentUserData.fullName && username) {
+      if (!userData.fullName && username) {
         updates.fullName = username;
       }
-      if (!currentUserData.email && userEmail) {
+      if (!userData.email && userEmail) {
         updates.email = userEmail;
       }
-      if (!currentUserData.phoneNumber && phoneNumber) {
+      if (!userData.phoneNumber && phoneNumber) {
         updates.phoneNumber = phoneNumber;
       }
 
       if (Object.keys(updates).length > 0) {
+        console.log('Loading from session storage:', updates);
         setUserData(prev => ({ ...prev, ...updates }));
       }
-
-    } catch (err) {
-      console.error('Error fetching user profile:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
-  // UPDATED: Handle initial data loading with priority order
+  // Handle initial data loading
   useEffect(() => {
     if (authToken) {
       const loadAllData = async () => {
         try {
           setLoading(true);
           
-          // 1. First try to get data from /api/user (most current)
+          // 1. First fetch user data
           await fetchUserData();
           
-          // 2. Then fetch KYC data (for PAN/bank info and as fallback)
+          // 2. Then fetch KYC data (PAN/bank info only)
           await fetchKYCData();
           
-          // 3. Finally use session storage as last resort
-          await fetchUserProfile();
+          // 3. Use session storage only if user data API failed
+          loadSessionStorageData();
           
         } catch (error) {
           console.error('Error loading profile data:', error);
@@ -280,7 +256,7 @@ export default function ProfilePage() {
 
   // Handle input change
   const handleInputChange = (e) => {
-    if (!editMode) return; // Prevent changes when not in edit mode
+    if (!editMode) return;
     
     const { name, value } = e.target;
     setUserData(prev => ({ ...prev, [name]: value }));
@@ -288,7 +264,7 @@ export default function ProfilePage() {
 
   // Handle PAN photo upload
   const handlePanPhotoUpload = () => {
-    if (!editMode) return; // Prevent photo upload when not in edit mode
+    if (!editMode) return;
     
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
@@ -310,10 +286,11 @@ export default function ProfilePage() {
 
         setPanPhoto(file);
         
-        const previewUrl = URL.createObjectURL(file);
-        setPanPhotoPreview(previewUrl);
-        
-        console.log('PAN photo selected:', file.name, 'Size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setPanPhotoPreview(event.target.result);
+        };
+        reader.readAsDataURL(file);
       }
     };
     
@@ -322,13 +299,13 @@ export default function ProfilePage() {
 
   // Remove PAN photo
   const handleRemovePanPhoto = () => {
-    if (!editMode) return; // Prevent removal when not in edit mode
+    if (!editMode) return;
     
     setPanPhoto(null);
     setPanPhotoPreview(null);
   };
 
-  // UPDATED: Update Personal Details with immediate data refresh
+  // Update Personal Details
   const updatePersonalDetails = async () => {
     try {
       // Split full name into first and last name
@@ -336,11 +313,7 @@ export default function ProfilePage() {
       const first_name = nameParts[0] || '';
       const last_name = nameParts.slice(1).join(' ') || '';
 
-      // Get current user info from session storage
-      const username = sessionStorage.getItem('username') || '';
-      const userEmail = sessionStorage.getItem('userEmail') || '';
-      
-      // Prepare payload - only include fields that have values
+      // Prepare payload
       const payload = {
         first_name,
         last_name,
@@ -353,18 +326,14 @@ export default function ProfilePage() {
         state: userData.state || '',
       };
 
-      // Only add date of birth if it's provided and valid
+      // Only add date of birth if it's provided
       if (userData.dateOfBirth) {
         payload.dob = userData.dateOfBirth;
       }
 
-      // Add identification fields that backend might need
-      payload.email = userEmail;
-      payload.username = username;
-
       console.log('Sending update payload:', payload);
 
-      const response = await fetch('http://localhost:5000/api/user', {
+      const response = await fetch('http://localhost:5000/api/user/', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -380,22 +349,17 @@ export default function ProfilePage() {
         alert('Personal details updated successfully!');
         setEditMode(false);
         
-        // Update session storage with new data
+        // Update session storage
         sessionStorage.setItem('username', `${first_name} ${last_name}`.trim());
         if (userData.phoneNumber) {
           sessionStorage.setItem('phoneNumber', userData.phoneNumber);
         }
         
-        // NEW: Immediately refresh data from API to confirm updates
+        // Refresh data from API
         await fetchUserData();
         
       } else {
-        // Handle specific error cases
-        if (responseData.message?.includes('already exists')) {
-          alert('Update failed: User identification conflict. Please try with different credentials.');
-        } else {
-          alert('Failed to update personal details: ' + (responseData.message || 'Unknown error'));
-        }
+        alert('Failed to update personal details: ' + (responseData.message || 'Unknown error'));
       }
     } catch (err) {
       console.error('Update error:', err);
@@ -512,32 +476,37 @@ export default function ProfilePage() {
     router.push('/Authentication');
   };
 
-  // Enhanced renderInputField function with loading states
-  const renderInputField = (label, name, type = 'text', alwaysDisabled = false, placeholder = "") => (
-    <div>
-      <label className="block text-sm text-gray-600 mb-2">{label}</label>
-      <input
-        type={type}
-        name={name}
-        value={userData[name] ?? ''}
-        onChange={handleInputChange}
-        disabled={alwaysDisabled || !editMode || loading}
-        className={`w-full px-4 py-3 rounded-lg border ${
-          (alwaysDisabled || !editMode || loading) 
-            ? 'border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed' 
-            : 'border-gray-400 bg-white'
-        }`}
-        placeholder={loading ? "Loading..." : placeholder}
-      />
-      {loading && userData[name] === '' && (
-        <div className="mt-1">
-          <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
-            <div className="h-full bg-[#50C2C9] animate-pulse" style={{ width: '60%' }}></div>
+  // Enhanced renderInputField function
+  const renderInputField = (label, name, type = 'text', alwaysDisabled = false, placeholder = "") => {
+    const value = userData[name] ?? '';
+    const isLoading = loading && value === '';
+    
+    return (
+      <div>
+        <label className="block text-sm text-gray-600 mb-2">{label}</label>
+        <input
+          type={type}
+          name={name}
+          value={value}
+          onChange={handleInputChange}
+          disabled={alwaysDisabled || !editMode || loading}
+          className={`w-full px-4 py-3 rounded-lg border ${
+            (alwaysDisabled || !editMode || loading) 
+              ? 'border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed' 
+              : 'border-gray-400 bg-white'
+          } ${isLoading ? 'animate-pulse' : ''}`}
+          placeholder={isLoading ? "Loading..." : placeholder}
+        />
+        {isLoading && (
+          <div className="mt-1">
+            <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-full bg-[#50C2C9] animate-pulse" style={{ width: '60%' }}></div>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
+        )}
+      </div>
+    );
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -557,8 +526,24 @@ export default function ProfilePage() {
     };
   }, [panPhotoPreview]);
 
+  // DEBUG: Log current userData state
+  useEffect(() => {
+    console.log('Current userData state:', userData);
+  }, [userData]);
+
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Full-screen loading overlay */}
+      {loading && (
+        <div className="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-[#50C2C9] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-700 font-medium">Loading your profile data...</p>
+            <p className="text-sm text-gray-500 mt-2">Please wait a moment</p>
+          </div>
+        </div>
+      )}
+
       {/* KYC Status Banner */}
       <div className="bg-white px-4 py-3 border-b">
         <div className="flex justify-between text-sm">
@@ -571,16 +556,6 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Loading Indicator */}
-      {loading && (
-        <div className="px-4 py-2">
-          <div className="flex items-center justify-center space-x-2 text-sm text-[#50C2C9]">
-            <div className="w-4 h-4 border-2 border-[#50C2C9] border-t-transparent rounded-full animate-spin"></div>
-            <span>Loading your profile data...</span>
-          </div>
-        </div>
-      )}
-
       {/* Tabs */}
       <div className="bg-white">
         <div className="flex">
@@ -588,9 +563,10 @@ export default function ProfilePage() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
+              disabled={loading}
               className={`flex-1 py-4 px-4 text-sm font-medium border-b-2 ${
                 activeTab === tab ? 'border-b-2' : 'border-transparent text-gray-500'
-              }`}
+              } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
               style={activeTab === tab ? { color: '#50C2C9', borderBottomColor: '#50C2C9' } : {}}
             >
               {tab}
@@ -617,7 +593,7 @@ export default function ProfilePage() {
               </>
             )}
           </button>
-          <button onClick={handleLogout} className="flex items-center space-x-2">
+          <button onClick={handleLogout} className="flex items-center space-x-2" disabled={loading}>
             <LogOut className="w-5 h-5 text-gray-600" />
             <span className="text-sm text-gray-600">Sign Out</span>
           </button>
@@ -661,9 +637,9 @@ export default function ProfilePage() {
                     <div className="flex space-x-3">
                       <button
                         onClick={handlePanPhotoUpload}
-                        disabled={!editMode}
+                        disabled={!editMode || loading}
                         className={`px-4 py-2 rounded-lg text-sm transition-colors ${
-                          editMode 
+                          editMode && !loading
                             ? 'bg-teal-500 text-white hover:bg-teal-600' 
                             : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         }`}
@@ -672,9 +648,9 @@ export default function ProfilePage() {
                       </button>
                       <button
                         onClick={handleRemovePanPhoto}
-                        disabled={!editMode}
+                        disabled={!editMode || loading}
                         className={`px-4 py-2 rounded-lg text-sm transition-colors flex items-center space-x-1 ${
-                          editMode 
+                          editMode && !loading
                             ? 'bg-red-500 text-white hover:bg-red-600' 
                             : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         }`}
@@ -691,20 +667,20 @@ export default function ProfilePage() {
               ) : (
                 <div 
                   className={`flex items-center justify-center border-2 border-dashed rounded-lg p-6 transition-colors duration-300 bg-gray-50 min-h-[200px] ${
-                    editMode 
+                    editMode && !loading
                       ? 'border-gray-300 cursor-pointer hover:border-teal-400' 
                       : 'border-gray-200 cursor-not-allowed'
                   }`}
-                  onClick={editMode ? handlePanPhotoUpload : undefined}
+                  onClick={editMode && !loading ? handlePanPhotoUpload : undefined}
                 >
                   <div className="text-center">
                     <Camera className={`w-12 h-12 mx-auto mb-3 ${
-                      editMode ? 'text-gray-400' : 'text-gray-300'
+                      editMode && !loading ? 'text-gray-400' : 'text-gray-300'
                     }`} />
                     <p className={`text-sm font-medium ${
-                      editMode ? 'text-gray-600' : 'text-gray-400'
+                      editMode && !loading ? 'text-gray-600' : 'text-gray-400'
                     }`}>
-                      {editMode ? 'Click to upload PAN card photo' : 'Click Edit to upload photo'}
+                      {editMode && !loading ? 'Click to upload PAN card photo' : loading ? 'Loading...' : 'Click Edit to upload photo'}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">Take a clear picture of your PAN card</p>
                     <p className="text-xs text-gray-400 mt-2">Supports: JPG, PNG • Max: 2MB</p>
@@ -738,11 +714,12 @@ export default function ProfilePage() {
         )}
 
         {/* Update Button - Shows only in edit mode */}
-        {editMode && (
+        {editMode && !loading && (
           <div className="pt-4">
             <button
               onClick={handleUpdate}
-              className="w-full bg-teal-500 text-white py-4 px-6 rounded-lg font-semibold hover:bg-teal-600 transition-colors duration-300 flex items-center justify-center space-x-2"
+              disabled={loading}
+              className="w-full bg-teal-500 text-white py-4 px-6 rounded-lg font-semibold hover:bg-teal-600 transition-colors duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-5 h-5" />
               <span>

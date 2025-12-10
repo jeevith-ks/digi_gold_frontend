@@ -15,7 +15,7 @@ const SIPForm = () => {
   const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState(null);
   
-  const monthOptions = [12,24];
+  const monthOptions = [11];
 
   const handlePayOffline = () => {
     if (!isAgreed) {
@@ -342,7 +342,7 @@ useEffect(() => {
       }
 
       try {
-        const response = await fetch("http://localhost:8089/create_sip/save", {
+        const response = await fetch("http://localhost:5000/api/sip/fixed/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
