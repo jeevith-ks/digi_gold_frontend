@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, X, Calendar, Clock, DollarSign, Edit, Users, Plus } from 'lucide-react';
+import { ChevronLeft, X, Calendar, Clock, DollarSign, Edit, Users, Plus, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const SIPPage = () => {
@@ -24,6 +24,13 @@ const SIPPage = () => {
   const [manualAmount, setManualAmount] = useState('');
   const [showAmountInput, setShowAmountInput] = useState(false);
   const [amountPayingValues, setAmountPayingValues] = useState({});
+  
+  // New states for fixed SIP plans
+  const [availableFixedSIPs, setAvailableFixedSIPs] = useState([]);
+  const [showFixedSIPsList, setShowFixedSIPsList] = useState(false);
+  const [loadingFixedSIPs, setLoadingFixedSIPs] = useState(false);
+  const [choosingSIP, setChoosingSIP] = useState(false);
+  const [selectedFixedSIPId, setSelectedFixedSIPId] = useState(null);
 
   useEffect(() => {
     const storedUserType = sessionStorage.getItem('userType');
@@ -164,6 +171,116 @@ const SIPPage = () => {
     }
   };
 
+  // NEW FUNCTION: Fetch available fixed SIP plans for customers
+  const fetchAvailableFixedSIPs = async () => {
+    try {
+      setLoadingFixedSIPs(true);
+      setError('');
+      
+      const token = sessionStorage.getItem('authToken');
+      if (!token) {
+        setError('Authentication required');
+        return;
+      }
+
+      const response = await fetch('http://localhost:5000/api/sip/fixed', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Available Fixed SIPs fetched:', data);
+        
+        // Transform the data for display
+        const transformedPlans = data.map((plan, index) => ({
+          id: plan._id || plan.id,
+          name: plan.Yojna_name || `Fixed SIP Plan ${index + 1}`,
+          description: plan.description || 'Gold Investment Plan',
+          monthlyAmount: plan.range_amount || 0,
+          totalMonths: plan.total_months || 12,
+          metalType: getDisplayMetalType(plan.metal_type) || '22KT Gold',
+          minAmount: plan.min_amount || plan.range_amount || 0,
+          maxAmount: plan.max_amount || plan.range_amount || 0,
+          isActive: plan.isActive !== false,
+          createdAt: plan.created_at || new Date().toISOString()
+        }));
+        
+        setAvailableFixedSIPs(transformedPlans);
+        setShowFixedSIPsList(true);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch fixed SIP plans');
+      }
+    } catch (err) {
+      console.error('Error fetching fixed SIP plans:', err);
+      setError(err.message || 'Failed to load fixed SIP plans');
+    } finally {
+      setLoadingFixedSIPs(false);
+    }
+  };
+
+  // NEW FUNCTION: Choose a fixed SIP plan
+  const handleChooseFixedSIP = async (planId) => {
+    try {
+      setChoosingSIP(true);
+      setError('');
+      
+      const token = sessionStorage.getItem('authToken');
+      if (!token) {
+        setError('Authentication required');
+        return;
+      }
+
+      const userId = sessionStorage.getItem('userId');
+      if (!userId) {
+        setError('User ID not found');
+        return;
+      }
+
+      const response = await fetch('http://localhost:5000/api/sip/fixed/create/user', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: userId,
+          sipPlanId: planId
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Fixed SIP chosen successfully:', data);
+        
+        // Mark this SIP as selected temporarily
+        setSelectedFixedSIPId(planId);
+        
+        // Show success message
+        setTimeout(() => {
+          setShowFixedSIPsList(false);
+          setSelectedFixedSIPId(null);
+          alert('Fixed SIP chosen successfully!');
+          
+          // Refresh the user's SIP data
+          fetchUserSIPs();
+        }, 1500);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to choose fixed SIP');
+      }
+    } catch (err) {
+      console.error('Error choosing fixed SIP:', err);
+      setError(err.message || 'Failed to choose fixed SIP');
+      setSelectedFixedSIPId(null);
+    } finally {
+      setChoosingSIP(false);
+    }
+  };
+
   // Fetch opted fixed SIPs for customers
   const fetchOptedFixedSIPs = async () => {
     try {
@@ -173,9 +290,6 @@ const SIPPage = () => {
         return;
       }
 
-      // Note: Based on your backend, opted fixed SIPs are included in the /api/sip/ endpoint
-      // So we don't need a separate call if we already have the data
-      // This function is kept for future expansion if needed
       console.log('Opted fixed SIPs are included in the main fetch');
       
     } catch (err) {
@@ -436,8 +550,15 @@ const SIPPage = () => {
   // Handle Create Fixed SIP for Admin
   const handleCreateFixedSIP = () => {
     if (userType === 'admin') {
-      // router.push('/swarn_yojana_22k');
       router.push('/admin_sip_plans');
+    }
+  };
+
+  // Handle Create Fixed SIP for Customers
+  const handleCreateFixedSIP_customers = () => {
+    if (userType === 'customer' && activeTab === 'All') {
+      // Fetch available fixed SIP plans
+      fetchAvailableFixedSIPs();
     }
   };
 
@@ -799,6 +920,145 @@ const SIPPage = () => {
     }
   };
 
+  // Add a new function to render the fixed SIPs list
+  const renderFixedSIPsList = () => {
+    if (!showFixedSIPsList) return null;
+
+    return (
+      <div className="fixed inset-0 flex items-center justify-center z-50 px-4">
+        <div 
+          className="absolute inset-0 bg-black bg-opacity-50"
+          onClick={() => !loadingFixedSIPs && !choosingSIP && setShowFixedSIPsList(false)}
+        ></div>
+
+        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm max-h-[80vh] flex flex-col animate-scale-in">
+          <div className="p-4 border-b border-gray-200 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">Choose Fixed SIP Plan</h2>
+              <button
+                onClick={() => setShowFixedSIPsList(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                disabled={loadingFixedSIPs || choosingSIP}
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 mt-1">
+              Select a fixed SIP plan to invest in
+            </p>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4">
+            {loadingFixedSIPs ? (
+              <div className="text-center py-8">
+                <div className="w-12 h-12 border-4 border-[#50C2C9] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading available SIP plans...</p>
+              </div>
+            ) : error ? (
+              <div className="text-center py-8">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <X className="w-6 h-6 text-red-500" />
+                </div>
+                <p className="text-red-600 mb-4">{error}</p>
+                <button
+                  onClick={fetchAvailableFixedSIPs}
+                  className="bg-[#50C2C9] text-white px-4 py-2 rounded-lg hover:bg-[#45b1b9] transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : availableFixedSIPs.length > 0 ? (
+              <div className="space-y-4">
+                {availableFixedSIPs.map((plan) => (
+                  <div
+                    key={plan.id}
+                    className={`border rounded-lg p-4 transition-all ${
+                      selectedFixedSIPId === plan.id
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-gray-200 hover:border-[#50C2C9]'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h3 className="font-semibold text-gray-900">{plan.name}</h3>
+                        <p className="text-sm text-gray-600 mt-1">{plan.description}</p>
+                      </div>
+                      <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                        {plan.metalType}
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-2 mb-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Monthly Amount:</span>
+                        <span className="font-medium text-gray-900">₹{formatCurrency(plan.monthlyAmount)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Duration:</span>
+                        <span className="font-medium text-gray-900">{plan.totalMonths} Months</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Status:</span>
+                        <span className={`font-medium ${plan.isActive ? 'text-green-600' : 'text-red-600'}`}>
+                          {plan.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {selectedFixedSIPId === plan.id ? (
+                      <div className="w-full py-2 rounded-lg bg-green-100 flex items-center justify-center space-x-2">
+                        <Check className="w-5 h-5 text-green-600" />
+                        <span className="font-medium text-green-700">Plan Selected Successfully!</span>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleChooseFixedSIP(plan.id)}
+                        disabled={!plan.isActive || choosingSIP}
+                        className={`w-full py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2 ${
+                          plan.isActive 
+                            ? 'bg-green-600 text-white hover:bg-green-700' 
+                            : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                        }`}
+                      >
+                        {choosingSIP ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <span>Processing...</span>
+                          </>
+                        ) : (
+                          <span>{plan.isActive ? 'Choose Plan' : 'Not Available'}</span>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Calendar className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="text-gray-600 mb-2">No fixed SIP plans available</p>
+                <p className="text-sm text-gray-500">
+                  Contact administrator for available plans
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 border-t border-gray-200 flex-shrink-0">
+            <button
+              onClick={() => setShowFixedSIPsList(false)}
+              className="w-full bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="w-full max-w-sm mx-auto bg-white min-h-screen flex flex-col relative">
       {/* Header */}
@@ -866,6 +1126,9 @@ const SIPPage = () => {
           </button>
         </div>
       </div>
+
+      {/* Fixed SIPs List Modal */}
+      {renderFixedSIPsList()}
 
       {/* Loading State */}
       {loading && (
@@ -1050,6 +1313,15 @@ const SIPPage = () => {
             {userType === 'admin' && activeTab === 'All' && (
               <button
                 onClick={handleCreateFixedSIP}
+                className="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold shadow-md hover:bg-green-700 transition-all flex items-center space-x-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create Fixed SIP</span>
+              </button>
+            )}
+            {userType === 'customer' && activeTab === 'All' && (
+              <button
+                onClick={handleCreateFixedSIP_customers}
                 className="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold shadow-md hover:bg-green-700 transition-all flex items-center space-x-2"
               >
                 <Plus className="w-4 h-4" />

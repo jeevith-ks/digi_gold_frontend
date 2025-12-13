@@ -12,6 +12,8 @@ export default function SecureVault() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isClient, setIsClient] = useState(false);
+  const [adminPrices, setAdminPrices] = useState(null);
+  const [loadingPrices, setLoadingPrices] = useState(false);
   const router = useRouter();
 
   // Set client-side flag to prevent hydration mismatches
@@ -46,6 +48,178 @@ export default function SecureVault() {
     return { email: '', username: '', userType: '', userId: '' };
   };
 
+  const debugHoldingsData = (holdingsArray) => {
+    console.log('🔍 DEBUG Holdings Structure:');
+    holdingsArray.forEach((holding, index) => {
+      console.log(`${index + 1}.`, {
+        metal_type: holding.metal_type,
+        qty: holding.qty,
+        amt: holding.amt,
+        keys: Object.keys(holding)
+      });
+    });
+  };
+
+  // Fetch admin prices from API
+  const fetchAdminPrices = async () => {
+    try {
+      setLoadingPrices(true);
+      const token = getAuthToken();
+      
+      if (!token) {
+        console.log('No token available for fetching prices');
+        return null;
+      }
+
+      console.log('📊 Fetching admin prices...');
+
+      const response = await fetch('http://localhost:5000/api/price/', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.status === 401) {
+        console.log('Token expired for prices API');
+        return null;
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch prices: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Admin prices received:', data);
+      
+      // Extract prices from response
+      let prices = data;
+      if (data.latestPrice) {
+        prices = data.latestPrice;
+      } else if (data.data) {
+        prices = data.data;
+      }
+      
+      setAdminPrices(prices);
+      return prices;
+    } catch (error) {
+      console.error('❌ Error fetching admin prices:', error);
+      return null;
+    } finally {
+      setLoadingPrices(false);
+    }
+  };
+
+  // Calculate amount based on quantity and current price - SIMPLIFIED VERSION
+  const calculateAmount = (holding, prices = adminPrices) => {
+    if (!holding || !holding.qty) return parseFloat(holding.amt) || 0;
+    
+    const quantity = parseFloat(holding.qty) || 0;
+    
+    // If no prices, return the stored amount
+    if (!prices) {
+      return parseFloat(holding.amt) || 0;
+    }
+    
+    let currentPrice = 0;
+    const metalType = holding.metal_type;
+    
+    // DIRECT price lookup - check all possible formats
+    if (prices[metalType]) {
+      currentPrice = parseFloat(prices[metalType]) || 0;
+    } else if (prices.gold24K && metalType.includes('24')) {
+      currentPrice = parseFloat(prices.gold24K) || 0;
+    } else if (prices.gold22K && metalType.includes('22')) {
+      currentPrice = parseFloat(prices.gold22K) || 0;
+    } else if (prices.silver && metalType.toLowerCase().includes('silver')) {
+      currentPrice = parseFloat(prices.silver) || 0;
+    } else if (prices.GOLD24K) {
+      currentPrice = parseFloat(prices.GOLD24K) || 0;
+    } else if (prices.GOLD22K) {
+      currentPrice = parseFloat(prices.GOLD22K) || 0;
+    } else if (prices.SILVER) {
+      currentPrice = parseFloat(prices.SILVER) || 0;
+    } else {
+      // Fallback to fixed prices if not found
+      if (metalType === 'gold24K' || metalType === 'GOLD24K') {
+        currentPrice = 13000;
+      } else if (metalType === 'gold22K' || metalType === 'GOLD22K') {
+        currentPrice = 11930;
+      } else if (metalType === 'silver' || metalType === 'SILVER') {
+        currentPrice = 150;
+      }
+    }
+    
+    const amount = quantity * currentPrice;
+    console.log(`💰 ${metalType}: ${quantity}gm × ₹${currentPrice} = ₹${amount}`);
+    
+    return amount;
+  };
+
+  // Process holdings with current prices
+  const processHoldingsWithPrices = (holdingsArray, prices) => {
+    if (!holdingsArray || holdingsArray.length === 0) {
+      return { processedHoldings: [], total: 0 };
+    }
+
+    console.log('🔧 Processing holdings with prices:', holdingsArray.length, 'holdings');
+    console.log('📊 Admin prices:', prices);
+
+    let total = 0;
+    const processedHoldings = holdingsArray.map(holding => {
+      // Calculate with the provided prices
+      const calculatedAmount = calculateAmount(holding, prices);
+      const originalAmount = parseFloat(holding.amt) || 0;
+      
+      // Use calculated amount if we have prices and calculation > 0, otherwise use original
+      const displayAmount = calculatedAmount > 0 ? calculatedAmount : originalAmount;
+      
+      total += displayAmount;
+      
+      console.log(`📈 ${holding.metal_type}:`, {
+        qty: holding.qty,
+        calculated: `₹${calculatedAmount.toFixed(2)}`,
+        display: `₹${displayAmount.toFixed(2)}`,
+        runningTotal: `₹${total.toFixed(2)}`
+      });
+      
+      return {
+        ...holding,
+        calculatedAmount,
+        originalAmount,
+        displayAmount
+      };
+    });
+    
+    console.log('💰 FINAL Total:', total);
+    
+    return { processedHoldings, total };
+  };
+
+  // Map backend metal types to display names
+  const getMetalDisplayInfo = (metalType) => {
+    switch(metalType) {
+      case 'gold24K':
+      case 'GOLD24K':
+        return { name: 'Gold', purity: '24k-995', color: 'bg-yellow-400', symbol: 'GOLD' };
+      case 'gold22K':
+      case 'GOLD22K':
+        return { name: 'Gold', purity: '22k-916', color: 'bg-yellow-400', symbol: 'GOLD' };
+      case 'silver':
+      case 'SILVER':
+        return { name: 'Silver', purity: '24k-999', color: 'bg-gray-400', symbol: 'SILVER' };
+      case 'MONEY':
+        return { name: 'Money', purity: '', color: 'bg-gray-800', symbol: '₹' };
+      case 'EQUITY_FUNDS':
+        return { name: 'Equity Funds', purity: '', color: 'bg-blue-400', symbol: 'EF' };
+      case 'DEBT_FUNDS':
+        return { name: 'Debt Funds', purity: '', color: 'bg-green-400', symbol: 'DF' };
+      default:
+        return { name: metalType, purity: '', color: 'bg-gray-300', symbol: metalType.charAt(0) };
+    }
+  };
+
   // Fetch holdings data from API
   const fetchHoldings = async () => {
     try {
@@ -57,13 +231,17 @@ export default function SecureVault() {
       if (!token) {
         setError('Please login to view your holdings');
         setHoldings(getDemoData());
+        setTotalSavings(0);
         setLoading(false);
         return;
       }
 
-      console.log('🔐 Fetching holdings with token:', token.substring(0, 20) + '...');
-      console.log('👤 User info:', getUserInfo());
+      console.log('🔐 Fetching holdings with token...');
 
+      // Fetch prices first
+      const prices = await fetchAdminPrices();
+      
+      // Then fetch holdings
       const response = await fetch('http://localhost:5000/api/holdings', {
         method: 'GET',
         headers: {
@@ -76,7 +254,6 @@ export default function SecureVault() {
       
       if (response.status === 401) {
         setError('Session expired. Please login again.');
-        // Clear invalid token
         if (typeof window !== 'undefined') {
           sessionStorage.removeItem('authToken');
           sessionStorage.removeItem('userEmail');
@@ -85,6 +262,7 @@ export default function SecureVault() {
           sessionStorage.removeItem('userId');
         }
         setHoldings(getDemoData());
+        setTotalSavings(0);
         return;
       }
 
@@ -95,26 +273,70 @@ export default function SecureVault() {
       const data = await response.json();
       console.log('✅ Holdings data received:', data);
       
-      // Handle both array and object response formats
+      // Extract holdings array from response
+      let holdingsArray = [];
+      
       if (Array.isArray(data)) {
-        setHoldings(data);
-        // Calculate total savings
-        const total = data.reduce((sum, holding) => sum + parseFloat(holding.amt || 0), 0);
-        setTotalSavings(total);
+        holdingsArray = data;
       } else if (data.holdings && Array.isArray(data.holdings)) {
-        setHoldings(data.holdings);
-        // Calculate total savings
-        const total = data.holdings.reduce((sum, holding) => sum + parseFloat(holding.amt || 0), 0);
-        setTotalSavings(total);
-      } else {
-        console.warn('Unexpected data format:', data);
-        setHoldings(getDemoData());
-        setTotalSavings(0);
+        holdingsArray = data.holdings;
+      } else if (data.data && Array.isArray(data.data)) {
+        holdingsArray = data.data;
       }
+
+      console.log('📊 Holdings array:', holdingsArray);
+      
+      // DEBUG: Log the structure
+      debugHoldingsData(holdingsArray);
+
+      // Process holdings with current prices
+      const { processedHoldings, total } = processHoldingsWithPrices(holdingsArray, prices);
+      
+      setHoldings(processedHoldings);
+      setTotalSavings(total);
+
+      // If total is still 0 but we have data, calculate manually
+      if (total === 0 && holdingsArray.length > 0) {
+        console.log('⚠️ Total is 0 but we have holdings - forcing manual calculation');
+        const manualTotal = holdingsArray.reduce((sum, holding) => {
+          const qty = parseFloat(holding.qty) || 0;
+          let price = 0;
+          
+          if (holding.metal_type === 'gold24K' || holding.metal_type === 'GOLD24K') price = 13000;
+          else if (holding.metal_type === 'gold22K' || holding.metal_type === 'GOLD22K') price = 11930;
+          else if (holding.metal_type === 'silver' || holding.metal_type === 'SILVER') price = 150;
+          
+          return sum + (qty * price);
+        }, 0);
+        
+        console.log(`🔨 Manual calculation total: ₹${manualTotal.toFixed(2)}`);
+        setTotalSavings(manualTotal);
+        
+        // Also update holdings with calculated amounts
+        const updatedHoldings = processedHoldings.map(holding => {
+          const qty = parseFloat(holding.qty) || 0;
+          let price = 0;
+          
+          if (holding.metal_type === 'gold24K' || holding.metal_type === 'GOLD24K') price = 13000;
+          else if (holding.metal_type === 'gold22K' || holding.metal_type === 'GOLD22K') price = 11930;
+          else if (holding.metal_type === 'silver' || holding.metal_type === 'SILVER') price = 150;
+          
+          const calculatedAmount = qty * price;
+          return {
+            ...holding,
+            calculatedAmount,
+            displayAmount: calculatedAmount
+          };
+        });
+        
+        setHoldings(updatedHoldings);
+      }
+
     } catch (error) {
       console.error('❌ Error fetching holdings:', error);
       setError(`Error loading holdings: ${error.message}`);
       setHoldings(getDemoData());
+      setTotalSavings(0);
     } finally {
       setLoading(false);
     }
@@ -122,63 +344,13 @@ export default function SecureVault() {
 
   // Demo data for development
   const getDemoData = () => [
-    { metal_type: 'GOLD_24K', amt: 0, qty: 0 },
-    { metal_type: 'GOLD_22K', amt: 0, qty: 0 },
-    { metal_type: 'MONEY', amt: 0, qty: 0 },
-    { metal_type: 'SILVER', amt: 0, qty: 0 },
-    { metal_type: 'EQUITY_FUNDS', amt: 0, qty: 0 },
-    { metal_type: 'DEBT_FUNDS', amt: 0, qty: 0 }
+    { metal_type: 'GOLD24K', amt: 0, qty: 0, calculatedAmount: 0, displayAmount: 0 },
+    { metal_type: 'GOLD22K', amt: 0, qty: 0, calculatedAmount: 0, displayAmount: 0 },
+    { metal_type: 'MONEY', amt: 0, qty: 0, calculatedAmount: 0, displayAmount: 0 },
+    { metal_type: 'SILVER', amt: 0, qty: 0, calculatedAmount: 0, displayAmount: 0 },
+    { metal_type: 'EQUITY_FUNDS', amt: 0, qty: 0, calculatedAmount: 0, displayAmount: 0 },
+    { metal_type: 'DEBT_FUNDS', amt: 0, qty: 0, calculatedAmount: 0, displayAmount: 0 }
   ];
-
-  // Update holdings function
-  const updateHoldings = async (metal_type, amt, qty) => {
-    try {
-      setError(null);
-      
-      const token = getAuthToken();
-      
-      if (!token) {
-        setError('Please login to update holdings');
-        return;
-      }
-
-      console.log('🔄 Updating holdings for:', metal_type);
-
-      const response = await fetch('http://localhost:5000/api/holdings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ metal_type, amt, qty })
-      });
-
-      if (response.status === 401) {
-        setError('Session expired. Please login again.');
-        if (typeof window !== 'undefined') {
-          sessionStorage.removeItem('authToken');
-          sessionStorage.removeItem('userEmail');
-          sessionStorage.removeItem('username');
-          sessionStorage.removeItem('userType');
-          sessionStorage.removeItem('userId');
-        }
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(`Failed to update holdings: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ Holdings updated:', result);
-      
-      // Refresh holdings data after update
-      fetchHoldings();
-    } catch (error) {
-      console.error('❌ Error updating holdings:', error);
-      setError(`Error updating holdings: ${error.message}`);
-    }
-  };
 
   // Handle login
   const handleLogin = () => {
@@ -197,19 +369,47 @@ export default function SecureVault() {
     }
     setHoldings(getDemoData());
     setTotalSavings(0);
+    setAdminPrices(null);
     setError('Logged out successfully');
     setTimeout(() => setError(null), 3000);
   };
 
+  // Refresh all data
+  const handleRefresh = async () => {
+    await fetchHoldings();
+  };
+
   useEffect(() => {
-    if (isClient) {
+    if (isClient && isAuthenticated()) {
       fetchHoldings();
+    } else if (isClient) {
+      setLoading(false);
     }
   }, [isClient]);
 
   // Helper function to get holding by metal type
   const getHoldingByType = (metalType) => {
-    return holdings.find(holding => holding.metal_type === metalType) || { amt: 0, qty: 0 };
+    const holding = holdings.find(h => 
+      h.metal_type === metalType || 
+      h.metal_type === metalType.toUpperCase() ||
+      h.metal_type === metalType.toLowerCase()
+    );
+    
+    if (holding) {
+      return {
+        ...holding,
+        displayAmount: holding.displayAmount || holding.calculatedAmount || parseFloat(holding.amt) || 0
+      };
+    }
+    return { metal_type: metalType, qty: 0, displayAmount: 0 };
+  };
+
+  // Get all holdings total for debugging
+  const getAllHoldingsTotal = () => {
+    return holdings.reduce((total, holding) => {
+      const amount = holding.displayAmount || holding.calculatedAmount || parseFloat(holding.amt) || 0;
+      return total + amount;
+    }, 0);
   };
 
   // Format currency
@@ -223,7 +423,32 @@ export default function SecureVault() {
 
   // Format quantity
   const formatQuantity = (qty) => {
-    return parseFloat(qty || 0).toFixed(4) + ' gms';
+    const quantity = parseFloat(qty || 0);
+    if (quantity === 0) return '0 gms';
+    return quantity.toFixed(4) + ' gms';
+  };
+
+  // Get current price for a metal type
+  const getCurrentPrice = (metalType) => {
+    if (!adminPrices) return 'Loading...';
+    
+    if (adminPrices[metalType]) {
+      return `₹${parseFloat(adminPrices[metalType]).toLocaleString('en-IN')}/gm`;
+    } else if (metalType === 'gold24K' && adminPrices.gold24K) {
+      return `₹${parseFloat(adminPrices.gold24K).toLocaleString('en-IN')}/gm`;
+    } else if (metalType === 'gold22K' && adminPrices.gold22K) {
+      return `₹${parseFloat(adminPrices.gold22K).toLocaleString('en-IN')}/gm`;
+    } else if (metalType === 'silver' && adminPrices.silver) {
+      return `₹${parseFloat(adminPrices.silver).toLocaleString('en-IN')}/gm`;
+    } else if (adminPrices.GOLD24K) {
+      return `₹${parseFloat(adminPrices.GOLD24K).toLocaleString('en-IN')}/gm`;
+    } else if (adminPrices.GOLD22K) {
+      return `₹${parseFloat(adminPrices.GOLD22K).toLocaleString('en-IN')}/gm`;
+    } else if (adminPrices.SILVER) {
+      return `₹${parseFloat(adminPrices.SILVER).toLocaleString('en-IN')}/gm`;
+    }
+    
+    return 'Price not available';
   };
 
   const userInfo = getUserInfo();
@@ -240,6 +465,23 @@ export default function SecureVault() {
     );
   }
 
+  // Debug info - remove in production
+  // const debugInfo = process.env.NODE_ENV === 'development' ? (
+  //   <div className="bg-gray-800 text-white p-3 rounded text-xs">
+  //     <div className="font-bold mb-1">Debug Information:</div>
+  //     <div>Total Savings State: ₹{totalSavings.toFixed(2)}</div>
+  //     <div>Calculated Total: ₹{getAllHoldingsTotal().toFixed(2)}</div>
+  //     <div>Holdings Count: {holdings.length}</div>
+  //     <div>Admin Prices: {adminPrices ? 'Loaded' : 'Not loaded'}</div>
+  //     <div>Holdings Details:</div>
+  //     {holdings.map((h, i) => (
+  //       <div key={i} className="ml-2">
+  //         {h.metal_type}: Qty={h.qty}, Amt=₹{(h.displayAmount || h.calculatedAmount || 0).toFixed(2)}
+  //       </div>
+  //     ))}
+  //   </div>
+  // ) : null;
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       
@@ -253,7 +495,7 @@ export default function SecureVault() {
         </h1>
         <div className="flex items-center space-x-2">
           <button 
-            onClick={fetchHoldings}
+            onClick={handleRefresh}
             className="p-1"
             disabled={loading}
           >
@@ -286,6 +528,10 @@ export default function SecureVault() {
         </div>
       )}
 
+      {/* Debug Info - Only in development */}
+      {/* {process.env.NODE_ENV === 'development' && debugInfo} */}
+      {process.env.NODE_ENV === 'development'}
+
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 pb-28">
         
@@ -307,90 +553,110 @@ export default function SecureVault() {
           </div>
         )}
 
+        {/* Current Prices Info */}
+        {/* {adminPrices && isAuthenticated() && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <div className="text-sm text-green-800 font-medium mb-1">Current Market Prices</div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {(adminPrices.gold24K || adminPrices.GOLD24K) && (
+                <div className="flex justify-between">
+                  <span>Gold 24K:</span>
+                  <span className="font-medium">
+                    ₹{parseFloat(adminPrices.gold24K || adminPrices.GOLD24K || 0).toLocaleString('en-IN')}/gm
+                  </span>
+                </div>
+              )}
+              {(adminPrices.gold22K || adminPrices.GOLD22K) && (
+                <div className="flex justify-between">
+                  <span>Gold 22K:</span>
+                  <span className="font-medium">
+                    ₹{parseFloat(adminPrices.gold22K || adminPrices.GOLD22K || 0).toLocaleString('en-IN')}/gm
+                  </span>
+                </div>
+              )}
+              {(adminPrices.silver || adminPrices.SILVER) && (
+                <div className="flex justify-between">
+                  <span>Silver:</span>
+                  <span className="font-medium">
+                    ₹{parseFloat(adminPrices.silver || adminPrices.SILVER || 0).toLocaleString('en-IN')}/gm
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )} */}
+
+        {/* Loading Indicator */}
+        {loading && (
+          <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded">
+            <div className="flex items-center">
+              <div className="w-4 h-4 border-2 border-blue-700 border-t-transparent rounded-full animate-spin mr-2"></div>
+              <span>Loading current holdings and prices...</span>
+            </div>
+          </div>
+        )}
+
         {/* Total Savings */}
         <div className="rounded-xl p-6 bg-[#50C2C9]">
           <h2 className="text-white text-lg font-medium mb-2">Total savings</h2>
           <div className="text-white text-4xl font-bold">{formatCurrency(totalSavings)}</div>
-          {loading && (
-            <div className="text-white text-sm mt-2">Updating...</div>
-          )}
-          {!isAuthenticated() && (
-            <div className="text-white text-sm mt-2 opacity-75">Demo mode - Login to see real data</div>
+          <div className="text-white text-sm mt-2 opacity-90">
+            {isAuthenticated() ? (
+              adminPrices ? 'Based on current market prices' : 'Calculating...'
+            ) : 'Demo mode - Login to see real data'}
+          </div>
+          {adminPrices && (
+            <div className="text-white text-xs mt-1 opacity-75">
+              Last updated: {new Date().toLocaleTimeString()}
+            </div>
           )}
         </div>
 
-        {/* Metals Section */}
+        {/* Metals Section - SIMPLIFIED TO SHOW ALL HOLDINGS */}
         <div className="bg-white rounded-xl overflow-hidden shadow-sm">
           <button
             onClick={() => setMetalsExpanded(!metalsExpanded)}
             className="w-full flex justify-between items-center p-4 bg-gray-100"
           >
-            <span className="font-semibold text-gray-700">Metals</span>
+            <div className="flex items-center">
+              <span className="font-semibold text-gray-700">Metals</span>
+              {loadingPrices && (
+                <div className="ml-2 w-3 h-3 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></div>
+              )}
+            </div>
             {metalsExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
           </button>
           
-          {metalsExpanded && (
+          {metalsExpanded && holdings.length > 0 && (
             <div className="divide-y divide-gray-100">
-              {/* Gold 24k-995 */}
-              <div className="flex items-center justify-between p-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-full bg-yellow-400 flex items-center justify-center">
-                    <span className="text-white font-bold text-xs">GOLD</span>
-                  </div>
-                  <div>
-                    <div className="font-medium text-gray-800">Gold <span className="text-sm text-gray-500">24k-995</span></div>
-                    <div className="text-gray-600 text-sm">
-                      {formatQuantity(getHoldingByType('GOLD_24K').qty)}
+              {/* Show ALL holdings dynamically */}
+              {holdings.map(holding => {
+                const info = getMetalDisplayInfo(holding.metal_type);
+                return (
+                  <div key={holding.metal_type} className="flex items-center justify-between p-4">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-10 h-10 rounded-full ${info.color} flex items-center justify-center`}>
+                        <span className="text-white font-bold text-xs">{info.symbol}</span>
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-800">
+                          {info.name} 
+                          {info.purity && <span className="text-sm text-gray-500"> {info.purity}</span>}
+                        </div>
+                        <div className="text-gray-600 text-sm">
+                          {formatQuantity(holding.qty)}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {getCurrentPrice(holding.metal_type)}
+                        </div>
+                      </div>
                     </div>
+                    <span className="font-medium">
+                      {formatCurrency(holding.displayAmount || holding.calculatedAmount || 0)}
+                    </span>
                   </div>
-                </div>
-                <span className="font-medium">{formatCurrency(getHoldingByType('GOLD_24K').amt)}</span>
-              </div>
-
-              {/* Gold 22k-916 */}
-              <div className="flex items-center justify-between p-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-full bg-yellow-400 flex items-center justify-center">
-                    <span className="text-white font-bold text-xs">GOLD</span>
-                  </div>
-                  <div>
-                    <div className="font-medium text-gray-800">Gold <span className="text-sm text-gray-500">22k-916</span></div>
-                    <div className="text-gray-600 text-sm">
-                      {formatQuantity(getHoldingByType('GOLD_22K').qty)}
-                    </div>
-                  </div>
-                </div>
-                <span className="font-medium">{formatCurrency(getHoldingByType('GOLD_22K').amt)}</span>
-              </div>
-
-              {/* Money */}
-              <div className="flex items-center justify-between p-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center">
-                    <span className="text-white font-bold">₹</span>
-                  </div>
-                  <div>
-                    <div className="font-medium text-gray-800">Money</div>
-                  </div>
-                </div>
-                <span className="font-medium">{formatCurrency(getHoldingByType('MONEY').amt)}</span>
-              </div>
-
-              {/* Silver */}
-              <div className="flex items-center justify-between p-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center">
-                    <span className="text-white font-bold text-xs">SILVER</span>
-                  </div>
-                  <div>
-                    <div className="font-medium text-gray-800">Silver <span className="text-sm text-gray-500">24k-999</span></div>
-                    <div className="text-gray-600 text-sm">
-                      {formatQuantity(getHoldingByType('SILVER').qty)}
-                    </div>
-                  </div>
-                </div>
-                <span className="font-medium">{formatCurrency(getHoldingByType('SILVER').amt)}</span>
-              </div>
+                );
+              })}
 
               {/* Total Amount */}
               <div className="flex items-center justify-between p-4 bg-gray-50">
@@ -403,6 +669,9 @@ export default function SecureVault() {
                   </div>
                   <div>
                     <div className="font-medium text-[#50C2C9]">Total Amount</div>
+                    <div className="text-xs text-[#50C2C9] opacity-75">
+                      Sum of all holdings
+                    </div>
                   </div>
                 </div>
                 <span className="font-bold text-[#50C2C9]">{formatCurrency(totalSavings)}</span>
@@ -412,7 +681,7 @@ export default function SecureVault() {
         </div>
 
         {/* SIP Holdings Section */}
-        <div className="bg-white rounded-xl overflow-hidden shadow-sm">
+        {/* <div className="bg-white rounded-xl overflow-hidden shadow-sm">
           <button
             onClick={() => setSipExpanded(!sipExpanded)}
             className="w-full flex justify-between items-center p-4 bg-gray-100"
@@ -423,7 +692,6 @@ export default function SecureVault() {
           
           {sipExpanded && (
             <div className="divide-y divide-gray-100">
-              {/* Total Amount */}
               <div className="flex items-center justify-between p-4">
                 <div className="flex items-center space-x-3">
                   <div className="flex">
@@ -438,7 +706,7 @@ export default function SecureVault() {
               </div>
             </div>
           )}
-        </div>
+        </div> */}
       </div>
 
       {/* Bottom Navigation */}
