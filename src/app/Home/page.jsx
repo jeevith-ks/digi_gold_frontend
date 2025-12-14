@@ -275,7 +275,7 @@ const PreciousMetalsApp = () => {
     { icon: <ShoppingCart className="w-6 h-6" />, label: 'Sell', href: '/Sell' },
     { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs font-bold">₹</div>, label: 'SIP', href: '/savings_plan' },
     // { icon: <Gift className="w-6 h-6" />, label: 'Gift', href: '/gifts' },
-    { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs">💰</div>, label: 'LookBook', href: '/Loan' }
+    { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs">💰</div>, label: 'LookBook', href: '/Lookbook' }
   ];
 
   const navItems = [
@@ -588,11 +588,11 @@ const PreciousMetalsApp = () => {
 
       {/* Rest of your component remains the same */}
       {/* ===== Quick Buy Section ===== */}
-      {/* <div className="bg-gray-100 rounded-lg m-4 p-4"> */}
-        {/* ?<h2 className="text-xl font-bold text-gray-800 mb-4">Quick Buy</h2> */}
+      <div className="bg-gray-100 rounded-lg m-4 p-4"> 
+        <h2 className="text-xl font-bold text-gray-800 mb-4">Quick Buy</h2>
 
         {/* Metal Selection */}
-        {/* <div className="flex flex-wrap gap-2 mb-4">
+         <div className="flex flex-wrap gap-2 mb-4"> 
           {metals.map((metal) => (
             <button
               key={metal.id}
@@ -607,10 +607,10 @@ const PreciousMetalsApp = () => {
               <div className="text-xs opacity-80">{metal.purity}</div>
             </button>
           ))}
-        </div> */}
+        </div> 
 
         {/* Input Fields */}
-        {/* <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
               <Scale className="w-4 h-4" />
@@ -636,22 +636,22 @@ const PreciousMetalsApp = () => {
               placeholder="0"
             />
           </div>
-        </div> */}
+        </div> 
 
         {/* Conversion Icon */}
-        {/* <div className="flex justify-center mb-4">
+         <div className="flex justify-center mb-4">
           <ArrowLeftRight className="w-6 h-6 text-gray-400" />
-        </div> */}
+        </div> 
 
-        {/* <div className="text-right text-xs text-gray-400 mb-4">
+         <div className="text-right text-xs text-gray-400 mb-4">
           GST included
-        </div> */}
+        </div> 
 
         {/* Buy Now Button */}
-        {/* <button className="w-full bg-[#50C2C9] text-white py-4 rounded-lg font-bold text-lg hover:bg-[#3AA8AF] transition-colors">
+         <button className="w-full bg-[#50C2C9] text-white py-4 rounded-lg font-bold text-lg hover:bg-[#3AA8AF] transition-colors">
           Buy Now
-        </button> */}
-      {/* </div> */}
+        </button> 
+       </div>
 
       {/* ===== Action Buttons ===== */}
       <div className="flex justify-around flex-wrap px-2 py-3 gap-2 sticky bottom-20 bg-white">

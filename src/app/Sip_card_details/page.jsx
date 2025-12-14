@@ -32,6 +32,25 @@ const SIPPage = () => {
   const [choosingSIP, setChoosingSIP] = useState(false);
   const [selectedFixedSIPId, setSelectedFixedSIPId] = useState(null);
 
+  // Save payment summary data to session storage whenever it changes
+  useEffect(() => {
+    if (selectedPlan && (showAmountInput || manualAmount)) {
+      const paymentSummaryData = {
+        sipPlanName: selectedPlan?.name,
+        sipPlanType: selectedPlan?.type,
+        paymentAmount: showAmountInput && manualAmount ? manualAmount : selectedPlan?.investMin,
+        paymentType: showAmountInput && manualAmount && selectedPlan?.type === 'Flexible SIP' ? 'Custom Amount' : 'Default Amount',
+        metalType: selectedPlan?.metalType,
+        timestamp: new Date().toISOString(),
+        isFlexible: selectedPlan?.type === 'Flexible SIP',
+        planId: selectedSIPId
+      };
+      
+      sessionStorage.setItem('paymentSummaryData', JSON.stringify(paymentSummaryData));
+      console.log('💾 Saved payment summary to sessionStorage:', paymentSummaryData);
+    }
+  }, [selectedPlan, showAmountInput, manualAmount, selectedSIPId]);
+
   useEffect(() => {
     const storedUserType = sessionStorage.getItem('userType');
     const token = sessionStorage.getItem('authToken');
@@ -48,6 +67,12 @@ const SIPPage = () => {
     const savedAmounts = sessionStorage.getItem('amountPayingValues');
     if (savedAmounts) {
       setAmountPayingValues(JSON.parse(savedAmounts));
+    }
+
+    // Load saved payment data if exists
+    const savedPaymentData = sessionStorage.getItem('currentPaymentData');
+    if (savedPaymentData) {
+      console.log('📝 Loaded saved payment data from session:', JSON.parse(savedPaymentData));
     }
 
     // Initial fetch based on user type
@@ -240,7 +265,7 @@ const SIPPage = () => {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/sip/fixed/create/user', {
+      const response = await fetch('http://localhost:5000/api/sip/fixed/opt', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -259,11 +284,21 @@ const SIPPage = () => {
         // Mark this SIP as selected temporarily
         setSelectedFixedSIPId(planId);
         
+        // Save to session storage
+        sessionStorage.setItem('selectedFixedSIP', JSON.stringify({
+          planId,
+          timestamp: new Date().toISOString(),
+          status: 'chosen'
+        }));
+        
         // Show success message
         setTimeout(() => {
           setShowFixedSIPsList(false);
           setSelectedFixedSIPId(null);
           alert('Fixed SIP chosen successfully!');
+          
+          // Clear from session storage after success
+          sessionStorage.removeItem('selectedFixedSIP');
           
           // Refresh the user's SIP data
           fetchUserSIPs();
@@ -485,6 +520,9 @@ const SIPPage = () => {
     
     console.log('SIP type stored:', sipType);
     
+    // Save tab change to session storage
+    sessionStorage.setItem('activeSIPTab', tab);
+    
     // Fetch appropriate data based on user type and tab
     if (userType === 'admin') {
       // Admin: Always show all SIPs
@@ -524,11 +562,52 @@ const SIPPage = () => {
     });
   };
 
+  // Save payment data to session storage
+  const savePaymentDataToSession = () => {
+    if (!selectedPlan) return;
+    
+    const paymentData = {
+      selectedPlanId: selectedSIPId,
+      planName: selectedPlan.name,
+      planType: selectedPlan.type,
+      amount: showAmountInput && manualAmount ? manualAmount : selectedPlan.investMin,
+      isCustomAmount: showAmountInput && manualAmount && selectedPlan.type === 'Flexible SIP',
+      paymentMethod: 'Online', // or 'Offline' based on selection
+      metalType: selectedPlan.metalType,
+      paymentTime: new Date().toISOString(),
+      status: 'pending',
+      userId: sessionStorage.getItem('userId'),
+      userType: userType
+    };
+    
+    sessionStorage.setItem('currentPaymentData', JSON.stringify(paymentData));
+    console.log('💾 Current payment data saved:', paymentData);
+  };
+
+  // Function to clear payment data after successful payment
+  const clearPaymentDataFromSession = () => {
+    sessionStorage.removeItem('currentPaymentData');
+    sessionStorage.removeItem('paymentSummaryData');
+    sessionStorage.removeItem('currentPaymentAmount');
+    sessionStorage.removeItem('currentSIPId');
+    sessionStorage.removeItem('initialPaymentData');
+    sessionStorage.removeItem('razorpayAmount');
+    sessionStorage.removeItem('razorpaySIPId');
+    sessionStorage.removeItem('razorpayPlanType');
+    sessionStorage.removeItem('razorpayMetalType');
+    
+    console.log('🧹 Cleared payment data from sessionStorage');
+  };
+
   const handlePay = (id, plan, e) => {
     e.stopPropagation();
     setSelectedSIPId(id);
     setSelectedPlan(plan);
     setShowPaymentDialog(true);
+    
+    // Save plan selection to session storage
+    sessionStorage.setItem('selectedPlanId', id);
+    sessionStorage.setItem('selectedPlan', JSON.stringify(plan));
     
     // Pre-fill the manual amount with the amount paying value if available
     const amountPayingValue = amountPayingValues[id];
@@ -539,17 +618,33 @@ const SIPPage = () => {
       // Also store in sessionStorage for Razorpay to access
       sessionStorage.setItem('currentPaymentAmount', amountPayingValue);
       sessionStorage.setItem('currentSIPId', id);
+      
+      // Save initial payment summary
+      const initialPaymentData = {
+        planId: id,
+        planName: plan.name,
+        planType: plan.type,
+        amount: amountPayingValue,
+        isCustomAmount: true,
+        metalType: plan.metalType,
+        timestamp: new Date().toISOString()
+      };
+      sessionStorage.setItem('initialPaymentData', JSON.stringify(initialPaymentData));
     } else {
       setManualAmount('');
       setShowAmountInput(false);
       sessionStorage.removeItem('currentPaymentAmount');
       sessionStorage.removeItem('currentSIPId');
+      sessionStorage.removeItem('initialPaymentData');
     }
   };
 
   // Handle Create Fixed SIP for Admin
   const handleCreateFixedSIP = () => {
     if (userType === 'admin') {
+      // Save to session storage before navigation
+      sessionStorage.setItem('sipCreationType', 'fixed');
+      sessionStorage.setItem('sipCreationUserType', userType);
       router.push('/admin_sip_plans');
     }
   };
@@ -557,6 +652,9 @@ const SIPPage = () => {
   // Handle Create Fixed SIP for Customers
   const handleCreateFixedSIP_customers = () => {
     if (userType === 'customer' && activeTab === 'All') {
+      // Save to session storage
+      sessionStorage.setItem('sipCreationType', 'fixed');
+      sessionStorage.setItem('sipCreationUserType', userType);
       // Fetch available fixed SIP plans
       fetchAvailableFixedSIPs();
     }
@@ -620,6 +718,9 @@ const SIPPage = () => {
       if (verifyResponse.ok) {
         alert('Payment successful! Your SIP payment has been processed.');
         
+        // Clear payment data from sessionStorage
+        clearPaymentDataFromSession();
+        
         // Clear the stored amount after successful payment
         const newAmountPayingValues = { ...amountPayingValues };
         delete newAmountPayingValues[selectedSIPId];
@@ -642,6 +743,9 @@ const SIPPage = () => {
 
   // Enhanced payment method handler with sessionStorage integration
   const handlePaymentMethod = async (method) => {
+    // Save payment data to session storage
+    savePaymentDataToSession();
+    
     setShowPaymentDialog(false);
     
     if (!selectedPlan) {
@@ -747,12 +851,7 @@ const SIPPage = () => {
             console.log('✅ Payment successful:', response);
             
             // Clear session storage after successful payment
-            sessionStorage.removeItem('currentPaymentAmount');
-            sessionStorage.removeItem('currentSIPId');
-            sessionStorage.removeItem('razorpayAmount');
-            sessionStorage.removeItem('razorpaySIPId');
-            sessionStorage.removeItem('razorpayPlanType');
-            sessionStorage.removeItem('razorpayMetalType');
+            clearPaymentDataFromSession();
             
             await verifyPayment(response);
           },
@@ -794,6 +893,15 @@ const SIPPage = () => {
         alert(`Failed to initialize payment: ${error.message}`);
       }
     } else if (method === 'Offline') {
+      // Save offline payment data to session storage
+      sessionStorage.setItem('offlinePaymentData', JSON.stringify({
+        planId: selectedSIPId,
+        planName: selectedPlan.name,
+        amount: showAmountInput && manualAmount ? manualAmount : selectedPlan.investMin,
+        timestamp: new Date().toISOString(),
+        status: 'offline_pending'
+      }));
+      
       router.push('/payoffline');
     }
   };
@@ -834,6 +942,8 @@ const SIPPage = () => {
       delete newAmountPayingValues[selectedSIPId];
       setAmountPayingValues(newAmountPayingValues);
       sessionStorage.setItem('amountPayingValues', JSON.stringify(newAmountPayingValues));
+      sessionStorage.removeItem('currentPaymentAmount');
+      sessionStorage.removeItem('currentSIPId');
     }
   };
 
@@ -848,6 +958,17 @@ const SIPPage = () => {
       }
 
       const enumMetalType = getEnumMetalType(metalType);
+
+      // Save flexible SIP creation data to session storage
+      const sipCreationData = {
+        metalType: metalType,
+        displayMetalType: getDisplayMetalType(metalType),
+        totalMonths: totalMonths,
+        investmentAmount: investmentAmount,
+        timestamp: new Date().toISOString(),
+        userType: userType
+      };
+      sessionStorage.setItem('flexibleSIPCreation', JSON.stringify(sipCreationData));
 
       const response = await fetch('http://localhost:5000/api/sip/flexible/create', {
         method: 'POST',
@@ -865,6 +986,9 @@ const SIPPage = () => {
       const responseData = await response.json();
       
       if (response.ok) {
+        // Clear creation data from session storage
+        sessionStorage.removeItem('flexibleSIPCreation');
+        
         // Refresh data based on user type
         if (userType === 'admin') {
           await fetchAllSIPs();
@@ -913,6 +1037,9 @@ const SIPPage = () => {
 
   // Refresh function for Fixed tab
   const handleRefresh = () => {
+    // Save refresh timestamp to session storage
+    sessionStorage.setItem('lastSIPRefresh', new Date().toISOString());
+    
     if (userType === 'admin') {
       fetchAllSIPs();
     } else {
@@ -1054,6 +1181,48 @@ const SIPPage = () => {
               Close
             </button>
           </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Display saved payment data from session storage
+  const displaySavedPaymentData = () => {
+    const paymentData = JSON.parse(sessionStorage.getItem('currentPaymentData') || 'null');
+    const summaryData = JSON.parse(sessionStorage.getItem('paymentSummaryData') || 'null');
+    
+    if (!paymentData && !summaryData) return null;
+    
+    return (
+      <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+        <h3 className="text-sm font-medium text-blue-800 mb-2">Last Payment Session Data:</h3>
+        <div className="text-xs space-y-1">
+          {paymentData && (
+            <>
+              <div className="flex justify-between">
+                <span className="text-blue-700">Plan:</span>
+                <span className="text-black font-medium">{paymentData.planName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-blue-700">Amount:</span>
+                <span className="text-black font-medium">{paymentData.amount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-blue-700">Time:</span>
+                <span className="text-black text-xs">
+                  {new Date(paymentData.paymentTime).toLocaleString()}
+                </span>
+              </div>
+            </>
+          )}
+          {summaryData && (
+            <div className="flex justify-between">
+              <span className="text-blue-700">Status:</span>
+              <span className={`font-medium ${paymentData?.status === 'pending' ? 'text-yellow-600' : 'text-green-600'}`}>
+                {paymentData?.status || 'Saved'}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1289,6 +1458,9 @@ const SIPPage = () => {
             </div>
           )}
 
+          {/* Display saved payment data from session storage */}
+          {displaySavedPaymentData()}
+
           {/* Action Buttons Section */}
           <div className="flex justify-center mt-6 pb-8 space-x-4">
             {/* Create Flexible SIP Button - Show for Flexible tab */}
@@ -1498,6 +1670,11 @@ const SIPPage = () => {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Session Storage Info */}
+            <div className="mt-4 p-2 bg-blue-50 rounded text-xs text-blue-700 text-center">
+              💾 This payment data is saved in your session
             </div>
           </div>
         </div>
