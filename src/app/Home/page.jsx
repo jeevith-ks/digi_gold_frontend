@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Home, Bell, Shield, User, Gift, ShoppingCart, ArrowLeftRight, Scale, CreditCard, PiggyBank, Edit2, Save, RefreshCw, Clock } from 'lucide-react';
+import { Home, Bell, Shield, User, Gift, ShoppingCart, ArrowLeftRight, Scale, CreditCard, PiggyBank, Edit2, Save, RefreshCw, Clock, Lock, Unlock, FolderInput } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -19,6 +19,8 @@ const PreciousMetalsApp = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingPrices, setIsLoadingPrices] = useState(false);
   const [lastPriceUpdate, setLastPriceUpdate] = useState(null);
+  const [marketStatus, setMarketStatus] = useState('open'); // 'open' or 'closed'
+  const [isUpdatingMarket, setIsUpdatingMarket] = useState(false);
   const [metalRates, setMetalRates] = useState({
     '24k-995': 10170,
     '22k-916': 9560,
@@ -49,6 +51,18 @@ const PreciousMetalsApp = () => {
       }
       if (storedUsername) {
         setUsername(storedUsername);
+      }
+
+      // Check for stored market status - Load from sessionStorage
+      const storedMarketStatus = sessionStorage.getItem('marketStatus');
+      if (storedMarketStatus) {
+        console.log('📊 Loading market status from sessionStorage:', storedMarketStatus);
+        setMarketStatus(storedMarketStatus);
+      } else {
+        // Initialize with 'open' if not stored yet
+        console.log('📊 Initializing market status to: open');
+        sessionStorage.setItem('marketStatus', 'open');
+        setMarketStatus('open');
       }
 
       // Fetch initial data based on user type
@@ -110,7 +124,6 @@ const PreciousMetalsApp = () => {
       });
 
       console.log('📡 Price response status:', response.status);
-      
 
       if (response.ok) {
         const data = await response.json();
@@ -240,6 +253,67 @@ const PreciousMetalsApp = () => {
     }
   };
 
+  // Handle market open/close
+  const handleMarketToggle = async (newStatus) => {
+    if (userType !== 'admin') {
+      alert('You do not have admin privileges to control market status.');
+      return;
+    }
+
+    setIsUpdatingMarket(true);
+    try {
+      const token = sessionStorage.getItem('authToken');
+      
+      if (!token) {
+        alert('Authentication token not found. Please login again.');
+        setIsUpdatingMarket(false);
+        return;
+      }
+
+      console.log(`🔄 Updating market status to: ${newStatus}`);
+      
+      // Store market status in sessionStorage
+      sessionStorage.setItem('marketStatus', newStatus);
+      console.log(`💾 Market status saved to sessionStorage: ${newStatus}`);
+      
+      // Update state
+      setMarketStatus(newStatus);
+      
+      // Here you would typically make an API call to update market status on server
+      // For now, we'll simulate it with a timeout
+      
+      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
+      
+      console.log(`✅ Market status updated to: ${newStatus}`);
+      
+      // Show appropriate message
+      if (newStatus === 'closed') {
+        alert('Market has been closed. Trading is now disabled for all users.');
+      } else {
+        alert('Market has been opened. Trading is now enabled for all users.');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error updating market status:', error);
+      alert('Error updating market status. Please try again.');
+    } finally {
+      setIsUpdatingMarket(false);
+    }
+  };
+
+  // Handle market open
+  const handleMarketOpen = () => {
+    handleMarketToggle('open');
+  };
+
+  // Handle market close
+  const handleMarketClose = () => {
+    const confirmClose = window.confirm('Are you sure you want to close the market? This will disable trading for all users.');
+    if (confirmClose) {
+      handleMarketToggle('closed');
+    }
+  };
+
   // ✅ add image references
   const metals = [
     { 
@@ -271,10 +345,14 @@ const PreciousMetalsApp = () => {
     }
   ];
 
-  const actionButtons = [
-    { icon: <ShoppingCart className="w-6 h-6" />, label: 'Sell', href: '/Sell' },
+  const adminActionButtons = [
+    { icon: <FolderInput className="w-6 h-6" />, label: 'Export', href: '' },
     { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs font-bold">₹</div>, label: 'SIP', href: '/savings_plan' },
-    // { icon: <Gift className="w-6 h-6" />, label: 'Gift', href: '/gifts' },
+    { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs">💰</div>, label: 'LookBook', href: '/Lookbook' }
+  ];
+
+  const customerActionButtons = [
+    { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs font-bold">₹</div>, label: 'SIP', href: '/savings_plan' },
     { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs">💰</div>, label: 'LookBook', href: '/Lookbook' }
   ];
 
@@ -396,11 +474,13 @@ const PreciousMetalsApp = () => {
     const token = sessionStorage.getItem('authToken');
     const userType = sessionStorage.getItem('userType');
     const username = sessionStorage.getItem('username');
+    const marketStatus = sessionStorage.getItem('marketStatus');
     
     console.log('Debug User Data:', {
       token: token ? 'Exists' : 'Missing',
       userType,
       username,
+      marketStatus,
       tokenLength: token ? token.length : 0,
       metalBalances,
       metalRates,
@@ -419,6 +499,18 @@ const PreciousMetalsApp = () => {
     }
   };
 
+  // Function to manually clear market status (for debugging)
+  const clearMarketStatus = () => {
+    if (userType === 'admin') {
+      const confirmClear = window.confirm('Clear market status from sessionStorage?');
+      if (confirmClear) {
+        sessionStorage.removeItem('marketStatus');
+        setMarketStatus('open');
+        alert('Market status cleared. Defaulting to "open".');
+      }
+    }
+  };
+
   return (
     <div className="w-full max-w-md mx-auto bg-white min-h-screen flex flex-col font-sans">
       {/* Admin Header - Only show for admin users */}
@@ -428,15 +520,49 @@ const PreciousMetalsApp = () => {
             <div>
               <span className="text-sm font-medium text-blue-800">Admin Mode</span>
               <p className="text-xs text-blue-600">Welcome, {username}</p>
-              {/* Debug button - remove in production */}
-              <button 
-                onClick={debugUserData}
-                className="text-xs text-blue-500 underline mt-1"
-              >
-                Debug User Data
-              </button>
+              <div className="flex items-center space-x-2 mt-1">
+                <div className={`text-xs px-2 py-1 rounded ${marketStatus === 'open' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  Market: {marketStatus === 'open' ? 'OPEN' : 'CLOSED'}
+                </div>
+                {/* Debug button - remove in production */}
+                <button 
+                  onClick={debugUserData}
+                  className="text-xs text-blue-500 underline"
+                >
+                  Debug User Data
+                </button>
+                {/* Clear market status button (debug) */}
+                <button 
+                  onClick={clearMarketStatus}
+                  className="text-xs text-red-500 underline"
+                >
+                  Clear Market Status
+                </button>
+              </div>
             </div>
             <div className="flex items-center space-x-2">
+              {/* Market Control Buttons */}
+              {marketStatus === 'open' ? (
+                <button
+                  onClick={handleMarketClose}
+                  disabled={isUpdatingMarket}
+                  className="flex items-center space-x-1 bg-red-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Lock className="w-4 h-4" />
+                  <span>{isUpdatingMarket ? 'Closing...' : 'Close Market'}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleMarketOpen}
+                  disabled={isUpdatingMarket}
+                  className="flex items-center space-x-1 bg-green-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Unlock className="w-4 h-4" />
+                  <span>{isUpdatingMarket ? 'Opening...' : 'Open Market'}</span>
+                </button>
+              )}
+              
+              {/* Edit Rates Button */}
               {editMode ? (
                 <button
                   onClick={handleSaveRates}
@@ -586,10 +712,20 @@ const PreciousMetalsApp = () => {
         </div>
       </div>
 
-      {/* Rest of your component remains the same */}
       {/* ===== Quick Buy Section ===== */}
       <div className="bg-gray-100 rounded-lg m-4 p-4"> 
         <h2 className="text-xl font-bold text-gray-800 mb-4">Quick Buy</h2>
+
+        {/* Market Status Warning for Customers */}
+        {userType === 'customer' && marketStatus === 'closed' && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center space-x-2 text-red-700">
+              <Lock className="w-4 h-4" />
+              <span className="text-sm font-medium">Market is currently closed</span>
+            </div>
+            <p className="text-xs text-red-600 mt-1">Trading will resume when the market opens.</p>
+          </div>
+        )}
 
         {/* Metal Selection */}
          <div className="flex flex-wrap gap-2 mb-4"> 
@@ -597,9 +733,12 @@ const PreciousMetalsApp = () => {
             <button
               key={metal.id}
               onClick={() => setSelectedMetal(metal.id)}
+              disabled={marketStatus === 'closed'}
               className={`flex-1 min-w-[90px] py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
                 selectedMetal === metal.id
                   ? 'bg-[#50C2C9] text-white'
+                  : marketStatus === 'closed' 
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   : 'bg-gray-200 text-gray-700'
               }`}
             >
@@ -620,7 +759,12 @@ const PreciousMetalsApp = () => {
               type="number"
               value={grams}
               onChange={(e) => handleGramsChange(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#50C2C9]"
+              disabled={marketStatus === 'closed'}
+              className={`w-full p-3 border rounded-lg focus:outline-none ${
+                marketStatus === 'closed' 
+                  ? 'border-gray-300 bg-gray-50 text-gray-400 cursor-not-allowed' 
+                  : 'border-gray-300 focus:ring-2 focus:ring-[#50C2C9]'
+              }`}
               placeholder="0"
             />
           </div>
@@ -632,7 +776,12 @@ const PreciousMetalsApp = () => {
               type="number"
               value={amount}
               onChange={(e) => handleAmountChange(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#50C2C9]"
+              disabled={marketStatus === 'closed'}
+              className={`w-full p-3 border rounded-lg focus:outline-none ${
+                marketStatus === 'closed' 
+                  ? 'border-gray-300 bg-gray-50 text-gray-400 cursor-not-allowed' 
+                  : 'border-gray-300 focus:ring-2 focus:ring-[#50C2C9]'
+              }`}
               placeholder="0"
             />
           </div>
@@ -648,27 +797,69 @@ const PreciousMetalsApp = () => {
         </div> 
 
         {/* Buy Now Button */}
-         <button className="w-full bg-[#50C2C9] text-white py-4 rounded-lg font-bold text-lg hover:bg-[#3AA8AF] transition-colors">
-          Buy Now
+         <button 
+          className={`w-full py-4 rounded-lg font-bold text-lg transition-colors ${
+            marketStatus === 'closed'
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : 'bg-[#50C2C9] text-white hover:bg-[#3AA8AF]'
+          }`}
+          disabled={marketStatus === 'closed'}
+        >
+          {marketStatus === 'closed' ? 'Market Closed' : 'Buy Now'}
         </button> 
        </div>
 
       {/* ===== Action Buttons ===== */}
       <div className="flex justify-around flex-wrap px-2 py-3 gap-2 sticky bottom-20 bg-white">
-        {actionButtons.map((button, index) => (
-          <Link
-            key={index}
-            className="flex flex-col items-center p-3 hover:bg-gray-50 rounded-lg transition-colors"
-            href={button.href}
-          >
-            <div className="text-[#50C2C9] mb-1">
-              {button.icon}
-            </div>
-            <span className="text-xs text-gray-600 text-center leading-tight">
-              {button.label}
-            </span>
-          </Link>
-        ))}
+        {/* Render different action buttons based on user type */}
+        {userType === 'admin' 
+          ? adminActionButtons.map((button, index) => (
+              <Link
+                key={index}
+                className={`flex flex-col items-center p-3 rounded-lg transition-colors ${
+                  marketStatus === 'closed' && button.label === 'Export'
+                    ? 'opacity-50 cursor-not-allowed'
+                    : 'hover:bg-gray-50'
+                }`}
+                href={marketStatus === 'closed' && button.label === 'Export' ? '#' : button.href}
+                onClick={(e) => {
+                  if (marketStatus === 'closed' && button.label === 'Export') {
+                    e.preventDefault();
+                    alert('Trading is currently disabled. Market is closed.');
+                  }
+                }}
+              >
+                <div className={`mb-1 ${
+                  marketStatus === 'closed' && button.label === 'Export'
+                    ? 'text-gray-400'
+                    : 'text-[#50C2C9]'
+                }`}>
+                  {button.icon}
+                </div>
+                <span className={`text-xs text-center leading-tight ${
+                  marketStatus === 'closed' && button.label === 'Export'
+                    ? 'text-gray-400'
+                    : 'text-gray-600'
+                }`}>
+                  {button.label}
+                </span>
+              </Link>
+            ))
+          : customerActionButtons.map((button, index) => (
+              <Link
+                key={index}
+                className="flex flex-col items-center p-3 rounded-lg transition-colors hover:bg-gray-50"
+                href={button.href}
+              >
+                <div className="mb-1 text-[#50C2C9]">
+                  {button.icon}
+                </div>
+                <span className="text-xs text-center leading-tight text-gray-600">
+                  {button.label}
+                </span>
+              </Link>
+            ))
+        }
       </div>
 
       {/* Spacer */}

@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Edit2, LogOut, Save, Home, Bell, CreditCard, PiggyBank, User, Camera, X } from 'lucide-react';
+import { Edit2, LogOut, Save, Home, Bell, CreditCard, PiggyBank, User, Camera, X, Check, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -41,6 +41,18 @@ export default function ProfilePage() {
   const [panPhotoPreview, setPanPhotoPreview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [dataLoadedFromAPI, setDataLoadedFromAPI] = useState(false);
+  
+  // New verification states
+  const [aadhaarNumber, setAadhaarNumber] = useState('');
+  const [aadhaarOTP, setAadhaarOTP] = useState('');
+  const [showAadhaarOTPField, setShowAadhaarOTPField] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState({
+    pan: { verified: false, status: '', timestamp: '', data: null },
+    aadhaar: { verified: false, status: '', timestamp: '', data: null }
+  });
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [consentGiven, setConsentGiven] = useState(false);
+  const [verificationHistory, setVerificationHistory] = useState([]);
 
   const router = useRouter();
 
@@ -72,27 +84,22 @@ export default function ProfilePage() {
         const userDataFromApi = await response.json();
         console.log('User data from API:', userDataFromApi);
         
-        // Update form fields with data from API
         if (userDataFromApi.user || userDataFromApi) {
           const user = userDataFromApi.user || userDataFromApi;
           
-          // Format date of birth if available
           let formattedDob = '';
           if (user.dob) {
             try {
               const dobDate = new Date(user.dob);
               formattedDob = dobDate.toISOString().split('T')[0];
             } catch (error) {
-              console.error('Error formatting date of birth:', error);
               if (typeof user.dob === 'string') {
                 formattedDob = user.dob.split('T')[0];
               }
             }
           }
 
-          // Create updates object with ONLY personal details
           const personalUpdates = {
-            // Personal Details
             fullName: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
             email: user.email || '',
             phoneNumber: user.phone || '',
@@ -105,16 +112,11 @@ export default function ProfilePage() {
             state: user.state || '',
           };
 
-          console.log('Personal updates to apply:', personalUpdates);
-          
-          // Apply updates to userData
           setUserData(prev => ({
             ...prev,
             ...personalUpdates
-            // NOTE: We're NOT clearing KYC fields here
           }));
 
-          // Update session storage
           if (user.first_name || user.last_name) {
             sessionStorage.setItem('username', `${user.first_name || ''} ${user.last_name || ''}`.trim());
           }
@@ -125,14 +127,11 @@ export default function ProfilePage() {
             sessionStorage.setItem('userEmail', user.email);
           }
           
-          console.log('User data updated from API successfully');
           setDataLoadedFromAPI(true);
           return true;
         }
-      } else {
-        console.log('User API returned:', response.status);
-        return false;
       }
+      return false;
     } catch (err) {
       console.error('Error fetching user data:', err);
       return false;
@@ -151,9 +150,7 @@ export default function ProfilePage() {
       
       if (response.ok) {
         const kycData = await response.json();
-        console.log('KYC Data:', kycData);
         
-        // Update KYC status
         setKycStatus({
           pan: { 
             status: kycData.pan?.status || 'NOT_SUBMITTED', 
@@ -165,7 +162,6 @@ export default function ProfilePage() {
           }
         });
 
-        // Create updates object for KYC fields
         const kycUpdates = {};
         
         if (kycData.pan) {
@@ -180,9 +176,6 @@ export default function ProfilePage() {
           kycUpdates.accountNumber = kycData.bank.account_no || kycData.bank.account_masked || '';
         }
         
-        console.log('KYC updates to apply:', kycUpdates);
-        
-        // Apply KYC updates WITHOUT affecting personal details
         if (Object.keys(kycUpdates).length > 0) {
           setUserData(prev => ({
             ...prev,
@@ -191,19 +184,56 @@ export default function ProfilePage() {
         }
         
         return true;
-      } else {
-        console.error('Failed to fetch KYC data');
-        return false;
       }
+      return false;
     } catch (err) {
       console.error('Error fetching KYC data:', err);
       return false;
     }
   };
 
+  // Fetch verification status and history
+  const fetchVerificationStatus = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/kyc/verification/status', {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+          const panStatus = data.data.find(v => v.type === 'PAN');
+          const aadhaarStatus = data.data.find(v => v.type === 'AADHAAR');
+          
+          setVerificationStatus({
+            pan: {
+              verified: panStatus?.status === 'VALID',
+              status: panStatus?.status || 'NOT_VERIFIED',
+              timestamp: panStatus?.verification_date,
+              data: panStatus
+            },
+            aadhaar: {
+              verified: aadhaarStatus?.status === 'VALID',
+              status: aadhaarStatus?.status || 'NOT_VERIFIED',
+              timestamp: aadhaarStatus?.verification_date,
+              data: aadhaarStatus
+            }
+          });
+          
+          setVerificationHistory(data.data);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching verification status:', error);
+    }
+  };
+
   // Load session storage data as last resort
   const loadSessionStorageData = () => {
-    // Only load from session storage if data wasn't loaded from API
     if (!dataLoadedFromAPI) {
       const userEmail = sessionStorage.getItem('userEmail');
       const username = sessionStorage.getItem('username');
@@ -221,7 +251,6 @@ export default function ProfilePage() {
       }
 
       if (Object.keys(updates).length > 0) {
-        console.log('Loading from session storage:', updates);
         setUserData(prev => ({ ...prev, ...updates }));
       }
     }
@@ -234,13 +263,10 @@ export default function ProfilePage() {
         try {
           setLoading(true);
           
-          // 1. First fetch user data
           await fetchUserData();
-          
-          // 2. Then fetch KYC data (PAN/bank info only)
           await fetchKYCData();
+          await fetchVerificationStatus();
           
-          // 3. Use session storage only if user data API failed
           loadSessionStorageData();
           
         } catch (error) {
@@ -308,12 +334,10 @@ export default function ProfilePage() {
   // Update Personal Details
   const updatePersonalDetails = async () => {
     try {
-      // Split full name into first and last name
       const nameParts = userData.fullName.split(' ');
       const first_name = nameParts[0] || '';
       const last_name = nameParts.slice(1).join(' ') || '';
 
-      // Prepare payload
       const payload = {
         first_name,
         last_name,
@@ -326,12 +350,9 @@ export default function ProfilePage() {
         state: userData.state || '',
       };
 
-      // Only add date of birth if it's provided
       if (userData.dateOfBirth) {
         payload.dob = userData.dateOfBirth;
       }
-
-      console.log('Sending update payload:', payload);
 
       const response = await fetch('http://localhost:5000/api/user/', {
         method: 'PUT',
@@ -343,19 +364,16 @@ export default function ProfilePage() {
       });
       
       const responseData = await response.json();
-      console.log('Update response:', responseData);
       
       if (response.ok) {
         alert('Personal details updated successfully!');
         setEditMode(false);
         
-        // Update session storage
         sessionStorage.setItem('username', `${first_name} ${last_name}`.trim());
         if (userData.phoneNumber) {
           sessionStorage.setItem('phoneNumber', userData.phoneNumber);
         }
         
-        // Refresh data from API
         await fetchUserData();
         
       } else {
@@ -449,6 +467,251 @@ export default function ProfilePage() {
     }
   };
 
+  // Verify PAN with third-party API
+  // In your profile/page.jsx, update the verifyPAN function:
+
+const verifyPAN = async () => {
+  try {
+    if (!userData.panNumber || !userData.panFullName) {
+      alert('Please enter PAN number and full name');
+      return;
+    }
+    
+    setIsVerifying(true);
+    
+    const response = await fetch('http://localhost:5000/api/kyc/verify/pan', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        pan_number: userData.panNumber.toUpperCase(),
+        full_name: userData.panFullName,
+        dob: userData.dateOfBirth || undefined
+      })
+    });
+    
+    // First check if response is OK
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Server error:', errorText);
+      alert(`Server error: ${response.status} ${response.statusText}`);
+      return;
+    }
+    
+    // Then try to parse as JSON
+    const result = await response.json();
+    
+    if (result.success) {
+      if (result.data.status === 'VALID') {
+        alert('✅ PAN verification successful!');
+        
+        // Update verification status
+        setVerificationStatus(prev => ({
+          ...prev,
+          pan: {
+            verified: true,
+            status: 'VALID',
+            timestamp: new Date().toISOString()
+          }
+        }));
+        
+        // Auto-save verified PAN
+        await updatePanDetails();
+        
+        // Refresh verification status
+        await fetchVerificationStatus();
+      } else {
+        alert(`⚠️ PAN verification failed: ${result.data.message}`);
+      }
+    } else {
+      alert(`❌ PAN verification error: ${result.message}`);
+    }
+  } catch (error) {
+    console.error('PAN verification error:', error);
+    
+    // More specific error handling
+    if (error.name === 'SyntaxError') {
+      alert('Server returned invalid JSON. Please check if backend is running correctly.');
+    } else if (error.message.includes('Failed to fetch')) {
+      alert('Cannot connect to server. Make sure backend is running on http://localhost:5000');
+    } else {
+      alert('Failed to verify PAN. Please try again.');
+    }
+  } finally {
+    setIsVerifying(false);
+  }
+};
+
+// Also update the requestAadhaarOTP function:
+
+const requestAadhaarOTP = async () => {
+  try {
+    if (!aadhaarNumber) {
+      alert('Please enter Aadhaar number');
+      return;
+    }
+    
+    if (!consentGiven) {
+      alert('Please give consent for Aadhaar verification');
+      return;
+    }
+    
+    setIsVerifying(true);
+    
+    const consentText = `I authorize FinTech App to verify my Aadhaar details for KYC purpose.`;
+    
+    const response = await fetch('http://localhost:5000/api/kyc/verify/aadhaar', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        aadhaar_number: aadhaarNumber,
+        consent: 'Y',
+        consent_text: consentText
+      })
+    });
+    
+    // Check response status first
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Server error:', errorText);
+      alert(`Server error: ${response.status} ${response.statusText}`);
+      return;
+    }
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      if (result.data.status === 'VALID') {
+        setShowAadhaarOTPField(true);
+        alert('✅ OTP has been sent to your registered mobile number');
+      } else {
+        alert(`⚠️ Aadhaar verification failed: ${result.data.message}`);
+      }
+    } else {
+      alert(`❌ Aadhaar verification error: ${result.message}`);
+    }
+  } catch (error) {
+    console.error('Aadhaar OTP request error:', error);
+    
+    if (error.name === 'SyntaxError') {
+      alert('Server returned invalid response. Please check backend configuration.');
+    } else {
+      alert('Failed to request Aadhaar OTP. Please try again.');
+    }
+  } finally {
+    setIsVerifying(false);
+  }
+};
+
+  // Verify Aadhaar with OTP
+  const verifyAadhaarWithOTP = async () => {
+    try {
+      if (!aadhaarOTP) {
+        alert('Please enter OTP');
+        return;
+      }
+      
+      setIsVerifying(true);
+      
+      const consentText = `I authorize FinTech App to verify my Aadhaar details for KYC purpose.`;
+      
+      const response = await fetch('http://localhost:5000/api/kyc/verify/aadhaar/otp', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          aadhaar_number: aadhaarNumber,
+          otp: aadhaarOTP,
+          consent: 'Y',
+          consent_text: consentText
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        if (result.data.status === 'VALID') {
+          alert('✅ Aadhaar verification successful!');
+          
+          await fetchVerificationStatus();
+          
+          setShowAadhaarOTPField(false);
+          setAadhaarOTP('');
+        } else {
+          alert(`⚠️ Aadhaar OTP verification failed: ${result.data.message}`);
+        }
+      } else {
+        alert(`❌ Aadhaar OTP verification error: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Aadhaar OTP verification error:', error);
+      alert('Failed to verify Aadhaar OTP. Please try again.');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  // Combined KYC verification
+  const verifyFullKYC = async () => {
+    try {
+      if (!consentGiven) {
+        alert('Please give consent for KYC verification');
+        return;
+      }
+      
+      setIsVerifying(true);
+      
+      const consentText = `I authorize FinTech App to verify my KYC details including PAN and Aadhaar for account verification purpose.`;
+      
+      const response = await fetch('http://localhost:5000/api/kyc/verify/kyc', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          pan: {
+            pan_number: userData.panNumber,
+            full_name: userData.panFullName
+          },
+          aadhaar: {
+            aadhaar_number: aadhaarNumber
+          },
+          consent: 'Y'
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        let message = 'KYC verification results:\n';
+        if (result.data.pan) {
+          message += `PAN: ${result.data.pan.status === 'VALID' ? '✅ Verified' : '❌ Failed'}\n`;
+        }
+        if (result.data.aadhaar) {
+          message += `Aadhaar: ${result.data.aadhaar.status === 'VALID' ? '✅ Verified' : '❌ Failed'}`;
+        }
+        alert(message);
+        
+        await fetchVerificationStatus();
+      } else {
+        alert(`❌ KYC verification error: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('KYC verification error:', error);
+      alert('Failed to verify KYC. Please try again.');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   // Handle update based on active tab
   const handleUpdate = async () => {
     switch (activeTab) {
@@ -526,11 +789,6 @@ export default function ProfilePage() {
     };
   }, [panPhotoPreview]);
 
-  // DEBUG: Log current userData state
-  useEffect(() => {
-    console.log('Current userData state:', userData);
-  }, [userData]);
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Full-screen loading overlay */}
@@ -547,12 +805,22 @@ export default function ProfilePage() {
       {/* KYC Status Banner */}
       <div className="bg-white px-4 py-3 border-b">
         <div className="flex justify-between text-sm">
-          <span className={getStatusColor(kycStatus.pan.status)}>
-            {kycStatus.pan.message}
-          </span>
-          <span className={getStatusColor(kycStatus.bank.status)}>
-            {kycStatus.bank.message}
-          </span>
+          <div className="flex items-center space-x-2">
+            <span className={getStatusColor(kycStatus.pan.status)}>
+              {kycStatus.pan.message}
+            </span>
+            {verificationStatus.pan.verified && (
+              <Check className="w-4 h-4 text-green-500" />
+            )}
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className={getStatusColor(kycStatus.bank.status)}>
+              {kycStatus.bank.message}
+            </span>
+            {verificationStatus.aadhaar.verified && (
+              <Check className="w-4 h-4 text-green-500" />
+            )}
+          </div>
         </div>
       </div>
 
@@ -618,10 +886,217 @@ export default function ProfilePage() {
         )}
 
         {activeTab === 'KYC Details' && (
-          <div className="space-y-4">
-            {renderInputField('PAN Full Name', 'panFullName')}
-            {renderInputField('PAN Number', 'panNumber')}
+          <div className="space-y-6">
+            {/* PAN Verification Section */}
+            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-800">PAN Verification</h3>
+                <div className="flex items-center space-x-2">
+                  {verificationStatus.pan.verified ? (
+                    <span className="px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full flex items-center">
+                      <Check className="w-4 h-4 mr-1" />
+                      Verified
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm rounded-full">
+                      ⚠️ Pending
+                    </span>
+                  )}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {renderInputField('PAN Full Name', 'panFullName', 'text', false, 'As per PAN card')}
+                {renderInputField('PAN Number', 'panNumber', 'text', false, 'ABCDE1234F')}
+              </div>
+              
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={verifyPAN}
+                  disabled={isVerifying || !userData.panNumber || !userData.panFullName}
+                  className={`px-5 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center ${
+                    isVerifying || !userData.panNumber || !userData.panFullName
+                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                >
+                  {isVerifying ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Verifying...
+                    </>
+                  ) : verificationStatus.pan.verified ? (
+                    <>
+                      <Check className="w-4 h-4 mr-2" />
+                      Verified
+                    </>
+                  ) : (
+                    'Verify PAN'
+                  )}
+                </button>
+                
+                <button
+                  onClick={updatePanDetails}
+                  disabled={isVerifying || !userData.panNumber || !userData.panFullName}
+                  className={`px-5 py-2.5 rounded-lg font-medium text-sm border transition-all ${
+                    isVerifying || !userData.panNumber || !userData.panFullName
+                      ? 'border-gray-300 text-gray-400 cursor-not-allowed'
+                      : 'border-blue-600 text-blue-600 hover:bg-blue-50'
+                  }`}
+                >
+                  Save PAN Details
+                </button>
+              </div>
+              
+              {verificationStatus.pan.timestamp && (
+                <p className="text-xs text-gray-500 mt-3">
+                  Last verified: {new Date(verificationStatus.pan.timestamp).toLocaleDateString()}
+                </p>
+              )}
+            </div>
             
+            {/* Aadhaar Verification Section */}
+            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-800">Aadhaar Verification</h3>
+                <div className="flex items-center space-x-2">
+                  {verificationStatus.aadhaar.verified ? (
+                    <span className="px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full flex items-center">
+                      <Check className="w-4 h-4 mr-1" />
+                      Verified
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 bg-gray-100 text-gray-800 text-sm rounded-full">
+                      Optional
+                    </span>
+                  )}
+                </div>
+              </div>
+              
+              {/* Consent Checkbox */}
+              <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <label className="flex items-start space-x-3">
+                  <input
+                    type="checkbox"
+                    checked={consentGiven}
+                    onChange={(e) => setConsentGiven(e.target.checked)}
+                    disabled={verificationStatus.aadhaar.verified}
+                    className="mt-1 h-4 w-4 text-blue-600 disabled:text-gray-400"
+                  />
+                  <span className="text-sm text-gray-700">
+                    I consent to verify my Aadhaar details for KYC purpose. I understand that my Aadhaar details will be used only for verification and will be stored securely in compliance with UIDAI guidelines.
+                  </span>
+                </label>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm text-gray-600 mb-2">Aadhaar Number</label>
+                <input
+                  type="text"
+                  value={aadhaarNumber}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 12);
+                    setAadhaarNumber(value);
+                  }}
+                  disabled={isVerifying || verificationStatus.aadhaar.verified}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-400 bg-white disabled:bg-gray-100 disabled:text-gray-500"
+                  placeholder="Enter 12-digit Aadhaar"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Format: 12 digits (e.g., 123456789012)
+                </p>
+              </div>
+              
+              {/* OTP Field (shown after requesting OTP) */}
+              {showAadhaarOTPField && (
+                <div className="mb-4">
+                  <label className="block text-sm text-gray-600 mb-2">Enter OTP</label>
+                  <div className="flex gap-3">
+                    <input
+                      type="text"
+                      value={aadhaarOTP}
+                      onChange={(e) => setAadhaarOTP(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      disabled={isVerifying}
+                      className="flex-1 px-4 py-3 rounded-lg border border-gray-400 bg-white"
+                      placeholder="Enter 6-digit OTP"
+                    />
+                    <button
+                      onClick={verifyAadhaarWithOTP}
+                      disabled={isVerifying || aadhaarOTP.length !== 6}
+                      className={`px-6 py-3 rounded-lg font-medium flex items-center ${
+                        isVerifying || aadhaarOTP.length !== 6
+                          ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                          : 'bg-green-600 text-white hover:bg-green-700'
+                      }`}
+                    >
+                      {isVerifying ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                          Verifying...
+                        </>
+                      ) : (
+                        'Verify OTP'
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex flex-wrap gap-3">
+                {!showAadhaarOTPField ? (
+                  <button
+                    onClick={requestAadhaarOTP}
+                    disabled={isVerifying || !aadhaarNumber || aadhaarNumber.length !== 12 || !consentGiven || verificationStatus.aadhaar.verified}
+                    className={`px-5 py-2.5 rounded-lg font-medium text-sm flex items-center ${
+                      isVerifying || !aadhaarNumber || aadhaarNumber.length !== 12 || !consentGiven || verificationStatus.aadhaar.verified
+                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                  >
+                    {isVerifying ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                        Sending OTP...
+                      </>
+                    ) : verificationStatus.aadhaar.verified ? (
+                      <>
+                        <Check className="w-4 h-4 mr-2" />
+                        Verified
+                      </>
+                    ) : (
+                      'Request OTP'
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowAadhaarOTPField(false)}
+                    className="px-5 py-2.5 rounded-lg font-medium text-sm border border-gray-400 text-gray-600 hover:bg-gray-50"
+                  >
+                    Cancel OTP
+                  </button>
+                )}
+                
+                <button
+                  onClick={verifyFullKYC}
+                  disabled={isVerifying || !consentGiven}
+                  className={`px-5 py-2.5 rounded-lg font-medium text-sm border flex items-center ${
+                    isVerifying || !consentGiven
+                      ? 'border-gray-300 text-gray-400 cursor-not-allowed'
+                      : 'border-green-600 text-green-600 hover:bg-green-50'
+                  }`}
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  Verify Full KYC
+                </button>
+              </div>
+              
+              {verificationStatus.aadhaar.timestamp && (
+                <p className="text-xs text-gray-500 mt-3">
+                  Last verified: {new Date(verificationStatus.aadhaar.timestamp).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+
             {/* PAN Photo Upload */}
             <div className="mt-4">
               <label className="block text-sm text-gray-600 mb-2">PAN Card Photo</label>
@@ -689,11 +1164,62 @@ export default function ProfilePage() {
               )}
             </div>
 
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <p className="text-sm text-yellow-800">
-                <strong>Note:</strong> PAN details require verification and will be encrypted for security.
-                Status will show as "PENDING" until approved by admin. Please ensure the PAN card photo is clear and readable.
-              </p>
+            {/* Verification History */}
+            {verificationHistory.length > 0 && (
+              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Verification History</h3>
+                <div className="space-y-3">
+                  {verificationHistory.slice(0, 5).map((item, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <p className="font-medium text-sm">{item.type} Verification</p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(item.verification_date).toLocaleString()}
+                        </p>
+                      </div>
+                      <span className={`px-3 py-1 rounded-full text-xs ${
+                        item.status === 'VALID' 
+                          ? 'bg-green-100 text-green-800' 
+                          : item.status === 'INVALID'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {item.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Important Notes */}
+            <div className="bg-gradient-to-r from-blue-50 to-teal-50 rounded-xl border border-blue-200 p-5">
+              <h3 className="font-semibold text-blue-800 mb-3 flex items-center">
+                <AlertCircle className="w-5 h-5 mr-2" />
+                Important Notes
+              </h3>
+              <ul className="text-sm text-blue-700 space-y-2">
+                <li className="flex items-start">
+                  <Check className="w-4 h-4 mr-2 mt-0.5 text-green-500" />
+                  <span>PAN verification is mandatory for financial transactions</span>
+                </li>
+                <li className="flex items-start">
+                  <Check className="w-4 h-4 mr-2 mt-0.5 text-green-500" />
+                  <span>Aadhaar verification is optional but recommended for complete KYC</span>
+                </li>
+                <li className="flex items-start">
+                  <Check className="w-4 h-4 mr-2 mt-0.5 text-green-500" />
+                  <span>Your data is encrypted and stored securely</span>
+                </li>
+                <li className="flex items-start">
+                  <Check className="w-4 h-4 mr-2 mt-0.5 text-green-500" />
+                  <span>For demo purposes, use PAN format: ABCDE1234F</span>
+                </li>
+                <li className="flex items-start">
+                  <Check className="w-4 h-4 mr-2 mt-0.5 text-green-500" />
+                  <span>For demo Aadhaar OTP, use: 123456</span>
+                </li>
+              </ul>
             </div>
           </div>
         )}
@@ -714,7 +1240,7 @@ export default function ProfilePage() {
         )}
 
         {/* Update Button - Shows only in edit mode */}
-        {editMode && !loading && (
+        {editMode && !loading && activeTab !== 'KYC Details' && (
           <div className="pt-4">
             <button
               onClick={handleUpdate}
@@ -724,7 +1250,6 @@ export default function ProfilePage() {
               <Save className="w-5 h-5" />
               <span>
                 {activeTab === 'Personal Details' && 'Update Personal Details'}
-                {activeTab === 'KYC Details' && 'Submit PAN Details'}
                 {activeTab === 'Bank Details' && 'Submit Bank Details'}
               </span>
             </button>

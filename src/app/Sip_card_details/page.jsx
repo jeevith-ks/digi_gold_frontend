@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, X, Calendar, Clock, DollarSign, Edit, Users, Plus, Check } from 'lucide-react';
+import { ChevronLeft, X, Calendar, Clock, DollarSign, Edit, Users, Plus, Check, AlertCircle, Lock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const SIPPage = () => {
@@ -25,63 +25,142 @@ const SIPPage = () => {
   const [showAmountInput, setShowAmountInput] = useState(false);
   const [amountPayingValues, setAmountPayingValues] = useState({});
   
-  // New states for fixed SIP plans
+  // New states for fixed SIP plan
   const [availableFixedSIPs, setAvailableFixedSIPs] = useState([]);
   const [showFixedSIPsList, setShowFixedSIPsList] = useState(false);
   const [loadingFixedSIPs, setLoadingFixedSIPs] = useState(false);
   const [choosingSIP, setChoosingSIP] = useState(false);
   const [selectedFixedSIPId, setSelectedFixedSIPId] = useState(null);
+  
+  // Time restriction states
+  const [isWithinAllowedTime, setIsWithinAllowedTime] = useState(true);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // Market status state
+  const [marketStatus, setMarketStatus] = useState('open'); // 'open' or 'closed'
 
-  // Save payment summary data to session storage whenever it changes
+  // Get user data from sessionStorage and fetch initial data
   useEffect(() => {
-    if (selectedPlan && (showAmountInput || manualAmount)) {
-      const paymentSummaryData = {
-        sipPlanName: selectedPlan?.name,
-        sipPlanType: selectedPlan?.type,
-        paymentAmount: showAmountInput && manualAmount ? manualAmount : selectedPlan?.investMin,
-        paymentType: showAmountInput && manualAmount && selectedPlan?.type === 'Flexible SIP' ? 'Custom Amount' : 'Default Amount',
-        metalType: selectedPlan?.metalType,
-        timestamp: new Date().toISOString(),
-        isFlexible: selectedPlan?.type === 'Flexible SIP',
-        planId: selectedSIPId
-      };
+    if (typeof window !== 'undefined') {
+      const storedUserType = sessionStorage.getItem('userType');
+      const storedUsername = sessionStorage.getItem('username');
+      const storedToken = sessionStorage.getItem('authToken');
       
-      sessionStorage.setItem('paymentSummaryData', JSON.stringify(paymentSummaryData));
-      console.log('💾 Saved payment summary to sessionStorage:', paymentSummaryData);
-    }
-  }, [selectedPlan, showAmountInput, manualAmount, selectedSIPId]);
+      console.log('Session Storage Data:', {
+        userType: storedUserType,
+        username: storedUsername,
+        hasToken: !!storedToken
+      });
+      
+      if (storedUserType) {
+        setUserType(storedUserType);
+      }
+      if (storedUsername) {
+        // setUsername(storedUsername);
+      }
 
-  useEffect(() => {
-    const storedUserType = sessionStorage.getItem('userType');
-    const token = sessionStorage.getItem('authToken');
-    const storedSipType = sessionStorage.getItem('sipType');
-    
-    setUserType(storedUserType || '');
-    setAuthToken(token || '');
-    
-    if (storedSipType) {
-      setActiveTab(storedSipType === 'fixed' ? 'All' : 'New SIP');
-    }
+      // Check for stored market status - Load from sessionStorage
+      const storedMarketStatus = sessionStorage.getItem('marketStatus');
+      if (storedMarketStatus) {
+        console.log('📊 Loading market status from sessionStorage:', storedMarketStatus);
+        setMarketStatus(storedMarketStatus);
+      } else {
+        // Initialize with 'open' if not stored yet
+        console.log('📊 Initializing market status to: open');
+        sessionStorage.setItem('marketStatus', 'open');
+        setMarketStatus('open');
+      }
 
-    // Load saved amount paying values from sessionStorage
-    const savedAmounts = sessionStorage.getItem('amountPayingValues');
-    if (savedAmounts) {
-      setAmountPayingValues(JSON.parse(savedAmounts));
-    }
+      // Fetch initial data based on user type
+      if (storedUserType === 'customer' && storedToken) {
+        fetchHoldings(storedToken);
+        fetchLatestPrices(storedToken); // Fetch prices immediately for customers
+      } else if (storedUserType === 'admin') {
+        // Set zeros for admin users
+        // setMetalBalances({
+        //   '24k-995': '0.0000',
+        //   '22k-916': '0.0000',
+        //   '24k-999': '0.0000'
+        // });
+      }
 
-    // Load saved payment data if exists
-    const savedPaymentData = sessionStorage.getItem('currentPaymentData');
-    if (savedPaymentData) {
-      console.log('📝 Loaded saved payment data from session:', JSON.parse(savedPaymentData));
-    }
+      const storedSipType = sessionStorage.getItem('sipType');
+      
+      setUserType(storedUserType || '');
+      setAuthToken(storedToken || '');
+      
+      if (storedSipType) {
+        setActiveTab(storedSipType === 'fixed' ? 'All' : 'New SIP');
+      }
 
-    // Initial fetch based on user type
-    if (storedUserType === 'admin') {
-      fetchAllSIPs(); // Admin needs to see all SIPs
-    } else {
-      fetchUserSIPs(); // Customer sees their own SIPs
+      // Load saved amount paying values from sessionStorage
+      const savedAmounts = sessionStorage.getItem('amountPayingValues');
+      if (savedAmounts) {
+        setAmountPayingValues(JSON.parse(savedAmounts));
+      }
+
+      // Load saved payment data if exists
+      const savedPaymentData = sessionStorage.getItem('currentPaymentData');
+      if (savedPaymentData) {
+        console.log('📝 Loaded saved payment data from session:', JSON.parse(savedPaymentData));
+      }
+
+      // Initial fetch based on user type
+      if (storedUserType === 'admin') {
+        fetchAllSIPs(); // Admin needs to see all SIPs
+      } else {
+        fetchUserSIPs(); // Customer sees their own SIPs
+      }
+
+      // Check time restriction immediately
+      checkTimeRestriction();
+      
+      // Set up interval to check time every minute
+      const timeCheckInterval = setInterval(() => {
+        const now = new Date();
+        setCurrentTime(now);
+        checkTimeRestriction(now);
+      }, 60000); // Check every minute
+
+      // Clean up interval on unmount
+      return () => clearInterval(timeCheckInterval);
     }
   }, []);
+
+  // Function to check if current time is within allowed hours (10:00 AM to 6:00 PM)
+  const checkTimeRestriction = (now = new Date()) => {
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const currentTimeInMinutes = currentHour * 60 + currentMinute;
+    
+    // Define allowed time range: 10:00 AM (600 minutes) to 6:00 PM (1080 minutes)
+    const startTimeInMinutes = 10 * 60; // 10:00 AM = 600 minutes
+    const endTimeInMinutes = 18 * 60;   // 6:00 PM = 1080 minutes
+    
+    const isWithinTime = currentTimeInMinutes >= startTimeInMinutes && 
+                         currentTimeInMinutes <= endTimeInMinutes;
+    
+    setIsWithinAllowedTime(isWithinTime);
+    
+    console.log('⏰ Time check:', {
+      currentTime: `${currentHour}:${currentMinute < 10 ? '0' + currentMinute : currentMinute}`,
+      currentTimeInMinutes,
+      startTime: '10:00 AM (600 minutes)',
+      endTime: '6:00 PM (1080 minutes)',
+      isWithinAllowedTime: isWithinTime
+    });
+    
+    return isWithinTime;
+  };
+
+  // Format time for display
+  const formatTime = (date) => {
+    return date.toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
 
   // Save amount paying values to sessionStorage whenever they change
   useEffect(() => {
@@ -162,7 +241,14 @@ const SIPPage = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('User SIP Data fetched:', data);
+        console.log('🔍 Raw API data for user SIPs:', {
+          flexibleSIPs: data.sipsFlexible,
+          metalTypes: data.sipsFlexible?.map(sip => ({
+            id: sip.id,
+            metal_type: sip.metal_type,
+            status: sip.status
+          }))
+        });
         
         // Transform and set data
         const transformedPlans = transformSIPData(data);
@@ -196,9 +282,110 @@ const SIPPage = () => {
     }
   };
 
+  // Fetch latest prices from API
+  const fetchLatestPrices = async (token) => {
+    try {
+      // setIsLoadingPrices(true);
+      console.log('💰 Fetching latest prices...');
+
+      const response = await fetch('http://localhost:5000/api/price/', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      console.log('📡 Price response status:', response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Latest prices received:', data);
+        
+        if (data.latestPrice) {
+          // Update metal rates with latest prices
+          // setMetalRates({
+          //   '24k-995': data.latestPrice.gold24K,
+          //   '22k-916': data.latestPrice.gold22K,
+          //   '24k-999': data.latestPrice.silver
+          // });
+          
+          // Update last price update time
+          // setLastPriceUpdate(new Date().toLocaleTimeString());
+          console.log('🔄 Metal rates updated with latest prices');
+        }
+      } else {
+        console.error('❌ Failed to fetch prices:', response.status);
+        // Keep existing rates if fetch fails
+      }
+    } catch (error) {
+      console.error('❌ Error fetching prices:', error);
+      // Keep existing rates on error
+    } finally {
+      // setIsLoadingPrices(false);
+    }
+  };
+
+  // Fetch holdings data for customers
+  const fetchHoldings = async (token) => {
+    try {
+      // setIsLoading(true);
+      console.log('🔐 Fetching holdings for customer...');
+
+      const response = await fetch('http://localhost:5000/api/holdings', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      console.log('📡 Holdings response status:', response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Holdings data received:', data);
+        // setHoldings(data.holdings || data); // Handle both response formats
+        
+        // Update metal balances based on holdings data
+        // updateMetalBalances(data.holdings || data);
+      } else {
+        console.error('❌ Failed to fetch holdings:', response.status);
+        // Set zeros if fetch fails
+        // setMetalBalances({
+        //   '24k-995': '0.0000',
+        //   '22k-916': '0.0000',
+        //   '24k-999': '0.0000'
+        // });
+      }
+    } catch (error) {
+      console.error('❌ Error fetching holdings:', error);
+      // Set zeros on error
+      // setMetalBalances({
+      //   '24k-995': '0.0000',
+      //   '22k-916': '0.0000',
+      //   '24k-999': '0.0000'
+      // });
+    } finally {
+      // setIsLoading(false);
+    }
+  };
+
   // NEW FUNCTION: Fetch available fixed SIP plans for customers
   const fetchAvailableFixedSIPs = async () => {
     try {
+      // Check time restriction before fetching
+      if (!checkTimeRestriction()) {
+        setError(`SIP plans can only be chosen between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+        return;
+      }
+
+      // Check market status before fetching
+      if (marketStatus === 'closed') {
+        setError(`Market is currently closed. SIP operations are temporarily disabled.`);
+        return;
+      }
+
       setLoadingFixedSIPs(true);
       setError('');
       
@@ -250,6 +437,18 @@ const SIPPage = () => {
   // NEW FUNCTION: Choose a fixed SIP plan
   const handleChooseFixedSIP = async (planId) => {
     try {
+      // Check time restriction before proceeding
+      if (!checkTimeRestriction()) {
+        alert(`Cannot choose SIP plan. SIP plans can only be chosen between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+        return;
+      }
+
+      // Check market status before proceeding
+      if (marketStatus === 'closed') {
+        alert(`Market is currently closed. SIP operations are temporarily disabled.`);
+        return;
+      }
+
       setChoosingSIP(true);
       setError('');
       
@@ -346,7 +545,7 @@ const SIPPage = () => {
           name: fixedSip.sipPlanAdmin?.Yojna_name || `Fixed SIP Plan ${index + 1}`,
           type: 'Fixed SIP',
           dueDate: formatDate(fixedSip.next_due_date),
-          createdDate: formatDate(fixedSip.created_at), 
+          createdDate: formatDate(fixedSip.created_at),  
           investMin: `₹${formatCurrency(monthlyAmount)}`,
           totalAmount: `₹${formatCurrency(totalAmount)}`,
           monthlyAmount: monthlyAmount,
@@ -368,17 +567,25 @@ const SIPPage = () => {
     return fixedPlans;
   };
 
-  // Transform flexible SIP data
+  // Transform flexible SIP data (Used for Admin view)
   const transformFlexibleSIPData = (flexibleSips, isAdmin = false) => {
     const flexiblePlans = [];
 
     if (flexibleSips && flexibleSips.length > 0) {
       flexibleSips.forEach((flexibleSip, index) => {
         const totalAmount = flexibleSip.total_amount_paid ? parseFloat(flexibleSip.total_amount_paid) : 0;
+        const displayMetalType = getDisplayMetalType(flexibleSip.metal_type);
+        
+        console.log(`🔍 Admin Flexible SIP ${index + 1}:`, {
+          id: flexibleSip.id,
+          backendMetalType: flexibleSip.metal_type,
+          displayMetalType: displayMetalType,
+          name: `Flexible SIP - ${displayMetalType}`
+        });
         
         flexiblePlans.push({
           id: flexibleSip.id,
-          name: `Flexible SIP - ${getDisplayMetalType(flexibleSip.metal_type)}`,
+          name: `Flexible SIP - ${displayMetalType}`,
           type: 'Flexible SIP',
           dueDate: formatDate(flexibleSip.next_due_date),
           createdDate: formatDate(flexibleSip.created_at),
@@ -390,7 +597,7 @@ const SIPPage = () => {
           status: flexibleSip.status,
           monthsPaid: flexibleSip.months_paid || 0,
           totalMonths: flexibleSip.total_months || 12,
-          metalType: getDisplayMetalType(flexibleSip.metal_type),
+          metalType: displayMetalType,
           isFixed: false,
           createdAt: flexibleSip.created_at,
           nextDueDate: flexibleSip.next_due_date,
@@ -404,8 +611,14 @@ const SIPPage = () => {
     return flexiblePlans;
   };
 
-  // Transform user's personal SIP data
+  // Transform user's personal SIP data (Used for Customer view)
   const transformSIPData = (apiData) => {
+    console.log('🔍 Transforming SIP data for customer:', {
+      hasFixedSIPs: apiData.sipsFixed?.length || 0,
+      hasFlexibleSIPs: apiData.sipsFlexible?.length || 0,
+      flexibleSIPs: apiData.sipsFlexible
+    });
+
     const plans = [];
 
     // Process fixed SIPs (opted ones)
@@ -436,14 +649,23 @@ const SIPPage = () => {
       });
     }
 
-    // Process flexible SIPs
+    // Process flexible SIPs - FIXED: Always use the actual metal type from backend
     if (apiData.sipsFlexible && apiData.sipsFlexible.length > 0) {
       apiData.sipsFlexible.forEach((flexibleSip, index) => {
         const totalAmount = flexibleSip.total_amount_paid ? parseFloat(flexibleSip.total_amount_paid) : 0;
+        // CRITICAL FIX: Get the metal type from the flexible SIP record
+        const displayMetalType = getDisplayMetalType(flexibleSip.metal_type);
+        
+        console.log(`✅ Customer Flexible SIP ${index + 1} - FIXED:`, {
+          id: flexibleSip.id,
+          backendMetalType: flexibleSip.metal_type,
+          displayMetalType: displayMetalType,
+          name: `Flexible SIP - ${displayMetalType}`
+        });
         
         plans.push({
           id: flexibleSip.id,
-          name: `Flexible SIP - ${getDisplayMetalType(flexibleSip.metal_type)}`,
+          name: `Flexible SIP - ${displayMetalType}`, // Now shows correct metal type
           type: 'Flexible SIP',
           dueDate: formatDate(flexibleSip.next_due_date),
           createdDate: formatDate(flexibleSip.created_at),
@@ -455,7 +677,7 @@ const SIPPage = () => {
           status: flexibleSip.status,
           monthsPaid: flexibleSip.months_paid || 0,
           totalMonths: flexibleSip.total_months || 12,
-          metalType: getDisplayMetalType(flexibleSip.metal_type),
+          metalType: displayMetalType, // Correct metal type stored
           isFixed: false,
           createdAt: flexibleSip.created_at,
           nextDueDate: flexibleSip.next_due_date
@@ -463,6 +685,7 @@ const SIPPage = () => {
       });
     }
 
+    console.log('✅ Final transformed plans:', plans);
     return plans;
   };
 
@@ -482,12 +705,28 @@ const SIPPage = () => {
     }
   };
 
+  // UPDATED: Improved getDisplayMetalType function
   const getDisplayMetalType = (metalType) => {
-    switch (metalType) {
-      case 'gold22K': return '22KT Gold';
-      case 'gold24K': return '24KT Gold';
-      case 'silver': return 'Silver';
-      default: return metalType || '22KT Gold';
+    if (!metalType) return 'Unknown Metal';
+    
+    const metalTypeStr = String(metalType).toLowerCase().trim();
+    
+    switch (metalTypeStr) {
+      case 'gold22k':
+      case '22kt':
+      case '22kt gold':
+      case '22 karat':
+        return '22KT Gold';
+      case 'gold24k':
+      case '24kt':
+      case '24kt gold':
+      case '24 karat':
+        return '24KT Gold';
+      case 'silver':
+        return 'Silver';
+      default:
+        // Return the original value if it's not one of our known types
+        return metalType;
     }
   };
 
@@ -601,6 +840,19 @@ const SIPPage = () => {
 
   const handlePay = (id, plan, e) => {
     e.stopPropagation();
+    
+    // Check time restriction before opening payment dialog
+    if (!checkTimeRestriction()) {
+      alert(`Cannot make payment. SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+      return;
+    }
+    
+    // Check market status before opening payment dialog
+    if (marketStatus === 'closed') {
+      alert(`Market is currently closed. Trading operations, including SIP payments, are temporarily disabled.`);
+      return;
+    }
+    
     setSelectedSIPId(id);
     setSelectedPlan(plan);
     setShowPaymentDialog(true);
@@ -652,6 +904,18 @@ const SIPPage = () => {
   // Handle Create Fixed SIP for Customers
   const handleCreateFixedSIP_customers = () => {
     if (userType === 'customer' && activeTab === 'All') {
+      // Check time restriction before proceeding
+      if (!checkTimeRestriction()) {
+        alert(`Cannot create SIP plan. SIP plans can only be chosen between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+        return;
+      }
+      
+      // Check market status before proceeding
+      if (marketStatus === 'closed') {
+        alert(`Market is currently closed. Trading operations, including SIP creation, are temporarily disabled.`);
+        return;
+      }
+      
       // Save to session storage
       sessionStorage.setItem('sipCreationType', 'fixed');
       sessionStorage.setItem('sipCreationUserType', userType);
@@ -743,6 +1007,20 @@ const SIPPage = () => {
 
   // Enhanced payment method handler with sessionStorage integration
   const handlePaymentMethod = async (method) => {
+    // Check time restriction before proceeding with payment
+    if (!checkTimeRestriction()) {
+      alert(`Cannot process payment. SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+      setShowPaymentDialog(false);
+      return;
+    }
+    
+    // Check market status before proceeding with payment
+    if (marketStatus === 'closed') {
+      alert(`Market is currently closed. Trading operations, including SIP payments, are temporarily disabled.`);
+      setShowPaymentDialog(false);
+      return;
+    }
+    
     // Save payment data to session storage
     savePaymentDataToSession();
     
@@ -893,6 +1171,18 @@ const SIPPage = () => {
         alert(`Failed to initialize payment: ${error.message}`);
       }
     } else if (method === 'Offline') {
+      // Check time restriction for offline payment too
+      if (!checkTimeRestriction()) {
+        alert(`Cannot process payment. SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+        return;
+      }
+      
+      // Check market status for offline payment
+      if (marketStatus === 'closed') {
+        alert(`Market is currently closed. Trading operations, including offline SIP payments, are temporarily disabled.`);
+        return;
+      }
+      
       // Save offline payment data to session storage
       sessionStorage.setItem('offlinePaymentData', JSON.stringify({
         planId: selectedSIPId,
@@ -949,6 +1239,18 @@ const SIPPage = () => {
 
   const createFlexibleSIP = async () => {
     try {
+      // Check time restriction before creating SIP
+      if (!checkTimeRestriction()) {
+        alert(`Cannot create SIP plan. SIP plans can only be chosen between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+        return;
+      }
+
+      // Check market status before creating SIP
+      if (marketStatus === 'closed') {
+        alert(`Market is currently closed. Trading operations, including SIP creation, are temporarily disabled.`);
+        return;
+      }
+
       setCreateSIPLoading(true);
       const token = sessionStorage.getItem('authToken');
       
@@ -957,7 +1259,18 @@ const SIPPage = () => {
         return;
       }
 
-      const enumMetalType = getEnumMetalType(metalType);
+      console.log('🔍 Creating flexible SIP with:', {
+        currentMetalTypeState: metalType,
+        getDisplayMetalType: getDisplayMetalType(metalType),
+        getEnumMetalType: getEnumMetalType(getDisplayMetalType(metalType))
+      });
+
+      const enumMetalType = getEnumMetalType(getDisplayMetalType(metalType)); // FIXED
+
+      console.log('🔍 Sending to backend:', {
+        metal_type: enumMetalType,
+        display: getDisplayMetalType(metalType)
+      });
 
       // Save flexible SIP creation data to session storage
       const sipCreationData = {
@@ -986,6 +1299,7 @@ const SIPPage = () => {
       const responseData = await response.json();
       
       if (response.ok) {
+        console.log('✅ SIP created successfully:', responseData);
         // Clear creation data from session storage
         sessionStorage.removeItem('flexibleSIPCreation');
         
@@ -996,7 +1310,7 @@ const SIPPage = () => {
           await fetchUserSIPs();
         }
         setShowCreateFlexibleSIPDialog(false);
-        setMetalType('gold22K');
+        setMetalType('gold22K'); // Reset to default
         setTotalMonths(12);
         setInvestmentAmount(100000);
         alert('Flexible SIP created successfully!');
@@ -1073,6 +1387,36 @@ const SIPPage = () => {
             <p className="text-sm text-gray-500 mt-1">
               Select a fixed SIP plan to invest in
             </p>
+            
+            {/* Time Restriction Banner */}
+            {!isWithinAllowedTime && (
+              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <AlertCircle className="w-4 h-4 text-red-500" />
+                  <span className="text-xs font-medium text-red-700">
+                    SIP selection is only available between 10:00 AM and 6:00 PM
+                  </span>
+                </div>
+                <p className="text-xs text-red-600 mt-1">
+                  Current time: {formatTime(currentTime)}. Please try again during allowed hours.
+                </p>
+              </div>
+            )}
+            
+            {/* Market Status Banner */}
+            {marketStatus === 'closed' && (
+              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <Lock className="w-4 h-4 text-red-500" />
+                  <span className="text-xs font-medium text-red-700">
+                    Market is currently closed
+                  </span>
+                </div>
+                <p className="text-xs text-red-600 mt-1">
+                  SIP operations are temporarily disabled. Please try again when the market opens.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto p-4">
@@ -1103,7 +1447,7 @@ const SIPPage = () => {
                       selectedFixedSIPId === plan.id
                         ? 'border-green-500 bg-green-50'
                         : 'border-gray-200 hover:border-[#50C2C9]'
-                    }`}
+                    } ${!isWithinAllowedTime || marketStatus === 'closed' ? 'opacity-60' : ''}`}
                   >
                     <div className="flex justify-between items-start mb-3">
                       <div>
@@ -1139,10 +1483,10 @@ const SIPPage = () => {
                       </div>
                     ) : (
                       <button
-                        onClick={() => handleChooseFixedSIP(plan.id)}
-                        disabled={!plan.isActive || choosingSIP}
+                        onClick={() => isWithinAllowedTime && marketStatus === 'open' && handleChooseFixedSIP(plan.id)}
+                        disabled={!plan.isActive || choosingSIP || !isWithinAllowedTime || marketStatus === 'closed'}
                         className={`w-full py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2 ${
-                          plan.isActive 
+                          plan.isActive && isWithinAllowedTime && marketStatus === 'open'
                             ? 'bg-green-600 text-white hover:bg-green-700' 
                             : 'bg-gray-200 text-gray-500 cursor-not-allowed'
                         }`}
@@ -1153,7 +1497,14 @@ const SIPPage = () => {
                             <span>Processing...</span>
                           </>
                         ) : (
-                          <span>{plan.isActive ? 'Choose Plan' : 'Not Available'}</span>
+                          <span>
+                            {marketStatus === 'closed'
+                              ? 'Market Closed'
+                              : !isWithinAllowedTime 
+                              ? 'Available 10:00 AM - 6:00 PM' 
+                              : plan.isActive ? 'Choose Plan' : 'Not Available'
+                            }
+                          </span>
                         )}
                       </button>
                     )}
@@ -1228,8 +1579,20 @@ const SIPPage = () => {
     );
   };
 
+  // Debug component to show current SIP plans data
+  const DebugInfo = () => {
+    useEffect(() => {
+      console.log('🔍 Current SIP plans:', sipPlans);
+      console.log('🔍 Amount paying values:', amountPayingValues);
+    }, [sipPlans]);
+    
+    return null;
+  };
+
   return (
     <div className="w-full max-w-sm mx-auto bg-white min-h-screen flex flex-col relative">
+      <DebugInfo />
+      
       {/* Header */}
       <div className="flex items-center px-4 py-4 border-b border-gray-100">
         <button className="mr-4" onClick={() => router.push('/savings_plan')}>
@@ -1238,7 +1601,51 @@ const SIPPage = () => {
         <h1 className="text-lg font-semibold text-gray-900 flex-1 text-center mr-10">
           SIP Holdings
         </h1>
+        
+        {/* Current Time Display */}
+        <div className="absolute right-4 top-4">
+          <div className="flex items-center space-x-1 bg-gray-100 px-2 py-1 rounded-lg">
+            <Clock className="w-3 h-3 text-gray-600" />
+            <span className="text-xs font-medium text-gray-700">
+              {formatTime(currentTime)}
+            </span>
+          </div>
+        </div>
       </div>
+
+      {/* Time Restriction Banner */}
+      {!isWithinAllowedTime && userType === 'customer' && (
+        <div className="px-4 py-3 bg-red-50 border-b border-red-200">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 text-red-500" />
+            <div>
+              <p className="text-sm font-medium text-red-700">
+                ⏰ SIP Payment Restricted
+              </p>
+              <p className="text-xs text-red-600 mt-1">
+                SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: {formatTime(currentTime)}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Market Status Banner */}
+      {marketStatus === 'closed' && userType === 'customer' && (
+        <div className="px-4 py-3 bg-red-50 border-b border-red-200">
+          <div className="flex items-center space-x-2">
+            <Lock className="w-4 h-4 text-red-500" />
+            <div>
+              <p className="text-sm font-medium text-red-700">
+                ⚠️ Market Closed
+              </p>
+              <p className="text-xs text-red-600 mt-1">
+                Trading operations, including SIP creation and payments, are temporarily disabled.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Admin Info Banner */}
       {userType === 'admin' && activeTab === 'All' && (
@@ -1251,21 +1658,6 @@ const SIPPage = () => {
           </div>
           <p className="text-xs text-purple-600 text-center mt-1">
             Showing all fixed SIPs from all users
-          </p>
-        </div>
-      )}
-
-      {/* Customer Info Banner */}
-      {userType === 'customer' && activeTab === 'All' && (
-        <div className="px-4 py-3 bg-blue-50 border-b border-blue-200">
-          <div className="flex items-center justify-center space-x-2">
-            <Users className="w-4 h-4 text-blue-600" />
-            <p className="text-sm text-blue-700 font-medium">
-              Your Opted Fixed SIPs
-            </p>
-          </div>
-          <p className="text-xs text-blue-600 text-center mt-1">
-            Showing only fixed SIPs you have opted for
           </p>
         </div>
       )}
@@ -1426,14 +1818,31 @@ const SIPPage = () => {
                   </div>
                 </div>
 
-                {/* Pay Button - Show for customers in both tabs, hide for admin */}
-                {(userType !== 'admin' || activeTab === 'New SIP') && (
+                {/* Pay Button - ALWAYS SHOW FOR CUSTOMERS */}
+                {userType === 'customer' && (
                   <div className="flex justify-end pt-3">
                     <button
                       onClick={(e) => handlePay(plan.id, plan, e)}
-                      className="bg-white text-[#50C2C9] px-6 py-2 rounded-md font-semibold hover:bg-opacity-90 transition-colors shadow-md"
+                      disabled={!isWithinAllowedTime || marketStatus === 'closed'}
+                      className={`px-6 py-2 rounded-md font-semibold transition-colors shadow-md ${
+                        !isWithinAllowedTime || marketStatus === 'closed'
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          : 'bg-white text-[#50C2C9] hover:bg-opacity-90'
+                      }`}
+                      title={
+                        !isWithinAllowedTime 
+                          ? "Payments only allowed between 10:00 AM and 6:00 PM" 
+                          : marketStatus === 'closed'
+                          ? "Market is currently closed"
+                          : ""
+                      }
                     >
-                      Pay
+                      {marketStatus === 'closed' 
+                        ? 'Market Closed' 
+                        : !isWithinAllowedTime 
+                        ? 'Time Restricted' 
+                        : 'Pay'
+                      }
                     </button>
                   </div>
                 )}
@@ -1468,16 +1877,34 @@ const SIPPage = () => {
               <button
                 onClick={() => {
                   if (userType === 'customer') {
+                    // Check time restriction
+                    if (!isWithinAllowedTime) {
+                      alert(`Cannot create SIP plan. SIP plans can only be chosen between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+                      return;
+                    }
+                    // Check market status
+                    if (marketStatus === 'closed') {
+                      alert(`Market is currently closed. Trading operations, including SIP creation, are temporarily disabled.`);
+                      return;
+                    }
                     setShowCreateFlexibleSIPDialog(true);
                   } else {
                     // Admin can also create flexible SIPs if needed
                     setShowCreateFlexibleSIPDialog(true);
                   }
                 }}
-                className="bg-[#50C2C9] text-white px-6 py-3 rounded-lg font-semibold shadow-md hover:bg-[#45b1b9] transition-all flex items-center space-x-2"
+                disabled={(userType === 'customer' && !isWithinAllowedTime) || marketStatus === 'closed'}
+                className={`px-6 py-3 rounded-lg font-semibold shadow-md transition-all flex items-center space-x-2 ${
+                  (userType === 'customer' && !isWithinAllowedTime) || marketStatus === 'closed'
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-[#50C2C9] text-white hover:bg-[#45b1b9]'
+                }`}
+                title={marketStatus === 'closed' ? "Market is currently closed" : ""}
               >
                 <Plus className="w-4 h-4" />
-                <span>Create Flexible SIP</span>
+                <span>
+                  {marketStatus === 'closed' ? 'Market Closed' : 'Create Flexible SIP'}
+                </span>
               </button>
             )}
 
@@ -1494,10 +1921,29 @@ const SIPPage = () => {
             {userType === 'customer' && activeTab === 'All' && (
               <button
                 onClick={handleCreateFixedSIP_customers}
-                className="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold shadow-md hover:bg-green-700 transition-all flex items-center space-x-2"
+                disabled={!isWithinAllowedTime || marketStatus === 'closed'}
+                className={`px-6 py-3 rounded-lg font-semibold shadow-md transition-all flex items-center space-x-2 ${
+                  !isWithinAllowedTime || marketStatus === 'closed'
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-green-600 text-white hover:bg-green-700'
+                }`}
+                title={
+                  marketStatus === 'closed' 
+                    ? "Market is currently closed" 
+                    : !isWithinAllowedTime 
+                    ? "SIP creation only available 10:00 AM - 6:00 PM" 
+                    : ""
+                }
               >
                 <Plus className="w-4 h-4" />
-                <span>Create Fixed SIP</span>
+                <span>
+                  {marketStatus === 'closed' 
+                    ? 'Market Closed' 
+                    : !isWithinAllowedTime 
+                    ? 'Available 10:00 AM - 6:00 PM' 
+                    : 'Create Fixed SIP'
+                  }
+                </span>
               </button>
             )}
 
@@ -1510,6 +1956,51 @@ const SIPPage = () => {
               <span>Refresh</span>
             </button>
           </div>
+
+          {/* Time Restriction Info */}
+          {userType === 'customer' && (
+            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-start space-x-2">
+                <Clock className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs font-medium text-yellow-800">
+                    ⏰ SIP Payment Hours
+                  </p>
+                  <p className="text-xs text-yellow-700 mt-1">
+                    SIP payments can only be made between <span className="font-semibold">10:00 AM and 6:00 PM</span> every day.
+                  </p>
+                  <p className="text-xs text-yellow-600 mt-1">
+                    Current time: <span className="font-medium">{formatTime(currentTime)}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Market Status Info */}
+          {userType === 'customer' && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start space-x-2">
+                <Lock className={`w-4 h-4 ${marketStatus === 'closed' ? 'text-red-600' : 'text-green-600'} mt-0.5 flex-shrink-0`} />
+                <div>
+                  <p className="text-xs font-medium text-blue-800">
+                    📊 Market Status
+                  </p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    Current market status: <span className={`font-semibold ${marketStatus === 'closed' ? 'text-red-600' : 'text-green-600'}`}>
+                      {marketStatus === 'closed' ? 'CLOSED' : 'OPEN'}
+                    </span>
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    {marketStatus === 'closed' 
+                      ? 'Trading operations are temporarily disabled. You can view existing SIPs but cannot create new ones or make payments.'
+                      : 'Market is open for trading operations.'
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1539,6 +2030,39 @@ const SIPPage = () => {
               <div className="mt-2 inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
                 {selectedPlan?.type}
               </div>
+              
+              {/* Time Restriction Notice */}
+              {!isWithinAllowedTime && (
+                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center space-x-2 justify-center">
+                    <AlertCircle className="w-4 h-4 text-red-500" />
+                    <span className="text-xs font-medium text-red-700">
+                      ⏰ Payment Time Restricted
+                    </span>
+                  </div>
+                  <p className="text-xs text-red-600 mt-1">
+                    SIP payments can only be made between 10:00 AM and 6:00 PM
+                  </p>
+                  <p className="text-xs text-red-600">
+                    Current time: {formatTime(currentTime)}
+                  </p>
+                </div>
+              )}
+
+              {/* Market Status Notice */}
+              {marketStatus === 'closed' && (
+                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center space-x-2 justify-center">
+                    <Lock className="w-4 h-4 text-red-500" />
+                    <span className="text-xs font-medium text-red-700">
+                      ⚠️ Market Closed
+                    </span>
+                  </div>
+                  <p className="text-xs text-red-600 mt-1">
+                    Trading operations, including SIP payments, are temporarily disabled.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Enhanced Manual Amount Input Section */}
@@ -1551,8 +2075,8 @@ const SIPPage = () => {
               {!showAmountInput && (
                 <div className="space-y-3">
                   <div 
-                    className="border-2 border-[#50C2C9] bg-blue-50 rounded-lg p-4 cursor-pointer hover:bg-blue-100 transition-colors"
-                    onClick={() => setShowAmountInput(true)}
+                    className={`border-2 ${!isWithinAllowedTime || marketStatus === 'closed' ? 'border-gray-300 bg-gray-50' : 'border-[#50C2C9] bg-blue-50'} rounded-lg p-4 cursor-pointer hover:bg-blue-100 transition-colors`}
+                    onClick={() => isWithinAllowedTime && marketStatus === 'open' && setShowAmountInput(true)}
                   >
                     <div className="flex items-center justify-between">
                       <div>
@@ -1561,13 +2085,17 @@ const SIPPage = () => {
                         </p>
                         <p className="text-lg font-bold text-[#50C2C9]">{selectedPlan?.investMin}</p>
                         <p className="text-xs text-gray-500">
-                          {selectedPlan?.type === 'Flexible SIP' 
-                            ? 'Click to enter custom amount' 
-                            : 'Monthly installment amount'
+                          {marketStatus === 'closed'
+                            ? 'Market is currently closed'
+                            : !isWithinAllowedTime 
+                            ? 'Payments disabled outside allowed hours' 
+                            : selectedPlan?.type === 'Flexible SIP' 
+                              ? 'Click to enter custom amount' 
+                              : 'Monthly installment amount'
                           }
                         </p>
                       </div>
-                      <Edit className="w-4 h-4 text-[#50C2C9]" />
+                      {isWithinAllowedTime && marketStatus === 'open' && <Edit className="w-4 h-4 text-[#50C2C9]" />}
                     </div>
                   </div>
                   {selectedPlan?.type === 'Flexible SIP' && (
@@ -1589,6 +2117,7 @@ const SIPPage = () => {
                       placeholder="Enter amount (e.g., 5000)"
                       className="w-full p-4 border-2 border-[#50C2C9] rounded-lg focus:ring-2 focus:ring-[#50C2C9] focus:border-transparent text-lg font-medium text-black"
                       autoFocus
+                      disabled={!isWithinAllowedTime || marketStatus === 'closed'}
                     />
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex space-x-1">
                       <button
@@ -1624,18 +2153,48 @@ const SIPPage = () => {
             {/* Payment Method Buttons */}
             <div className="space-y-3">
               <button
-                onClick={() => handlePaymentMethod('Online')}
-                disabled={showAmountInput && !manualAmount}
-                className="w-full bg-[#50C2C9] text-white py-4 rounded-lg font-semibold hover:bg-[#45b1b9] transition-all shadow-md flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => isWithinAllowedTime && marketStatus === 'open' && handlePaymentMethod('Online')}
+                disabled={!isWithinAllowedTime || marketStatus === 'closed' || (showAmountInput && !manualAmount)}
+                className={`w-full py-4 rounded-lg font-semibold transition-all shadow-md flex items-center justify-center space-x-2 ${
+                  !isWithinAllowedTime || marketStatus === 'closed'
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : (showAmountInput && !manualAmount)
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-[#50C2C9] text-white hover:bg-[#45b1b9]'
+                }`}
               >
-                <span>Pay {showAmountInput && manualAmount ? manualAmount : selectedPlan?.investMin} Online</span>
+                {marketStatus === 'closed' ? (
+                  <>
+                    <Lock className="w-4 h-4" />
+                    <span>Market Closed</span>
+                  </>
+                ) : !isWithinAllowedTime ? (
+                  <>
+                    <Clock className="w-4 h-4" />
+                    <span>Available 10:00 AM - 6:00 PM</span>
+                  </>
+                ) : (
+                  <span>Pay {showAmountInput && manualAmount ? manualAmount : selectedPlan?.investMin} Online</span>
+                )}
               </button>
 
               <button
-                onClick={() => handlePaymentMethod('Offline')}
-                className="w-full bg-gray-100 text-gray-800 py-4 rounded-lg font-semibold hover:bg-gray-200 transition-all shadow-sm flex items-center justify-center space-x-2"
+                onClick={() => isWithinAllowedTime && marketStatus === 'open' && handlePaymentMethod('Offline')}
+                disabled={!isWithinAllowedTime || marketStatus === 'closed'}
+                className={`w-full py-4 rounded-lg font-semibold transition-all shadow-md flex items-center justify-center space-x-2 ${
+                  !isWithinAllowedTime || marketStatus === 'closed'
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                }`}
               >
-                <span>Pay Offline</span>
+                <span>
+                  {marketStatus === 'closed' 
+                    ? 'Offline Payment Disabled' 
+                    : !isWithinAllowedTime 
+                    ? 'Available 10:00 AM - 6:00 PM'
+                    : 'Pay Offline'
+                  }
+                </span>
               </button>
             </div>
 
@@ -1669,6 +2228,23 @@ const SIPPage = () => {
                     <span className="font-medium text-green-600">Custom Amount</span>
                   </div>
                 )}
+                <div className="flex justify-between">
+                  <span>Payment Status:</span>
+                  <span className={`font-medium ${
+                    marketStatus === 'closed' 
+                      ? 'text-red-600' 
+                      : !isWithinAllowedTime 
+                      ? 'text-red-600' 
+                      : 'text-green-600'
+                  }`}>
+                    {marketStatus === 'closed' 
+                      ? 'Market Closed' 
+                      : !isWithinAllowedTime 
+                      ? 'Time Restricted' 
+                      : 'Allowed'
+                    }
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -1704,6 +2280,36 @@ const SIPPage = () => {
               <p className="text-sm text-gray-500">
                 Start your flexible gold investment plan
               </p>
+              
+              {/* Time Restriction Notice */}
+              {!isWithinAllowedTime && (
+                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center space-x-2 justify-center">
+                    <AlertCircle className="w-4 h-4 text-red-500" />
+                    <span className="text-xs font-medium text-red-700">
+                      SIP creation is only available between 10:00 AM and 6:00 PM
+                    </span>
+                  </div>
+                  <p className="text-xs text-red-600 mt-1">
+                    Current time: {formatTime(currentTime)}. Please try again during allowed hours.
+                  </p>
+                </div>
+              )}
+
+              {/* Market Status Notice */}
+              {marketStatus === 'closed' && (
+                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center space-x-2 justify-center">
+                    <Lock className="w-4 h-4 text-red-500" />
+                    <span className="text-xs font-medium text-red-700">
+                      Market is currently closed
+                    </span>
+                  </div>
+                  <p className="text-xs text-red-600 mt-1">
+                    SIP operations are temporarily disabled. Please try again when the market opens.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* SIP Configuration */}
@@ -1713,9 +2319,10 @@ const SIPPage = () => {
                   Metal Type
                 </label>
                 <select 
-                  value={getDisplayMetalType(metalType)}
-                  onChange={(e) => setMetalType(getEnumMetalType(e.target.value))}
+                  value={getDisplayMetalType(metalType)} // <-- Shows the display name
+                  onChange={(e) => setMetalType(getEnumMetalType(e.target.value))} // <-- Sets enum value
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#50C2C9] focus:border-transparent text-black"
+                  disabled={!isWithinAllowedTime || marketStatus === 'closed' || createSIPLoading}
                 >
                   <option value="22KT Gold">22KT Gold</option>
                   <option value="24KT Gold">24KT Gold</option>
@@ -1725,34 +2332,16 @@ const SIPPage = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Duration (Months)
+                  Tag your plan (months)
                 </label>
                 <select 
                   value={totalMonths}
                   onChange={(e) => setTotalMonths(parseInt(e.target.value))}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#50C2C9] focus:border-transparent text-black"
+                  disabled={!isWithinAllowedTime || marketStatus === 'closed' || createSIPLoading}
                 >
                   <option value={6}>6 Months</option>
                   <option value={12}>12 Months</option>
-                  <option value={24}>24 Months</option>
-                  <option value={36}>36 Months</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Investment Amount
-                </label>
-                <select 
-                  value={investmentAmount}
-                  onChange={(e) => setInvestmentAmount(parseInt(e.target.value))}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#50C2C9] focus:border-transparent text-black"
-                >
-                  <option value={100000}>₹1,00,000</option>
-                  <option value={500000}>₹5,00,000</option>
-                  <option value={1000000}>₹10,00,000</option>
-                  <option value={1500000}>₹15,00,000</option>
-                  <option value={2000000}>₹20,00,000</option>
                 </select>
               </div>
             </div>
@@ -1760,13 +2349,27 @@ const SIPPage = () => {
             {/* Create Button */}
             <button
               onClick={createFlexibleSIP}
-              disabled={createSIPLoading}
-              className="w-full bg-[#50C2C9] text-white py-4 rounded-lg font-semibold hover:bg-[#50C2C9] transition-all shadow-md flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={createSIPLoading || !isWithinAllowedTime || marketStatus === 'closed'}
+              className={`w-full py-4 rounded-lg font-semibold transition-all shadow-md flex items-center justify-center space-x-2 ${
+                createSIPLoading || !isWithinAllowedTime || marketStatus === 'closed'
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-[#50C2C9] text-white hover:bg-[#45b1b9]'
+              }`}
             >
               {createSIPLoading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   <span>Creating SIP...</span>
+                </>
+              ) : marketStatus === 'closed' ? (
+                <>
+                  <Lock className="w-4 h-4" />
+                  <span>Market Closed</span>
+                </>
+              ) : !isWithinAllowedTime ? (
+                <>
+                  <Clock className="w-4 h-4" />
+                  <span>Available 10:00 AM - 6:00 PM</span>
                 </>
               ) : (
                 <span>Create Flexible SIP</span>
@@ -1774,7 +2377,12 @@ const SIPPage = () => {
             </button>
 
             <p className="text-xs text-gray-500 text-center mt-3">
-              You can add funds to your flexible SIP anytime
+              {marketStatus === 'closed'
+                ? 'Market is currently closed. SIP operations are temporarily disabled.'
+                : isWithinAllowedTime 
+                ? 'You can add funds to your flexible SIP anytime'
+                : 'SIP creation is only available between 10:00 AM and 6:00 PM'
+              }
             </p>
           </div>
         </div>
