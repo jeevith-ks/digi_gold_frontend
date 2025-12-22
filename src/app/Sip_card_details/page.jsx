@@ -134,8 +134,8 @@ const SIPPage = () => {
     const currentTimeInMinutes = currentHour * 60 + currentMinute;
     
     // Define allowed time range: 10:00 AM (600 minutes) to 6:00 PM (1080 minutes)
-    const startTimeInMinutes = 10 * 60; // 10:00 AM = 600 minutes
-    const endTimeInMinutes = 18 * 60;   // 6:00 PM = 1080 minutes
+    const startTimeInMinutes = 0 * 60; // 10:00 AM = 600 minutes
+    const endTimeInMinutes = 24 * 60;   // 6:00 PM = 1080 minutes
     
     const isWithinTime = currentTimeInMinutes >= startTimeInMinutes && 
                          currentTimeInMinutes <= endTimeInMinutes;

@@ -381,6 +381,3 @@ export default function PayofflinePage() {
     </div>
   );
 }
-
-	
-	

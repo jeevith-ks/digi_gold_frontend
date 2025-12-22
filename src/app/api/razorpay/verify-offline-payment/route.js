@@ -32,6 +32,7 @@ const PreciousMetalsApp = () => {
     '24k-999': '0.0000'
   });
   const [holdings, setHoldings] = useState([]);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Get user data from sessionStorage and fetch initial data
   useEffect(() => {
@@ -108,6 +109,167 @@ const PreciousMetalsApp = () => {
       }
     };
   }, [userType]);
+
+  // ✅ Export Excel function
+  const handleDownload = async () => {
+  try {
+    setIsExporting(true);
+    
+    // Get authentication token
+    const token = sessionStorage.getItem('authToken');
+    if (!token) {
+      alert('Authentication token not found. Please login again.');
+      setIsExporting(false);
+      return;
+    }
+
+    // Check if user is admin
+    const currentUserType = sessionStorage.getItem('userType');
+    if (currentUserType !== 'admin') {
+      alert('You do not have admin privileges to export data.');
+      setIsExporting(false);
+      return;
+    }
+
+    // Check market status
+    if (marketStatus === 'closed') {
+      alert('Trading is currently disabled. Market is closed.');
+      setIsExporting(false);
+      return;
+    }
+
+    console.log('📥 Starting export process...');
+    
+    // Try different API endpoints - adjust based on your backend
+    const endpoints = [
+      'http://localhost:5000/api/admin/export-excel',
+      'http://localhost:5000/api/export-excel',
+      'http://localhost:5000/export-excel',
+      'http://localhost:8085/api/admin/export-excel' // From your error message
+    ];
+    
+    let response;
+    let lastError;
+    
+    // Try each endpoint
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`🔄 Trying endpoint: ${endpoint}`);
+        response = await fetch(endpoint, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/json'
+          }
+        });
+        
+        if (response.ok) {
+          console.log(`✅ Success with endpoint: ${endpoint}`);
+          break;
+        } else {
+          console.log(`❌ Endpoint ${endpoint} failed with status: ${response.status}`);
+          lastError = `HTTP ${response.status}`;
+        }
+      } catch (error) {
+        console.log(`❌ Endpoint ${endpoint} error:`, error.message);
+        lastError = error.message;
+        response = null;
+      }
+    }
+    
+    if (!response || !response.ok) {
+      throw new Error(`All export endpoints failed. Last error: ${lastError}`);
+    }
+
+    // Check content type to handle different responses
+    const contentType = response.headers.get('content-type');
+    console.log('Content-Type:', contentType);
+    
+    if (contentType && contentType.includes('application/json')) {
+      // Handle JSON response (might be error or redirect URL)
+      const data = await response.json();
+      console.log('JSON Response:', data);
+      
+      if (data.downloadUrl) {
+        // If server returns a direct download URL
+        window.open(data.downloadUrl, '_blank');
+      } else if (data.message) {
+        throw new Error(data.message);
+      } else {
+        throw new Error('Unexpected JSON response from server');
+      }
+    } else if (contentType && contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+      // Handle Excel file response
+      const blob = await response.blob();
+      
+      if (!blob || blob.size === 0) {
+        throw new Error('Received empty file from server');
+      }
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const a = document.createElement('a');
+      a.href = url;
+      
+      // Get filename from response headers or use default
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = 'export_data.xlsx';
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename\*?=['"]?(?:UTF-\d['"]*)?([^;\r\n"']*)['"]?/i);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = decodeURIComponent(filenameMatch[1]);
+        } else {
+          const filenameMatchSimple = contentDisposition.match(/filename="?([^"]+)"?/);
+          if (filenameMatchSimple && filenameMatchSimple[1]) {
+            filename = filenameMatchSimple[1];
+          }
+        }
+      }
+      
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Cleanup
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      console.log('✅ Export completed successfully');
+      
+    } else {
+      // Try to handle as blob anyway
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'export_data.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }
+    
+  } catch (error) {
+    console.error('❌ Failed to download excel:', error);
+    alert(`Export failed: ${error.message}`);
+    
+    // Show debugging info
+    console.log('Debug Info:', {
+      userType: sessionStorage.getItem('userType'),
+      token: sessionStorage.getItem('authToken') ? 'Exists' : 'Missing',
+      marketStatus,
+      endpointsTried: [
+        'http://localhost:5000/api/admin/export-excel',
+        'http://localhost:5000/api/export-excel',
+        'http://localhost:5000/export-excel',
+        'http://localhost:8085/api/admin/export-excel'
+      ]
+    });
+  } finally {
+    setIsExporting(false);
+  }
+};
 
   // Fetch latest prices from API
   const fetchLatestPrices = async (token) => {
@@ -314,22 +476,6 @@ const PreciousMetalsApp = () => {
     }
   };
 
-  const handleDownload = async () => {
-    try {
-      const blob = await fetch("http://localhost:5000/api/admin/export-excel");
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = "ExcelExport.xlsx";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Failed to download excel:', error);
-    }
-  };
-
   // ✅ add image references
   const metals = [
     { 
@@ -362,9 +508,22 @@ const PreciousMetalsApp = () => {
   ];
 
   const adminActionButtons = [
-    { icon: <FolderInput className="w-6 h-6" onClick={handleDownload} />, label: 'Export', href: '' },
-    { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs font-bold">₹</div>, label: 'SIP', href: '/savings_plan' },
-    { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs">💰</div>, label: 'LookBook', href: '/Lookbook' }
+    { 
+      icon: <FolderInput className="w-6 h-6" />, 
+      label: 'Export', 
+      action: handleDownload, // Use action instead of href for custom function
+      isDisabled: marketStatus === 'closed' 
+    },
+    { 
+      icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs font-bold">₹</div>, 
+      label: 'SIP', 
+      href: '/savings_plan' 
+    },
+    { 
+      icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs">💰</div>, 
+      label: 'LookBook', 
+      href: '/Lookbook' 
+    }
   ];
 
   const customerActionButtons = [
@@ -830,36 +989,52 @@ const PreciousMetalsApp = () => {
         {/* Render different action buttons based on user type */}
         {userType === 'admin' 
           ? adminActionButtons.map((button, index) => (
-              <Link
-                key={index}
-                className={`flex flex-col items-center p-3 rounded-lg transition-colors ${
-                  marketStatus === 'closed' && button.label === 'Export'
-                    ? 'opacity-50 cursor-not-allowed'
-                    : 'hover:bg-gray-50'
-                }`}
-                href={marketStatus === 'closed' && button.label === 'Export' ? '#' : button.href}
-                onClick={(e) => {
-                  if (marketStatus === 'closed' && button.label === 'Export') {
-                    e.preventDefault();
-                    alert('Trading is currently disabled. Market is closed.');
-                  }
-                }}
-              >
-                <div className={`mb-1 ${
-                  marketStatus === 'closed' && button.label === 'Export'
-                    ? 'text-gray-400'
-                    : 'text-[#50C2C9]'
-                }`}>
-                  {button.icon}
-                </div>
-                <span className={`text-xs text-center leading-tight ${
-                  marketStatus === 'closed' && button.label === 'Export'
-                    ? 'text-gray-400'
-                    : 'text-gray-600'
-                }`}>
-                  {button.label}
-                </span>
-              </Link>
+              button.href ? (
+                // For buttons with href (SIP, LookBook)
+                <Link
+                  key={index}
+                  className="flex flex-col items-center p-3 rounded-lg transition-colors hover:bg-gray-50"
+                  href={button.href}
+                >
+                  <div className="mb-1 text-[#50C2C9]">
+                    {button.icon}
+                  </div>
+                  <span className="text-xs text-center leading-tight text-gray-600">
+                    {button.label}
+                  </span>
+                </Link>
+              ) : (
+                // For Export button with custom action
+                <button
+                  key={index}
+                  onClick={button.action}
+                  disabled={button.isDisabled || isExporting}
+                  className={`flex flex-col items-center p-3 rounded-lg transition-colors ${
+                    button.isDisabled || isExporting
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <div className={`mb-1 ${
+                    button.isDisabled || isExporting
+                      ? 'text-gray-400'
+                      : 'text-[#50C2C9]'
+                  }`}>
+                    {isExporting && button.label === 'Export' ? (
+                      <RefreshCw className="w-6 h-6 animate-spin" />
+                    ) : (
+                      button.icon
+                    )}
+                  </div>
+                  <span className={`text-xs text-center leading-tight ${
+                    button.isDisabled || isExporting
+                      ? 'text-gray-400'
+                      : 'text-gray-600'
+                  }`}>
+                    {isExporting && button.label === 'Export' ? 'Exporting...' : button.label}
+                  </span>
+                </button>
+              )
             ))
           : customerActionButtons.map((button, index) => (
               <Link
