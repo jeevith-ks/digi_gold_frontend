@@ -35,7 +35,7 @@ const SIPPage = () => {
     <div className="w-full max-w-sm mx-auto bg-white min-h-screen flex flex-col">
       {/* Header */}
       <div className="flex items-center px-4 py-4 border-b border-gray-100">
-        <button className="mr-4" onClick={() => router.push('/sip')}>
+        <button className="mr-4" onClick={() => router.push('/Home')}>
           <ChevronLeft className="w-6 h-6 text-gray-700" />
         </button>
         <h1 className="text-lg font-semibold text-gray-900 flex-1 text-center mr-10">

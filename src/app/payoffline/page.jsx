@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 export default function PayofflinePage() {
   const [amount, setAmount] = useState("");
   const [sipType, setSipType] = useState("");
+  const [sipId, setSipId] = useState(""); // Add sipId state
   const [utrNo, setUtrNo] = useState("");
   const [otp, setOtp] = useState("");
   const [shop, setShop] = useState("Select Shop");
@@ -29,13 +30,18 @@ export default function PayofflinePage() {
       const amountPayingValuesStr = sessionStorage.getItem("amountPayingValues");
       if (amountPayingValuesStr) {
         const amountPayingValues = JSON.parse(amountPayingValuesStr);
-        const planId =
-          sessionStorage.getItem("planId") ||
-          sessionStorage.getItem("currentSIPId");
-
-        if (planId && amountPayingValues[planId]) {
-          const amountStr = amountPayingValues[planId].replace(/[^0-9.]/g, "");
+        
+        // Get both planId and currentSIPId
+        const planId = sessionStorage.getItem("planId");
+        const currentSIPId = sessionStorage.getItem("currentSIPId");
+        
+        // Use currentSIPId if available, otherwise use planId
+        const sipIdToUse = currentSIPId || planId;
+        
+        if (sipIdToUse && amountPayingValues[sipIdToUse]) {
+          const amountStr = amountPayingValues[sipIdToUse].replace(/[^0-9.]/g, "");
           setAmount(amountStr);
+          setSipId(sipIdToUse); // Set sipId state
         }
       }
 
@@ -65,11 +71,14 @@ export default function PayofflinePage() {
       const transactionData = {
         amount: numericAmount,
         sip_type: sipType,
+        sip_id: sipId, // Use the sipId state
         utr_no: utrNo.trim() || null,
         transaction_type: "OFFLINE",
         category: "CREDIT",
         shop: shop !== "Select Shop" ? shop : null,
       };
+
+      console.log("Sending transaction data:", transactionData); // Debug log
 
       const response = await fetch(
         "http://localhost:5000/api/transactions/",
@@ -86,6 +95,7 @@ export default function PayofflinePage() {
       );
 
       const result = await response.json();
+      console.log("Transaction Response:", result);
       setApiResponse(JSON.stringify(result, null, 2));
 
       if (!response.ok) {
@@ -191,7 +201,7 @@ export default function PayofflinePage() {
     }
   };
 
-  /* ---------------- UI (UNCHANGED) ---------------- */
+  /* ---------------- UI UPDATES ---------------- */
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 text-center border border-[#50C2C9]">
@@ -241,6 +251,19 @@ export default function PayofflinePage() {
               </div>
 
               <div className="text-left">
+                <label className="block text-sm font-medium text-gray-700 mb-1">SIP ID</label>
+                <input
+                  type="text"
+                  value={sipId}
+                  readOnly
+                  className="w-full border border-gray-300 rounded-lg p-2 bg-gray-50"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {sipId ? `SIP ID: ${sipId}` : 'SIP ID not found'}
+                </p>
+              </div>
+
+              <div className="text-left">
                 <label className="block text-sm font-medium text-gray-700 mb-1">UTR Number (Optional)</label>
                 <input
                   type="text"
@@ -273,6 +296,9 @@ export default function PayofflinePage() {
                   <span className="font-medium">Category:</span> CREDIT
                 </p>
                 <p className="text-sm text-blue-700">
+                  <span className="font-medium">SIP ID:</span> {sipId || "Not found"}
+                </p>
+                <p className="text-sm text-blue-700">
                   <span className="font-medium">Amount to send:</span> ₹{amount || "0"}
                 </p>
               </div>
@@ -280,7 +306,7 @@ export default function PayofflinePage() {
 
             <button
               onClick={handleTransactionSubmit}
-              disabled={loading || !amount || !sipType}
+              disabled={loading || !amount || !sipType || !sipId} // Also check sipId
               className="w-full bg-[#50C2C9] text-white py-2 rounded-lg mt-6 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Submitting..." : "Submit Transaction"}
@@ -303,6 +329,9 @@ export default function PayofflinePage() {
                 <p className="text-sm text-yellow-700">
                   <span className="font-medium">Transaction ID:</span> 
                   <span className="font-mono ml-2">{trId}</span>
+                </p>
+                <p className="text-sm text-yellow-700">
+                  <span className="font-medium">SIP ID:</span> {sipId}
                 </p>
                 <p className="text-sm text-yellow-700">
                   <span className="font-medium">Amount:</span> ₹{amount}

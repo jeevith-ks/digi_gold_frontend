@@ -1,8 +1,9 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Home, Bell, Shield, User, Gift, ShoppingCart, ArrowLeftRight, Scale, CreditCard, PiggyBank, Edit2, Save, RefreshCw, Clock, Lock, Unlock, FolderInput } from 'lucide-react';
+import { Home, Bell, Shield, User, Gift, ShoppingCart, ArrowLeftRight, Scale, CreditCard, PiggyBank, Edit2, Save, RefreshCw, Clock, Lock, Unlock, FolderInput,Settings2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation'; // Add this import
 
 import gold_24k from '../images/24k_gold.png';
 import gold_22k from '../images/22k_gold_v.jpg';
@@ -32,6 +33,13 @@ const PreciousMetalsApp = () => {
     '24k-999': '0.0000'
   });
   const [holdings, setHoldings] = useState([]);
+
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [selectedSIPId] = useState('quick-buy-' + Date.now()); // Generate a unique ID for quick buy
+  const [selectedPlan, setSelectedPlan] = useState(null); // For quick buy, we'll create a dummy plan
+  
+  const router = useRouter(); // Initialize router
 
   // Get user data from sessionStorage and fetch initial data
   useEffect(() => {
@@ -315,20 +323,419 @@ const PreciousMetalsApp = () => {
   };
 
   const handleDownload = async () => {
-    try {
-      const blob = await fetch("http://localhost:5000/api/admin/export-excel");
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = "ExcelExport.xlsx";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Failed to download excel:', error);
+  try {
+    // Get token from sessionStorage
+    const token = sessionStorage.getItem('authToken');
+    
+    if (!token) {
+      alert('Please log in to download the Excel file.');
+      // Optionally redirect to login page
+      // router.push('/Authentication');
+      return;
     }
+
+    const response = await fetch("http://localhost:5000/api/admin/export-excel", {
+      headers: {
+        'Authorization': `Bearer ${token}`, // Add Bearer prefix
+        'Content-Type': 'application/json'
+      }
+    });
+
+    // Check if response is ok
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Token expired or invalid
+        alert('Session expired. Please log in again.');
+        sessionStorage.removeItem('authToken');
+        // Optionally redirect to login
+        // router.push('/Authentication');
+        return;
+      }
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    // Check content type to ensure it's an Excel file
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+      console.warn('Unexpected content type:', contentType);
+    }
+
+    // Convert response to blob
+    const blob = await response.blob();
+
+    // Check if blob is valid
+    if (!blob || blob.size === 0) {
+      throw new Error('Received empty file');
+    }
+
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = "ExcelExport.xlsx";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    // Clean up the URL object after download
+    setTimeout(() => {
+      window.URL.revokeObjectURL(url);
+    }, 100);
+    
+    console.log('Excel file downloaded successfully');
+    
+  } catch (error) {
+    console.error('Failed to download excel:', error);
+    // Show user-friendly error message
+    alert('Failed to download Excel file. Please try again.');
+  }
+};
+
+  // Time restriction check function
+const checkTimeRestriction = () => {
+  const now = new Date();
+  const hours = now.getHours();
+  const minutes = now.getMinutes();
+  const currentTimeInMinutes = hours * 60 + minutes;
+  
+  // Check if time is between 10:00 AM (600 minutes) and 6:00 PM (1080 minutes)
+  return currentTimeInMinutes >= 600 && currentTimeInMinutes <= 1880;
+};
+
+// Format time for display
+const formatTime = (date) => {
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
+// Update current time every minute
+useEffect(() => {
+  const timer = setInterval(() => {
+    setCurrentTime(new Date());
+  }, 60000); // Update every minute
+  
+  return () => clearInterval(timer);
+}, []);
+
+// Session storage functions
+const savePaymentDataToSession = () => {
+  const paymentData = {
+    planId: selectedSIPId,
+    planName: 'Quick Buy - ' + metals.find(m => m.id === selectedMetal)?.name,
+    amount: amount,
+    grams: grams,
+    metalType: selectedMetal,
+    timestamp: new Date().toISOString()
   };
+  
+  sessionStorage.setItem('quickBuyPaymentData', JSON.stringify(paymentData));
+};
+
+const clearPaymentDataFromSession = () => {
+  sessionStorage.removeItem('quickBuyPaymentData');
+};
+
+// Parse amount string to number
+const parseAmount = (amountStr) => {
+  if (typeof amountStr === 'number') return amountStr;
+  if (typeof amountStr === 'string') {
+    // Remove commas and any non-numeric characters except decimal point
+    const cleaned = amountStr.replace(/[^\d.]/g, '');
+    return parseFloat(cleaned) || 0;
+  }
+  return 0;
+};
+
+// Load Razorpay script
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve();
+    script.onerror = () => {
+      console.error('Failed to load Razorpay script');
+      resolve();
+    };
+    document.body.appendChild(script);
+  });
+};
+
+// Verify payment function
+const verifyPayment = async (paymentResponse) => {
+  try {
+    const token = sessionStorage.getItem('authToken');
+    const response = await fetch('http://localhost:5000/api/razorpay/verify-payment', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(paymentResponse)
+    });
+
+    const result = await response.json();
+    
+    if (result.success) {
+      alert('Payment verified successfully! Your purchase has been processed.');
+      // Clear form
+      setGrams('');
+      setAmount('');
+      // Refresh holdings
+      handleRefreshHoldings();
+    } else {
+      alert(`Payment verification failed: ${result.message}`);
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('Verification error:', error);
+    alert('Error verifying payment. Please check your transaction history.');
+    return { success: false, message: error.message };
+  }
+};
+
+// Your handlePaymentMethod function (with some adjustments for quick buy)
+const handlePaymentMethod = async (method) => {
+  // Check time restriction before proceeding with payment
+  if (!checkTimeRestriction()) {
+    alert(`Cannot process payment. SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+    setShowPaymentDialog(false);
+    return;
+  }
+  
+  // Check market status before proceeding with payment
+  if (marketStatus === 'closed') {
+    alert(`Market is currently closed. Trading operations are temporarily disabled.`);
+    setShowPaymentDialog(false);
+    return;
+  }
+  
+  // Validate amount and grams
+  if (!grams || parseFloat(grams) <= 0 || !amount || parseFloat(amount) <= 0) {
+    alert('Please enter valid grams and amount');
+    return;
+  }
+  
+  // Save payment data to session storage
+  savePaymentDataToSession();
+  
+  setShowPaymentDialog(false);
+  
+  // Create a dummy plan for quick buy
+  const quickBuyPlan = {
+    type: 'quick-buy',
+    name: 'Quick Buy - ' + metals.find(m => m.id === selectedMetal)?.name,
+    monthlyAmount: parseFloat(amount),
+    investMin: amount,
+    metalType: metals.find(m => m.id === selectedMetal)?.metalType,
+    isFixed: true,
+    totalMonths: 1
+  };
+  
+  setSelectedPlan(quickBuyPlan);
+
+  if (method === 'Online') {
+    try {
+      let amountValue = parseAmount(amount);
+      
+      // Enhanced validation
+      if (isNaN(amountValue) || amountValue <= 0) {
+        throw new Error(`Invalid amount: Please enter a valid payment amount`);
+      }
+
+      if (amountValue < 1) {
+        throw new Error('Minimum payment amount is ₹1');
+      }
+
+      console.log('💰 Quick Buy payment details:', {
+        amount: amountValue,
+        grams: grams,
+        metalType: selectedMetal,
+        amountInPaise: amountValue,
+        sipId: selectedSIPId
+      });
+
+      // Store payment details in sessionStorage for Razorpay
+      sessionStorage.setItem('razorpayAmount', amountValue.toString());
+      sessionStorage.setItem('razorpaySIPId', selectedSIPId);
+      sessionStorage.setItem('razorpayPlanType', 'quick-buy');
+      sessionStorage.setItem('razorpayMetalType', metals.find(m => m.id === selectedMetal)?.name || 'Gold');
+
+      const razorpayAmount = amountValue; // Convert to paise for Razorpay
+      
+      console.log('💰 Razorpay amount in paise:', razorpayAmount);
+
+      // Get auth token from session storage
+      const token = sessionStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('Authentication required. Please login again.');
+      }
+
+      console.log('📞 Calling Razorpay API for quick buy...');
+      
+      const response = await fetch('http://localhost:5000/api/razorpay/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          amount: amountValue,
+          metalType: metals.find(m => m.id === selectedMetal)?.metalType,
+          sipMonths: 1,
+          sipType: 'fixed',
+          sipId: selectedSIPId,
+          transactionType: 'quick-buy',
+          grams: grams
+        }),
+      });
+
+      console.log('📋 API Response status:', response.status);
+      
+      const responseText = await response.text();
+      console.log('📋 API Response text:', responseText);
+
+      let orderData;
+      try {
+        orderData = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('❌ Failed to parse JSON response:', parseError);
+        throw new Error(`Invalid response from server: ${responseText.substring(0, 100)}`);
+      }
+
+      if (!response.ok) {
+        console.error('❌ Backend API Error response:', orderData);
+        throw new Error(orderData.error || orderData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      console.log('✅ Order created successfully:', orderData);
+
+      await loadRazorpayScript();
+
+      // Convert amount to paise for Razorpay
+      const amountInPaise = Math.round(amountValue * 100);
+
+      // Razorpay options
+      const options = {
+        key: 'rzp_test_aOTAZ3JhbITtOK', // Replace with your actual Razorpay key
+        amount: amountInPaise,
+        currency: 'INR',
+        name: 'Gold/Silver Purchase',
+        description: `Quick Buy: ${grams}g of ${metals.find(m => m.id === selectedMetal)?.name} ${selectedMetal}`,
+        order_id: orderData.id,
+        handler: async function (paymentResponse) {
+          console.log('✅ Payment successful:', paymentResponse);
+          
+          // Clear session storage after successful payment
+          clearPaymentDataFromSession();
+          
+          const result = await verifyPayment(paymentResponse);
+          
+          if (result.success) {
+            // Clear the form
+            setGrams('');
+            setAmount('');
+          }
+        },
+        prefill: {
+          name: username || 'Customer',
+          email: 'customer@example.com',
+          contact: '9999999999'
+        },
+        notes: {
+          transactionType: 'quick-buy',
+          sipId: selectedSIPId,
+          metalType: selectedMetal,
+          grams: grams
+        },
+        theme: {
+          color: '#50C2C9'
+        },
+        modal: {
+          ondismiss: function() {
+            console.log('Payment modal closed');
+            alert('Payment was cancelled. You can try again.');
+          }
+        }
+      };
+
+      console.log('🎯 Razorpay options:', options);
+
+      const razorpay = new window.Razorpay(options);
+
+      razorpay.on('payment.failed', function (response) {
+        console.error('❌ Payment failed:', response.error);
+        alert(`Payment failed: ${response.error.description}. Please try again.`);
+      });
+
+      razorpay.open();
+      
+    } catch (error) {
+      console.error('❌ Payment initialization error:', error);
+      
+      let errorMessage = error.message;
+      if (error.message.includes('Failed to create payment order')) {
+        errorMessage = 'Payment gateway error. Please check your internet connection and try again.';
+      } else if (error.message.includes('Invalid amount')) {
+        errorMessage = 'Please enter a valid payment amount (minimum ₹1)';
+      }
+      
+      alert(`Payment failed: ${errorMessage}`);
+    }
+  } else if (method === 'Offline') {
+    // Handle offline payment
+    if (!checkTimeRestriction()) {
+      alert(`Cannot process payment. Payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+      return;
+    }
+    
+    if (marketStatus === 'closed') {
+      alert(`Market is currently closed. Trading operations are temporarily disabled.`);
+      return;
+    }
+    
+    // Save offline payment data to session storage
+    const offlineData = {
+      planId: selectedSIPId,
+      planName: `Quick Buy - ${metals.find(m => m.id === selectedMetal)?.name}`,
+      amount: amount,
+      grams: grams,
+      metalType: selectedMetal,
+      timestamp: new Date().toISOString(),
+      status: 'offline_pending',
+      transaction_type: 'offline'
+    };
+    
+    sessionStorage.setItem('offlinePaymentData', JSON.stringify(offlineData));
+    
+    router.push('/payoffline');
+  }
+};
+
+// Function to handle Buy Now click
+const handleBuyNow = () => {
+  // Check if user is logged in
+  const token = sessionStorage.getItem('authToken');
+  if (!token) {
+    alert('Please login to make a purchase');
+    router.push('/login');
+    return;
+  }
+  
+  // Check market status
+  if (marketStatus === 'closed') {
+    alert('Market is currently closed. Trading operations are temporarily disabled.');
+    return;
+  }
+  
+  // Validate input
+  if (!grams || parseFloat(grams) <= 0 || !amount || parseFloat(amount) <= 0) {
+    alert('Please enter valid grams and amount');
+    return;
+  }
+  
+  // Show payment dialog or directly proceed to online payment
+  // For simplicity, we'll proceed directly to online payment
+  handlePaymentMethod('Online');
+};
 
   // ✅ add image references
   const metals = [
@@ -363,6 +770,7 @@ const PreciousMetalsApp = () => {
 
   const adminActionButtons = [
     { icon: <FolderInput className="w-6 h-6" onClick={handleDownload} />, label: 'Export', href: '' },
+     { icon: <Settings2 className="w-6 h-6"  />, label: 'Settlements', href: '/settlements' },
     { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs font-bold">₹</div>, label: 'SIP', href: '/savings_plan' },
     { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs">💰</div>, label: 'LookBook', href: '/Lookbook' }
   ];
@@ -813,16 +1221,17 @@ const PreciousMetalsApp = () => {
         </div> 
 
         {/* Buy Now Button */}
-         <button 
-          className={`w-full py-4 rounded-lg font-bold text-lg transition-colors ${
-            marketStatus === 'closed'
-              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              : 'bg-[#50C2C9] text-white hover:bg-[#3AA8AF]'
-          }`}
-          disabled={marketStatus === 'closed'}
-        >
-          {marketStatus === 'closed' ? 'Market Closed' : 'Buy Now'}
-        </button> 
+          <button 
+            className={`w-full py-4 rounded-lg font-bold text-lg transition-colors ${
+              marketStatus === 'closed'
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-[#50C2C9] text-white hover:bg-[#3AA8AF]'
+            }`}
+            disabled={marketStatus === 'closed' || !grams || !amount}
+            onClick={handleBuyNow}
+          >
+            {marketStatus === 'closed' ? 'Market Closed' : 'Buy Now'}
+          </button>
        </div>
 
       {/* ===== Action Buttons ===== */}

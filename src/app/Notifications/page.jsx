@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 
 // Icons component - using inline SVG icons
 const Icons = {
@@ -26,7 +27,7 @@ const Icons = {
   ),
   CheckCircle: () => (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 a9 9 0 0118 0z" />
     </svg>
   ),
   AlertCircle: () => (
@@ -72,6 +73,16 @@ const Icons = {
   ChevronLeft: () => (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+    </svg>
+  ),
+  ArrowLeft: () => (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+    </svg>
+  ),
+  ArrowLeftCircle: () => (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M11 15l-3-3m0 0l3-3m-3 3h8M3 12a9 9 0 1118 0 9 9 0 01-18 0z" />
     </svg>
   )
 };
@@ -289,6 +300,27 @@ const NotificationCard = ({ notification, onMarkAsRead }) => {
   );
 };
 
+// Back Button Component
+const BackButton = () => {
+  const router = useRouter();
+
+  const handleBackClick = () => {
+    // Redirect to /Home
+    router.push('/Home');
+  };
+
+  return (
+    <button
+      onClick={handleBackClick}
+      className="flex items-center justify-center p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#50C2C9] focus:ring-offset-2"
+      aria-label="Go back to Home"
+      title="Go back to Home"
+    >
+      <Icons.ArrowLeft className="w-6 h-6 text-gray-700" />
+    </button>
+  );
+};
+
 // Main Notification Page Component
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState([]);
@@ -296,6 +328,7 @@ export default function NotificationsPage() {
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all'); // all, unread, read
   const { getAuthToken, isAuthenticated } = useAuth();
+  const router = useRouter();
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -451,16 +484,13 @@ export default function NotificationsPage() {
       <style>{pageStyles}</style>
       
       <div className="min-h-screen bg-gray-50">
-        {/* Header */}
+        {/* Header with Back Button */}
         <div className="bg-white border-b border-gray-200">
           <div className="flex items-center px-4 py-4">
-            <button 
-              onClick={() => window.history.back()}
-              className="mr-4"
-            >
-              <Icons.ChevronLeft className="w-6 h-6 text-gray-700" />
-            </button>
-            <div className="flex-1">
+            {/* Lucide Back Button - Redirects to /Home */}
+            <BackButton />
+            
+            <div className="flex-1 ml-4">
               <h1 className="text-lg font-semibold text-gray-900">Notifications</h1>
               <p className="text-sm text-gray-500">
                 {unreadCount > 0 
@@ -486,7 +516,7 @@ export default function NotificationsPage() {
                   </p>
                   <div className="mt-3">
                     <button
-                      onClick={() => window.location.href = '/Authentication'}
+                      onClick={() => router.push('/Authentication')}
                       className="px-4 py-2 bg-[#50C2C9] text-white rounded-lg hover:bg-[#3DA9B0] transition"
                     >
                       Go to Login Page
@@ -622,6 +652,15 @@ export default function NotificationsPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
                 Refresh Notifications
+              </button>
+              
+              {/* Alternative Home Button */}
+              <button
+                onClick={() => router.push('/Home')}
+                className="px-5 py-2.5 bg-[#50C2C9] text-white rounded-lg font-medium hover:bg-[#3DA9B0] transition flex items-center gap-2"
+              >
+                <Icons.Home />
+                <span>Go to Home</span>
               </button>
             </div>
           )}
