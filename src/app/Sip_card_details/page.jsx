@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, X, Calendar, Clock, DollarSign, Edit, Users, Plus, Check, AlertCircle, Lock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { Metal } from 'next/font/google';
 
 const SIPPage = () => {
   const router = useRouter();
@@ -88,73 +89,72 @@ const SIPPage = () => {
   };
 
   // Enhanced verifyPayment function with transaction sending
-  // Enhanced verifyPayment function with transaction sending
-const verifyPayment = async (paymentResponse, isOffline = false, offlineData = null) => {
-  try {
-    setProcessingPayment(true);
-    
-    // Get token from sessionStorage
-    const token = sessionStorage.getItem('authToken');
-    
-    if (!token) {
-      throw new Error('Authentication token not found. Please login again.');
-    }
-    
-    // IMPORTANT: Get the amount that was used to create the order
-    // We need to get this from the same place we used to create the order
-    let amount;
-    
-    if (showAmountInput && manualAmount) {
-      amount = parseAmount(manualAmount);
-    } else if (selectedPlan) {
-      amount = selectedPlan.monthlyAmount || parseAmount(selectedPlan.investMin);
-    } else {
-      // Try to get from sessionStorage as fallback
-      const paymentData = JSON.parse(sessionStorage.getItem('currentPaymentData') || '{}');
-      amount = parseAmount(paymentData.amount || '0');
-    }
-    
-    console.log('🔐 Verifying payment with details:', {
-      orderId: paymentResponse.razorpay_order_id,
-      paymentId: paymentResponse.razorpay_payment_id,
-      amountToVerify: amount,
-      sipId: selectedSIPId
-    });
-    
-    // For online payment verification
-    const verifyResponse = await fetch('http://localhost:5000/api/razorpay/verify-payment', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        razorpay_order_id: paymentResponse.razorpay_order_id,
-        razorpay_payment_id: paymentResponse.razorpay_payment_id,
-        razorpay_signature: paymentResponse.razorpay_signature,
-        sipId: selectedSIPId,
-        amount: amount, // This is the crucial part - must send the amount!
-      }),
-    });
+  const verifyPayment = async (paymentResponse, isOffline = false, offlineData = null) => {
+    try {
+      setProcessingPayment(true);
+      
+      // Get token from sessionStorage
+      const token = sessionStorage.getItem('authToken');
+      
+      if (!token) {
+        throw new Error('Authentication token not found. Please login again.');
+      }
+      
+      // IMPORTANT: Get the amount that was used to create the order
+      // We need to get this from the same place we used to create the order
+      let amount;
+      
+      if (showAmountInput && manualAmount) {
+        amount = parseAmount(manualAmount);
+      } else if (selectedPlan) {
+        amount = selectedPlan.monthlyAmount || parseAmount(selectedPlan.investMin);
+      } else {
+        // Try to get from sessionStorage as fallback
+        const paymentData = JSON.parse(sessionStorage.getItem('currentPaymentData') || '{}');
+        amount = parseAmount(paymentData.amount || '0');
+      }
+      
+      console.log('🔐 Verifying payment with details:', {
+        orderId: paymentResponse.razorpay_order_id,
+        paymentId: paymentResponse.razorpay_payment_id,
+        amountToVerify: amount,
+        sipId: selectedSIPId
+      });
+      
+      // For online payment verification
+      const verifyResponse = await fetch('http://localhost:5000/api/razorpay/verify-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          razorpay_order_id: paymentResponse.razorpay_order_id,
+          razorpay_payment_id: paymentResponse.razorpay_payment_id,
+          razorpay_signature: paymentResponse.razorpay_signature,
+          sipId: selectedSIPId,
+          amount: amount, // This is the crucial part - must send the amount!
+        }),
+      });
 
-    const verifyData = await verifyResponse.json();
-    
-    if (verifyResponse.ok) {
-      console.log('✅ Payment verified successfully:', verifyData);
-      // ... rest of your success handling code ...
-    } else {
-      console.error('❌ Payment verification failed:', verifyData);
-      alert(`Payment verification failed: ${verifyData.error}`);
-      return { success: false, error: verifyData.error };
+      const verifyData = await verifyResponse.json();
+      
+      if (verifyResponse.ok) {
+        console.log('✅ Payment verified successfully:', verifyData);
+        // ... rest of your success handling code ...
+      } else {
+        console.error('❌ Payment verification failed:', verifyData);
+        alert(`Payment verification failed: ${verifyData.error}`);
+        return { success: false, error: verifyData.error };
+      }
+    } catch (error) {
+      console.error('❌ Payment verification error:', error);
+      alert('Payment verification failed. Please contact support.');
+      return { success: false, error: error.message };
+    } finally {
+      setProcessingPayment(false);
     }
-  } catch (error) {
-    console.error('❌ Payment verification error:', error);
-    alert('Payment verification failed. Please contact support.');
-    return { success: false, error: error.message };
-  } finally {
-    setProcessingPayment(false);
-  }
-};
+  };
 
   // Function to handle offline payment submission
   const handleOfflinePaymentSubmission = async (offlinePaymentData) => {
@@ -1207,109 +1207,106 @@ const verifyPayment = async (paymentResponse, isOffline = false, offlineData = n
           }),
         });
 
-        // In your handlePaymentMethod function, fix this section:
+        console.log('📋 API Response status:', response.status);
+        console.log('📋 API Response headers:', [...response.headers.entries()]);
 
-console.log('📋 API Response status:', response.status);
-console.log('📋 API Response headers:', [...response.headers.entries()]);
+        // Read the response text once
+        const responseText = await response.text();
+        console.log('📋 API Response text:', responseText);
 
-// Read the response text once
-const responseText = await response.text();
-console.log('📋 API Response text:', responseText);
+        let orderData; // Rename to orderData to avoid confusion
+        try {
+          orderData = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('❌ Failed to parse JSON response:', parseError);
+          throw new Error(`Invalid response from server: ${responseText.substring(0, 100)}`);
+        }
 
-let orderData; // Rename to orderData to avoid confusion
-try {
-  orderData = JSON.parse(responseText);
-} catch (parseError) {
-  console.error('❌ Failed to parse JSON response:', parseError);
-  throw new Error(`Invalid response from server: ${responseText.substring(0, 100)}`);
-}
+        if (!response.ok) {
+          console.error('❌ Backend API Error response:', orderData);
+          throw new Error(orderData.error || orderData.message || `HTTP error! status: ${response.status}`);
+        }
 
-if (!response.ok) {
-  console.error('❌ Backend API Error response:', orderData);
-  throw new Error(orderData.error || orderData.message || `HTTP error! status: ${response.status}`);
-}
+        console.log('✅ Order created successfully:', orderData);
 
-console.log('✅ Order created successfully:', orderData);
+        await loadRazorpayScript();
 
-await loadRazorpayScript();
+        // Convert amount to paise for Razorpay
+        const amountInPaise = Math.round(amount * 100);
 
-// Convert amount to paise for Razorpay
-const amountInPaise = Math.round(amount * 100);
+        // Razorpay options - use orderData.id (not responseData.id)
+        const options = {
+          key: 'rzp_test_aOTAZ3JhbITtOK',
+          amount: amountInPaise,
+          currency: 'INR',
+          name: 'Gold SIP Investment',
+          description: `${selectedPlan.metalType} ${selectedPlan.type} Payment - ${selectedPlan.name}`,
+          order_id: orderData.id, // Use orderData.id from above
+          handler: async function (paymentResponse) {
+            console.log('✅ Payment successful:', paymentResponse);
+            
+            // Clear session storage after successful payment
+            clearPaymentDataFromSession();
+            
+            const result = await verifyPayment(paymentResponse);
+            
+            if (result.success) {
+              // Clear the stored amount for this SIP
+              const newAmountPayingValues = { ...amountPayingValues };
+              delete newAmountPayingValues[selectedSIPId];
+              setAmountPayingValues(newAmountPayingValues);
+              sessionStorage.setItem('amountPayingValues', JSON.stringify(newAmountPayingValues));
+            }
+          },
+          prefill: {
+            name: 'Customer Name',
+            email: 'customer@example.com',
+            contact: '9999999999'
+          },
+          notes: {
+            sipType: selectedPlan.isFixed ? 'fixed' : 'flexible',
+            sipId: selectedSIPId,
+            metalType: selectedPlan.metalType,
+            isManualAmount: showAmountInput && manualAmount ? 'yes' : 'no'
+          },
+          theme: {
+            color: '#50C2C9'
+          },
+          modal: {
+            ondismiss: function() {
+              console.log('Payment modal closed');
+              alert('Payment was cancelled. You can try again.');
+            }
+          }
+        };
 
-// Razorpay options - use orderData.id (not responseData.id)
-const options = {
-  // key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_aOTAZ3JhbITtOK',
-  key: 'rzp_test_aOTAZ3JhbITtOK',
-  amount: amountInPaise,
-  currency: 'INR',
-  name: 'Gold SIP Investment',
-  description: `${selectedPlan.metalType} ${selectedPlan.type} Payment - ${selectedPlan.name}`,
-  order_id: orderData.id, // Use orderData.id from above
-  handler: async function (paymentResponse) {
-    console.log('✅ Payment successful:', paymentResponse);
-    
-    // Clear session storage after successful payment
-    clearPaymentDataFromSession();
-    
-    const result = await verifyPayment(paymentResponse);
-    
-    if (result.success) {
-      // Clear the stored amount for this SIP
-      const newAmountPayingValues = { ...amountPayingValues };
-      delete newAmountPayingValues[selectedSIPId];
-      setAmountPayingValues(newAmountPayingValues);
-      sessionStorage.setItem('amountPayingValues', JSON.stringify(newAmountPayingValues));
-    }
-  },
-  prefill: {
-    name: 'Customer Name',
-    email: 'customer@example.com',
-    contact: '9999999999'
-  },
-  notes: {
-    sipType: selectedPlan.isFixed ? 'fixed' : 'flexible',
-    sipId: selectedSIPId,
-    metalType: selectedPlan.metalType,
-    isManualAmount: showAmountInput && manualAmount ? 'yes' : 'no'
-  },
-  theme: {
-    color: '#50C2C9'
-  },
-  modal: {
-    ondismiss: function() {
-      console.log('Payment modal closed');
-      alert('Payment was cancelled. You can try again.');
-    }
-  }
-};
+        console.log('🎯 Razorpay options:', options);
 
-console.log('🎯 Razorpay options:', options);
+        const razorpay = new window.Razorpay(options);
 
-const razorpay = new window.Razorpay(options);
+        razorpay.on('payment.failed', function (response) {
+          console.error('❌ Payment failed:', response.error);
+          alert(`Payment failed: ${response.error.description}. Please try again.`);
+        });
 
-razorpay.on('payment.failed', function (response) {
-  console.error('❌ Payment failed:', response.error);
-  alert(`Payment failed: ${response.error.description}. Please try again.`);
-});
-
-razorpay.open();
+        razorpay.open();
         
       } catch (error) {
-        console.error('❌ Payment initialization error:',{message: error.message,
-        stack: error.stack,
-        name: error.name});
+        console.error('❌ Payment initialization error:',{
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        });
 
         // Show more helpful error message
-      let errorMessage = error.message;
-      if (error.message.includes('Failed to create payment order')) {
-        errorMessage = 'Payment gateway error. Please check your internet connection and try again.';
-      } else if (error.message.includes('Invalid amount')) {
-        errorMessage = 'Please enter a valid payment amount (minimum ₹1)';
-      }
-      
-      alert(`Payment failed: ${errorMessage}`);
-    
-  
+        let errorMessage = error.message;
+        if (error.message.includes('Failed to create payment order')) {
+          errorMessage = 'Payment gateway error. Please check your internet connection and try again.';
+        } else if (error.message.includes('Invalid amount')) {
+          errorMessage = 'Please enter a valid payment amount (minimum ₹1)';
+        }
+        
+        alert(`Payment failed: ${errorMessage}`);
       }
     } else if (method === 'Offline') {
       // Check time restriction for offline payment too
@@ -1324,18 +1321,23 @@ razorpay.open();
         return;
       }
       
-      // Save offline payment data to session storage
+      // ================================================
+      // CHANGE 1: Save offline payment data to session storage
+      // ================================================
       const offlineData = {
         planId: selectedSIPId,
         planName: selectedPlan.name,
+        MetalType: selectedPlan.metalType,
         amount: showAmountInput && manualAmount ? manualAmount : selectedPlan.investMin,
         timestamp: new Date().toISOString(),
         status: 'offline_pending',
         transaction_type: 'offline'
       };
       
+      console.log('💾 Storing offline payment data in session storage:', offlineData);
       sessionStorage.setItem('offlinePaymentData', JSON.stringify(offlineData));
       
+      // Navigate to offline payment page
       router.push('/payoffline');
     }
   };
@@ -1962,32 +1964,33 @@ razorpay.open();
                   </div>
                 </div>
 
-                {/* Pay Button - ALWAYS SHOW FOR CUSTOMERS */}
+                {/* ================================================
+                    CHANGE 2: Pay Button - Hide/Disable when market is closed for customers
+                    ================================================ */}
                 {userType === 'customer' && (
                   <div className="flex justify-end pt-3">
-                    <button
-                      onClick={(e) => handlePay(plan.id, plan, e)}
-                      disabled={!isWithinAllowedTime || marketStatus === 'closed'}
-                      className={`px-6 py-2 rounded-md font-semibold transition-colors shadow-md ${
-                        !isWithinAllowedTime || marketStatus === 'closed'
-                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                          : 'bg-white text-[#50C2C9] hover:bg-opacity-90'
-                      }`}
-                      title={
-                        !isWithinAllowedTime 
-                          ? "Payments only allowed between 10:00 AM and 6:00 PM" 
-                          : marketStatus === 'closed'
-                          ? "Market is currently closed"
-                          : ""
-                      }
-                    >
-                      {marketStatus === 'closed' 
-                        ? 'Market Closed' 
-                        : !isWithinAllowedTime 
-                        ? 'Time Restricted' 
-                        : 'Pay'
-                      }
-                    </button>
+                    {marketStatus === 'closed' ? (
+                      <div className="px-6 py-2 rounded-md font-semibold bg-gray-300 text-gray-500 cursor-not-allowed shadow-md">
+                        Pay (Market Closed)
+                      </div>
+                    ) : (
+                      <button
+                        onClick={(e) => handlePay(plan.id, plan, e)}
+                        disabled={!isWithinAllowedTime}
+                        className={`px-6 py-2 rounded-md font-semibold transition-colors shadow-md ${
+                          !isWithinAllowedTime
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'bg-white text-[#50C2C9] hover:bg-opacity-90'
+                        }`}
+                        title={
+                          !isWithinAllowedTime 
+                            ? "Payments only allowed between 10:00 AM and 6:00 PM" 
+                            : ""
+                        }
+                      >
+                        {!isWithinAllowedTime ? 'Time Restricted' : 'Pay'}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -2358,6 +2361,10 @@ razorpay.open();
                 <div className="flex justify-between">
                   <span>SIP Plan:</span>
                   <span className="text-black font-medium">{selectedPlan?.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Metal Type:</span>
+                  <span className="text-black font-medium">{selectedPlan?.metalType}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Type:</span>

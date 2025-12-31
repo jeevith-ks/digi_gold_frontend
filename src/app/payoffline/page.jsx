@@ -47,7 +47,7 @@ export default function PayofflinePage() {
 
       const storedSipType = sessionStorage.getItem("sipType");
       if (storedSipType) {
-        setSipType(storedSipType.toLowerCase().trim());
+        setSipType(storedSipType.toUpperCase().trim());
       }
     } catch (error) {
       console.error("Session storage error:", error);

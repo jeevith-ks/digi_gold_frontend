@@ -5,6 +5,11 @@ import { useRouter } from 'next/navigation';
 
 // Icons component - using inline SVG icons
 const Icons = {
+  Refresh: () => (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+    </svg>
+  ),
   Bell: () => (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -22,7 +27,7 @@ const Icons = {
   ),
   Clock: () => (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 a9 9 0 0118 0z" />
     </svg>
   ),
   CheckCircle: () => (
@@ -130,6 +135,30 @@ const useAuth = () => {
   }, [getAuthToken]);
 
   return { getAuthToken, isAuthenticated };
+};
+
+// Refresh Button Component
+const RefreshButton = ({ onClick, refreshing = false }) => {
+  return (
+    <button
+      onClick={onClick}
+      disabled={refreshing}
+      className="flex items-center gap-2 px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-95"
+      title="Refresh notifications"
+    >
+      {refreshing ? (
+        <>
+          <div className="h-4 w-4 border-2 border-gray-300 border-t-[#50C2C9] rounded-full animate-spin"></div>
+          <span>Refreshing...</span>
+        </>
+      ) : (
+        <>
+          <Icons.Refresh />
+          <span>Refresh</span>
+        </>
+      )}
+    </button>
+  );
 };
 
 // Notification Card Component
@@ -325,14 +354,17 @@ const BackButton = () => {
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all'); // all, unread, read
   const { getAuthToken, isAuthenticated } = useAuth();
   const router = useRouter();
 
-  const fetchNotifications = useCallback(async () => {
+  const fetchNotifications = useCallback(async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) {
+        setRefreshing(true);
+      }
       
       // Get JWT token
       const token = getAuthToken();
@@ -341,6 +373,7 @@ export default function NotificationsPage() {
         console.log('Auth check - No token found');
         setError(errorMsg);
         setNotifications([]);
+        setRefreshing(false);
         setLoading(false);
         return;
       }
@@ -371,15 +404,22 @@ export default function NotificationsPage() {
       console.error('Error fetching notifications:', err);
       setNotifications([]);
     } finally {
+      setRefreshing(false);
       setLoading(false);
     }
   }, [getAuthToken]);
+
+  const handleRefresh = () => {
+    fetchNotifications(false);
+  };
 
   useEffect(() => {
     fetchNotifications();
     
     // Set up polling for new notifications every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000);
+    const interval = setInterval(() => {
+      fetchNotifications(false);
+    }, 30000);
     
     return () => clearInterval(interval);
   }, [fetchNotifications]);
@@ -484,19 +524,29 @@ export default function NotificationsPage() {
       <style>{pageStyles}</style>
       
       <div className="min-h-screen bg-gray-50">
-        {/* Header with Back Button */}
+        {/* Header with Back Button and Refresh */}
         <div className="bg-white border-b border-gray-200">
-          <div className="flex items-center px-4 py-4">
-            {/* Lucide Back Button - Redirects to /Home */}
-            <BackButton />
+          <div className="flex items-center justify-between px-4 py-4">
+            <div className="flex items-center">
+              {/* Lucide Back Button - Redirects to /Home */}
+              <BackButton />
+              
+              <div className="flex-1 ml-4">
+                <h1 className="text-lg font-semibold text-gray-900">Notifications</h1>
+                <p className="text-sm text-gray-500">
+                  {unreadCount > 0 
+                    ? `${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`
+                    : 'All caught up!'}
+                </p>
+              </div>
+            </div>
             
-            <div className="flex-1 ml-4">
-              <h1 className="text-lg font-semibold text-gray-900">Notifications</h1>
-              <p className="text-sm text-gray-500">
-                {unreadCount > 0 
-                  ? `${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`
-                  : 'All caught up!'}
-              </p>
+            {/* Refresh Button */}
+            <div className="ml-4">
+              <RefreshButton 
+                onClick={handleRefresh} 
+                refreshing={refreshing}
+              />
             </div>
           </div>
         </div>
@@ -578,7 +628,7 @@ export default function NotificationsPage() {
                   <p className="text-red-600 mt-1">{error}</p>
                   <div className="mt-3 space-y-2">
                     <button
-                      onClick={fetchNotifications}
+                      onClick={handleRefresh}
                       className="px-4 py-2 bg-[#50C2C9] text-white rounded-lg hover:bg-[#3DA9B0] transition mr-2"
                     >
                       Try Again
@@ -636,25 +686,20 @@ export default function NotificationsPage() {
                       ? "You don't have any notifications yet." 
                       : `You don't have any ${filter} notifications.`}
                   </p>
+                  <button
+                    onClick={handleRefresh}
+                    className="mt-4 px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+                  >
+                    Refresh to check
+                  </button>
                 </div>
               )}
             </>
           )}
 
           {/* Action Buttons */}
-          {isAuthenticated() && (
+          {isAuthenticated() && !loading && (
             <div className="mt-8 flex flex-col sm:flex-row justify-center items-center gap-4">
-              <button
-                onClick={fetchNotifications}
-                className="px-5 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition flex items-center gap-2"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Refresh Notifications
-              </button>
-              
-              {/* Alternative Home Button */}
               <button
                 onClick={() => router.push('/Home')}
                 className="px-5 py-2.5 bg-[#50C2C9] text-white rounded-lg font-medium hover:bg-[#3DA9B0] transition flex items-center gap-2"

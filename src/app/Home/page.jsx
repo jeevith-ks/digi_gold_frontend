@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Home, Bell, Shield, User, Gift, ShoppingCart, ArrowLeftRight, Scale, CreditCard, PiggyBank, Edit2, Save, RefreshCw, Clock, Lock, Unlock, FolderInput,Settings2 } from 'lucide-react';
+import { Home, Bell, Shield, User, Gift, ShoppingCart, ArrowLeftRight, Scale, CreditCard, PiggyBank, Edit2, Save, RefreshCw, Clock, Lock, Unlock, FolderInput,Settings2 ,Signature} from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation'; // Add this import
@@ -771,6 +771,7 @@ const handleBuyNow = () => {
   const adminActionButtons = [
     { icon: <FolderInput className="w-6 h-6" onClick={handleDownload} />, label: 'Export', href: '' },
      { icon: <Settings2 className="w-6 h-6"  />, label: 'Settlements', href: '/settlements' },
+     { icon: <Signature className="w-6 h-6"  />, label: 'Approve', href: '/Approve' },
     { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs font-bold">₹</div>, label: 'SIP', href: '/savings_plan' },
     { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs">💰</div>, label: 'LookBook', href: '/Lookbook' }
   ];
