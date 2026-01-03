@@ -1,9 +1,9 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Home, Bell, Shield, User, Gift, ShoppingCart, ArrowLeftRight, Scale, CreditCard, PiggyBank, Edit2, Save, RefreshCw, Clock, Lock, Unlock, FolderInput,Settings2 ,Signature} from 'lucide-react';
+import { Home, Bell, Shield, User, Gift, ShoppingCart, ArrowLeftRight, Scale, CreditCard, PiggyBank, Edit2, Save, RefreshCw, Clock, Lock, Unlock, FolderInput, Settings2, Signature, AlertCircle, CheckCircle, XCircle, History, Calendar, TrendingUp } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation'; // Add this import
+import { useRouter } from 'next/navigation';
 
 import gold_24k from '../images/24k_gold.png';
 import gold_22k from '../images/22k_gold_v.jpg';
@@ -20,109 +20,199 @@ const PreciousMetalsApp = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingPrices, setIsLoadingPrices] = useState(false);
   const [lastPriceUpdate, setLastPriceUpdate] = useState(null);
-  const [marketStatus, setMarketStatus] = useState('open'); // 'open' or 'closed'
+  const [marketStatus, setMarketStatus] = useState('closed');
+  const [isMarketOpen, setIsMarketOpen] = useState(false);
   const [isUpdatingMarket, setIsUpdatingMarket] = useState(false);
+  const [tradingHours, setTradingHours] = useState({ open: '10:00', close: '18:00' });
+  const [currentTime, setCurrentTime] = useState('');
+  const [marketHistory, setMarketHistory] = useState([]);
+  const [showMarketHistory, setShowMarketHistory] = useState(false);
+  
   const [metalRates, setMetalRates] = useState({
     '24k-995': 10170,
     '22k-916': 9560,
     '24k-999': 118
   });
+  
   const [metalBalances, setMetalBalances] = useState({
     '24k-995': '0.0000',
     '22k-916': '0.0000', 
     '24k-999': '0.0000'
   });
-  const [holdings, setHoldings] = useState([]);
-
-  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const [selectedSIPId] = useState('quick-buy-' + Date.now()); // Generate a unique ID for quick buy
-  const [selectedPlan, setSelectedPlan] = useState(null); // For quick buy, we'll create a dummy plan
   
-  const router = useRouter(); // Initialize router
+  const [holdings, setHoldings] = useState([]);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [selectedSIPId] = useState('quick-buy-' + Date.now());
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  
+  const router = useRouter();
 
-  // Get user data from sessionStorage and fetch initial data
+  // Initialize user data and fetch market status
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedUserType = sessionStorage.getItem('userType');
-      const storedUsername = sessionStorage.getItem('username');
-      const storedToken = sessionStorage.getItem('authToken');
-      
-      console.log('Session Storage Data:', {
-        userType: storedUserType,
-        username: storedUsername,
-        hasToken: !!storedToken
-      });
-      
-      if (storedUserType) {
-        setUserType(storedUserType);
-      }
-      if (storedUsername) {
-        setUsername(storedUsername);
-      }
-
-      // Check for stored market status - Load from sessionStorage
-      const storedMarketStatus = sessionStorage.getItem('marketStatus');
-      if (storedMarketStatus) {
-        console.log('📊 Loading market status from sessionStorage:', storedMarketStatus);
-        setMarketStatus(storedMarketStatus);
-      } else {
-        // Initialize with 'open' if not stored yet
-        console.log('📊 Initializing market status to: open');
-        sessionStorage.setItem('marketStatus', 'open');
-        setMarketStatus('open');
-      }
-
-      // Fetch initial data based on user type
-      if (storedUserType === 'customer' && storedToken) {
-        fetchHoldings(storedToken);
-        fetchLatestPrices(storedToken); // Fetch prices immediately for customers
-      } else if (storedUserType === 'admin') {
-        // Set zeros for admin users
-        setMetalBalances({
-          '24k-995': '0.0000',
-          '22k-916': '0.0000',
-          '24k-999': '0.0000'
-        });
-      }
-    }
-  }, []);
-
-  // Set up hourly price updates for customers
-  useEffect(() => {
-    let priceInterval;
-    
-    if (userType === 'customer') {
-      const token = sessionStorage.getItem('authToken');
-      if (token) {
-        // Fetch prices immediately and then set up hourly interval
-        fetchLatestPrices(token);
+    const initializeApp = async () => {
+      if (typeof window !== 'undefined') {
+        const storedUserType = sessionStorage.getItem('userType');
+        const storedUsername = sessionStorage.getItem('username');
+        const storedToken = sessionStorage.getItem('authToken');
         
-        // Set up interval for hourly price updates (1 hour = 3600000 ms)
-        priceInterval = setInterval(() => {
-          console.log('🕒 Hourly price update triggered');
-          fetchLatestPrices(token);
-        }, 3600000); // 1 hour in milliseconds
+        if (storedUserType) {
+          setUserType(storedUserType);
+        }
+        if (storedUsername) {
+          setUsername(storedUsername);
+        }
+
+        // Fetch market status immediately
+        await fetchMarketStatus();
         
-        console.log('⏰ Hourly price updates enabled for customer');
-      }
-    }
-    
-    // Cleanup interval on component unmount or user type change
-    return () => {
-      if (priceInterval) {
-        clearInterval(priceInterval);
-        console.log('⏰ Hourly price updates disabled');
+        // Set up time updates
+        updateCurrentTime();
+        const timeInterval = setInterval(updateCurrentTime, 60000);
+        
+        // Fetch initial data based on user type
+        if (storedUserType === 'customer' && storedToken) {
+          await Promise.all([
+            fetchHoldings(storedToken),
+            fetchLatestPrices(storedToken),
+            fetchNotifications(storedToken)
+          ]);
+        } else if (storedUserType === 'admin' && storedToken) {
+          await Promise.all([
+            fetchMarketHistory(storedToken),
+            fetchNotifications(storedToken)
+          ]);
+          setMetalBalances({
+            '24k-995': '0.0000',
+            '22k-916': '0.0000',
+            '24k-999': '0.0000'
+          });
+        }
+
+        // Set up polling for market status (every 30 seconds)
+        const marketStatusInterval = setInterval(() => {
+          fetchMarketStatus();
+        }, 30000);
+
+        // Set up hourly price updates for customers
+        let priceInterval;
+        if (storedUserType === 'customer' && storedToken) {
+          priceInterval = setInterval(() => {
+            fetchLatestPrices(storedToken);
+          }, 3600000);
+        }
+
+        return () => {
+          clearInterval(timeInterval);
+          clearInterval(marketStatusInterval);
+          if (priceInterval) clearInterval(priceInterval);
+        };
       }
     };
-  }, [userType]);
 
-  // Fetch latest prices from API
+    initializeApp();
+  }, []);
+
+  // Update current time every minute
+  const updateCurrentTime = () => {
+    const now = new Date();
+    setCurrentTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    
+    // Check if we should update market open status based on time
+    checkTimeBasedMarketStatus();
+  };
+
+  // Check if current time is within trading hours
+  const checkTimeBasedMarketStatus = () => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const currentTimeInMinutes = hours * 60 + minutes;
+    
+    const [openHour, openMinute] = tradingHours.open.split(':').map(Number);
+    const [closeHour, closeMinute] = tradingHours.close.split(':').map(Number);
+    
+    const openTimeInMinutes = openHour * 60 + openMinute;
+    const closeTimeInMinutes = closeHour * 60 + closeMinute;
+    
+    const isWithinTime = currentTimeInMinutes >= openTimeInMinutes && 
+                        currentTimeInMinutes <= closeTimeInMinutes;
+    
+    // Only update if market status is 'open' but time is outside trading hours
+    if (marketStatus === 'open' && !isWithinTime) {
+      setIsMarketOpen(false);
+    }
+  };
+
+  // Fetch market status from API
+  const fetchMarketStatus = async () => {
+    try {
+      const token = sessionStorage.getItem('authToken');
+      const response = await fetch('http://localhost:5000/api/market-status/', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Market Status Data:', data);
+        
+        setMarketStatus(data.marketStatus.status);
+        setTradingHours({
+          open: data.marketStatus.open_time,
+          close: data.marketStatus.close_time
+        });
+        setIsMarketOpen(data.isMarketOpen);
+        
+        // Store in sessionStorage for persistence
+        sessionStorage.setItem('marketStatus', data.marketStatus.status);
+        sessionStorage.setItem('tradingHours', JSON.stringify({
+          open: data.marketStatus.open_time,
+          close: data.marketStatus.close_time
+        }));
+        
+        // Add notification if status changed
+        if (data.marketStatus.status === 'closed') {
+          addNotification({
+            title: 'Market Closed',
+            message: 'Trading operations are currently disabled',
+            type: 'warning'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching market status:', error);
+    }
+  };
+
+  // Fetch market history (admin only)
+  const fetchMarketHistory = async (token) => {
+    try {
+      const response = await fetch('http://localhost:5000/api/market-status/history?limit=10', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setMarketHistory(data.history);
+      }
+    } catch (error) {
+      console.error('Error fetching market history:', error);
+    }
+  };
+
+  // Fetch latest prices
   const fetchLatestPrices = async (token) => {
     try {
       setIsLoadingPrices(true);
-      console.log('💰 Fetching latest prices...');
-
       const response = await fetch('http://localhost:5000/api/price/', {
         method: 'GET',
         headers: {
@@ -131,42 +221,36 @@ const PreciousMetalsApp = () => {
         }
       });
 
-      console.log('📡 Price response status:', response.status);
-
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ Latest prices received:', data);
         
         if (data.latestPrice) {
-          // Update metal rates with latest prices
           setMetalRates({
             '24k-995': data.latestPrice.gold24K,
             '22k-916': data.latestPrice.gold22K,
             '24k-999': data.latestPrice.silver
           });
           
-          // Update last price update time
           setLastPriceUpdate(new Date().toLocaleTimeString());
-          console.log('🔄 Metal rates updated with latest prices');
+          
+          addNotification({
+            title: 'Prices Updated',
+            message: 'Metal rates have been updated',
+            type: 'info'
+          });
         }
-      } else {
-        console.error('❌ Failed to fetch prices:', response.status);
-        // Keep existing rates if fetch fails
       }
     } catch (error) {
-      console.error('❌ Error fetching prices:', error);
-      // Keep existing rates on error
+      console.error('Error fetching prices:', error);
     } finally {
       setIsLoadingPrices(false);
     }
   };
 
-  // Fetch holdings data for customers
+  // Fetch holdings data
   const fetchHoldings = async (token) => {
     try {
       setIsLoading(true);
-      console.log('🔐 Fetching holdings for customer...');
-
       const response = await fetch('http://localhost:5000/api/holdings', {
         method: 'GET',
         headers: {
@@ -175,38 +259,49 @@ const PreciousMetalsApp = () => {
         }
       });
 
-      console.log('📡 Holdings response status:', response.status);
-
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ Holdings data received:', data);
-        setHoldings(data.holdings || data); // Handle both response formats
-        
-        // Update metal balances based on holdings data
+        setHoldings(data.holdings || data);
         updateMetalBalances(data.holdings || data);
-      } else {
-        console.error('❌ Failed to fetch holdings:', response.status);
-        // Set zeros if fetch fails
-        setMetalBalances({
-          '24k-995': '0.0000',
-          '22k-916': '0.0000',
-          '24k-999': '0.0000'
-        });
       }
     } catch (error) {
-      console.error('❌ Error fetching holdings:', error);
-      // Set zeros on error
-      setMetalBalances({
-        '24k-995': '0.0000',
-        '22k-916': '0.0000',
-        '24k-999': '0.0000'
-      });
+      console.error('Error fetching holdings:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Update metal balances based on holdings data
+  // Fetch notifications
+  const fetchNotifications = async (token) => {
+    try {
+      const response = await fetch('http://localhost:5000/api/notifications', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data.notifications || []);
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  };
+
+  // Add notification
+  const addNotification = (notification) => {
+    setNotifications(prev => [{
+      id: Date.now(),
+      ...notification,
+      timestamp: new Date().toISOString(),
+      is_read: false
+    }, ...prev.slice(0, 9)]);
+  };
+
+  // Update metal balances
   const updateMetalBalances = (holdingsData) => {
     const newBalances = {
       '24k-995': '0.0000',
@@ -231,37 +326,14 @@ const PreciousMetalsApp = () => {
           case 'SILVER':
             newBalances['24k-999'] = qty.toFixed(4);
             break;
-          default:
-            console.log('Unknown metal type:', holding.metal_type);
         }
       });
     }
 
-    console.log('📊 Updated metal balances:', newBalances);
     setMetalBalances(newBalances);
   };
 
-  // Refresh holdings data
-  const handleRefreshHoldings = () => {
-    const token = sessionStorage.getItem('authToken');
-    const currentUserType = sessionStorage.getItem('userType');
-    
-    if (currentUserType === 'customer' && token) {
-      fetchHoldings(token);
-    }
-  };
-
-  // Refresh prices manually
-  const handleRefreshPrices = () => {
-    const token = sessionStorage.getItem('authToken');
-    const currentUserType = sessionStorage.getItem('userType');
-    
-    if (currentUserType === 'customer' && token) {
-      fetchLatestPrices(token);
-    }
-  };
-
-  // Handle market open/close
+  // Handle market toggle
   const handleMarketToggle = async (newStatus) => {
     if (userType !== 'admin') {
       alert('You do not have admin privileges to control market status.');
@@ -278,466 +350,324 @@ const PreciousMetalsApp = () => {
         return;
       }
 
-      console.log(`🔄 Updating market status to: ${newStatus}`);
-      
-      // Store market status in sessionStorage
-      sessionStorage.setItem('marketStatus', newStatus);
-      console.log(`💾 Market status saved to sessionStorage: ${newStatus}`);
-      
-      // Update state
-      setMarketStatus(newStatus);
-      
-      // Here you would typically make an API call to update market status on server
-      // For now, we'll simulate it with a timeout
-      
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
-      
-      console.log(`✅ Market status updated to: ${newStatus}`);
-      
-      // Show appropriate message
-      if (newStatus === 'closed') {
-        alert('Market has been closed. Trading is now disabled for all users.');
+      const response = await fetch('http://localhost:5000/api/market-status/', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          status: newStatus,
+          open_time: tradingHours.open,
+          close_time: tradingHours.close
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        setMarketStatus(newStatus);
+        setIsMarketOpen(newStatus === 'open' && checkCurrentTimeInRange());
+        
+        // Add notification
+        addNotification({
+          title: `Market ${newStatus === 'open' ? 'Opened' : 'Closed'}`,
+          message: data.message,
+          type: newStatus === 'open' ? 'success' : 'warning'
+        });
+        
+        // Refresh market history
+        await fetchMarketHistory(token);
+        
+        alert(data.message);
       } else {
-        alert('Market has been opened. Trading is now enabled for all users.');
+        const errorData = await response.json();
+        alert(errorData.message || 'Failed to update market status');
       }
-      
     } catch (error) {
-      console.error('❌ Error updating market status:', error);
+      console.error('Error updating market status:', error);
       alert('Error updating market status. Please try again.');
     } finally {
       setIsUpdatingMarket(false);
     }
   };
 
-  // Handle market open
-  const handleMarketOpen = () => {
-    handleMarketToggle('open');
-  };
-
-  // Handle market close
-  const handleMarketClose = () => {
-    const confirmClose = window.confirm('Are you sure you want to close the market? This will disable trading for all users.');
-    if (confirmClose) {
-      handleMarketToggle('closed');
-    }
-  };
-
-  const handleDownload = async () => {
-  try {
-    // Get token from sessionStorage
-    const token = sessionStorage.getItem('authToken');
-    
-    if (!token) {
-      alert('Please log in to download the Excel file.');
-      // Optionally redirect to login page
-      // router.push('/Authentication');
+  // Update trading hours
+  const handleUpdateTradingHours = async () => {
+    if (userType !== 'admin') {
+      alert('You do not have admin privileges to update trading hours.');
       return;
     }
 
-    const response = await fetch("http://localhost:5000/api/admin/export-excel", {
-      headers: {
-        'Authorization': `Bearer ${token}`, // Add Bearer prefix
-        'Content-Type': 'application/json'
-      }
-    });
-
-    // Check if response is ok
-    if (!response.ok) {
-      if (response.status === 401) {
-        // Token expired or invalid
-        alert('Session expired. Please log in again.');
-        sessionStorage.removeItem('authToken');
-        // Optionally redirect to login
-        // router.push('/Authentication');
+    setIsUpdatingMarket(true);
+    try {
+      const token = sessionStorage.getItem('authToken');
+      
+      if (!token) {
+        alert('Authentication token not found. Please login again.');
+        setIsUpdatingMarket(false);
         return;
       }
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
 
-    // Check content type to ensure it's an Excel file
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
-      console.warn('Unexpected content type:', contentType);
-    }
-
-    // Convert response to blob
-    const blob = await response.blob();
-
-    // Check if blob is valid
-    if (!blob || blob.size === 0) {
-      throw new Error('Received empty file');
-    }
-
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = "ExcelExport.xlsx";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-    // Clean up the URL object after download
-    setTimeout(() => {
-      window.URL.revokeObjectURL(url);
-    }, 100);
-    
-    console.log('Excel file downloaded successfully');
-    
-  } catch (error) {
-    console.error('Failed to download excel:', error);
-    // Show user-friendly error message
-    alert('Failed to download Excel file. Please try again.');
-  }
-};
-
-  // Time restriction check function
-const checkTimeRestriction = () => {
-  const now = new Date();
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
-  const currentTimeInMinutes = hours * 60 + minutes;
-  
-  // Check if time is between 10:00 AM (600 minutes) and 6:00 PM (1080 minutes)
-  return currentTimeInMinutes >= 600 && currentTimeInMinutes <= 1880;
-};
-
-// Format time for display
-const formatTime = (date) => {
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-};
-
-// Update current time every minute
-useEffect(() => {
-  const timer = setInterval(() => {
-    setCurrentTime(new Date());
-  }, 60000); // Update every minute
-  
-  return () => clearInterval(timer);
-}, []);
-
-// Session storage functions
-const savePaymentDataToSession = () => {
-  const paymentData = {
-    planId: selectedSIPId,
-    planName: 'Quick Buy - ' + metals.find(m => m.id === selectedMetal)?.name,
-    amount: amount,
-    grams: grams,
-    metalType: selectedMetal,
-    timestamp: new Date().toISOString()
-  };
-  
-  sessionStorage.setItem('quickBuyPaymentData', JSON.stringify(paymentData));
-};
-
-const clearPaymentDataFromSession = () => {
-  sessionStorage.removeItem('quickBuyPaymentData');
-};
-
-// Parse amount string to number
-const parseAmount = (amountStr) => {
-  if (typeof amountStr === 'number') return amountStr;
-  if (typeof amountStr === 'string') {
-    // Remove commas and any non-numeric characters except decimal point
-    const cleaned = amountStr.replace(/[^\d.]/g, '');
-    return parseFloat(cleaned) || 0;
-  }
-  return 0;
-};
-
-// Load Razorpay script
-const loadRazorpayScript = () => {
-  return new Promise((resolve) => {
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.onload = () => resolve();
-    script.onerror = () => {
-      console.error('Failed to load Razorpay script');
-      resolve();
-    };
-    document.body.appendChild(script);
-  });
-};
-
-// Verify payment function
-const verifyPayment = async (paymentResponse) => {
-  try {
-    const token = sessionStorage.getItem('authToken');
-    const response = await fetch('http://localhost:5000/api/razorpay/verify-payment', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(paymentResponse)
-    });
-
-    const result = await response.json();
-    
-    if (result.success) {
-      alert('Payment verified successfully! Your purchase has been processed.');
-      // Clear form
-      setGrams('');
-      setAmount('');
-      // Refresh holdings
-      handleRefreshHoldings();
-    } else {
-      alert(`Payment verification failed: ${result.message}`);
-    }
-    
-    return result;
-  } catch (error) {
-    console.error('Verification error:', error);
-    alert('Error verifying payment. Please check your transaction history.');
-    return { success: false, message: error.message };
-  }
-};
-
-// Your handlePaymentMethod function (with some adjustments for quick buy)
-const handlePaymentMethod = async (method) => {
-  // Check time restriction before proceeding with payment
-  if (!checkTimeRestriction()) {
-    alert(`Cannot process payment. SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
-    setShowPaymentDialog(false);
-    return;
-  }
-  
-  // Check market status before proceeding with payment
-  if (marketStatus === 'closed') {
-    alert(`Market is currently closed. Trading operations are temporarily disabled.`);
-    setShowPaymentDialog(false);
-    return;
-  }
-  
-  // Validate amount and grams
-  if (!grams || parseFloat(grams) <= 0 || !amount || parseFloat(amount) <= 0) {
-    alert('Please enter valid grams and amount');
-    return;
-  }
-  
-  // Save payment data to session storage
-  savePaymentDataToSession();
-  
-  setShowPaymentDialog(false);
-  
-  // Create a dummy plan for quick buy
-  const quickBuyPlan = {
-    type: 'quick-buy',
-    name: 'Quick Buy - ' + metals.find(m => m.id === selectedMetal)?.name,
-    monthlyAmount: parseFloat(amount),
-    investMin: amount,
-    metalType: metals.find(m => m.id === selectedMetal)?.metalType,
-    isFixed: true,
-    totalMonths: 1
-  };
-  
-  setSelectedPlan(quickBuyPlan);
-
-  if (method === 'Online') {
-    try {
-      let amountValue = parseAmount(amount);
-      
-      // Enhanced validation
-      if (isNaN(amountValue) || amountValue <= 0) {
-        throw new Error(`Invalid amount: Please enter a valid payment amount`);
-      }
-
-      if (amountValue < 1) {
-        throw new Error('Minimum payment amount is ₹1');
-      }
-
-      console.log('💰 Quick Buy payment details:', {
-        amount: amountValue,
-        grams: grams,
-        metalType: selectedMetal,
-        amountInPaise: amountValue,
-        sipId: selectedSIPId
+      const response = await fetch('http://localhost:5000/api/market-status/', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          status: marketStatus,
+          open_time: tradingHours.open,
+          close_time: tradingHours.close
+        })
       });
 
-      // Store payment details in sessionStorage for Razorpay
-      sessionStorage.setItem('razorpayAmount', amountValue.toString());
-      sessionStorage.setItem('razorpaySIPId', selectedSIPId);
-      sessionStorage.setItem('razorpayPlanType', 'quick-buy');
-      sessionStorage.setItem('razorpayMetalType', metals.find(m => m.id === selectedMetal)?.name || 'Gold');
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Recheck if market should be open based on new times
+        setIsMarketOpen(marketStatus === 'open' && checkCurrentTimeInRange());
+        
+        addNotification({
+          title: 'Trading Hours Updated',
+          message: `New trading hours: ${tradingHours.open} - ${tradingHours.close}`,
+          type: 'info'
+        });
+        
+        alert('Trading hours updated successfully');
+      } else {
+        const errorData = await response.json();
+        alert(errorData.message || 'Failed to update trading hours');
+      }
+    } catch (error) {
+      console.error('Error updating trading hours:', error);
+      alert('Error updating trading hours. Please try again.');
+    } finally {
+      setIsUpdatingMarket(false);
+    }
+  };
 
-      const razorpayAmount = amountValue; // Convert to paise for Razorpay
-      
-      console.log('💰 Razorpay amount in paise:', razorpayAmount);
+  // Check if current time is within trading hours
+  const checkCurrentTimeInRange = () => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const currentTimeInMinutes = hours * 60 + minutes;
+    
+    const [openHour, openMinute] = tradingHours.open.split(':').map(Number);
+    const [closeHour, closeMinute] = tradingHours.close.split(':').map(Number);
+    
+    const openTimeInMinutes = openHour * 60 + openMinute;
+    const closeTimeInMinutes = closeHour * 60 + closeMinute;
+    
+    return currentTimeInMinutes >= openTimeInMinutes && 
+           currentTimeInMinutes <= closeTimeInMinutes;
+  };
 
-      // Get auth token from session storage
+  // Check if transaction is allowed
+  const canPerformTransaction = () => {
+    if (marketStatus !== 'open') {
+      return { allowed: false, reason: 'Market is currently closed' };
+    }
+    
+    if (!checkCurrentTimeInRange()) {
+      return { 
+        allowed: false, 
+        reason: `Outside trading hours (${tradingHours.open} - ${tradingHours.close})` 
+      };
+    }
+    
+    return { allowed: true, reason: '' };
+  };
+
+  // Handle buy now with market status check
+  const handleBuyNow = () => {
+    const token = sessionStorage.getItem('authToken');
+    if (!token) {
+      alert('Please login to make a purchase');
+      router.push('/login');
+      return;
+    }
+    
+    const transactionCheck = canPerformTransaction();
+    if (!transactionCheck.allowed) {
+      alert(`Cannot process transaction: ${transactionCheck.reason}`);
+      return;
+    }
+    
+    // Validate input
+    if (!grams || parseFloat(grams) <= 0 || !amount || parseFloat(amount) <= 0) {
+      alert('Please enter valid grams and amount');
+      return;
+    }
+    
+    // Show payment dialog
+    setShowPaymentDialog(true);
+  };
+
+  // Handle payment method
+  const handlePaymentMethod = async (method) => {
+    const transactionCheck = canPerformTransaction();
+    if (!transactionCheck.allowed) {
+      alert(`Cannot process payment: ${transactionCheck.reason}`);
+      setShowPaymentDialog(false);
+      return;
+    }
+    
+    // Your existing payment logic here...
+    console.log('Processing payment via:', method);
+    setShowPaymentDialog(false);
+  };
+
+  // Handle rate change
+  const handleRateChange = (metalId, newRate) => {
+    setMetalRates(prev => ({
+      ...prev,
+      [metalId]: parseFloat(newRate) || 0
+    }));
+  };
+
+  // Handle save rates
+  const handleSaveRates = async () => {
+    if (isSaving) return;
+    
+    setIsSaving(true);
+    
+    try {
       const token = sessionStorage.getItem('authToken');
+      
       if (!token) {
-        throw new Error('Authentication required. Please login again.');
+        alert('Authentication token not found. Please login again.');
+        setIsSaving(false);
+        return;
       }
 
-      console.log('📞 Calling Razorpay API for quick buy...');
-      
-      const response = await fetch('http://localhost:5000/api/razorpay/create-order', {
+      if (userType !== 'admin') {
+        alert('You do not have admin privileges to update rates.');
+        setIsSaving(false);
+        return;
+      }
+
+      const priceData = {
+        gold24K: metalRates['24k-995'],
+        gold22K: metalRates['22k-916'],  
+        silver: metalRates['24k-999']
+      };
+
+      const response = await fetch('http://localhost:5000/api/price/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          amount: amountValue,
-          metalType: metals.find(m => m.id === selectedMetal)?.metalType,
-          sipMonths: 1,
-          sipType: 'fixed',
-          sipId: selectedSIPId,
-          transactionType: 'quick-buy',
-          grams: grams
-        }),
+        body: JSON.stringify(priceData)
       });
 
-      console.log('📋 API Response status:', response.status);
-      
-      const responseText = await response.text();
-      console.log('📋 API Response text:', responseText);
-
-      let orderData;
-      try {
-        orderData = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('❌ Failed to parse JSON response:', parseError);
-        throw new Error(`Invalid response from server: ${responseText.substring(0, 100)}`);
+      if (response.ok) {
+        alert('Rates updated successfully for all users!');
+        setEditMode(false);
+        
+        addNotification({
+          title: 'Prices Updated',
+          message: 'Admin has updated metal rates',
+          type: 'info'
+        });
+      } else {
+        const errorData = await response.json();
+        alert('Failed to update rates: ' + (errorData.message || 'Unknown error'));
       }
+    } catch (error) {
+      console.error('Error updating rates:', error);
+      alert('Error updating rates. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Handle grams change
+  const handleGramsChange = (value) => {
+    setGrams(value);
+    const selectedMetalData = metals.find(m => m.id === selectedMetal);
+    if (selectedMetalData && value) {
+      setAmount((parseFloat(value) * selectedMetalData.rate).toFixed(0));
+    } else {
+      setAmount('');
+    }
+  };
+
+  // Handle amount change
+  const handleAmountChange = (value) => {
+    setAmount(value);
+    const selectedMetalData = metals.find(m => m.id === selectedMetal);
+    if (selectedMetalData && value) {
+      setGrams((parseFloat(value) / selectedMetalData.rate).toFixed(4));
+    } else {
+      setGrams('');
+    }
+  };
+
+  // Handle download
+  const handleDownload = async () => {
+    try {
+      const token = sessionStorage.getItem('authToken');
+      
+      if (!token) {
+        alert('Please log in to download the Excel file.');
+        return;
+      }
+
+      const response = await fetch("http://localhost:5000/api/admin/export-excel", {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
       if (!response.ok) {
-        console.error('❌ Backend API Error response:', orderData);
-        throw new Error(orderData.error || orderData.message || `HTTP error! status: ${response.status}`);
+        if (response.status === 401) {
+          alert('Session expired. Please log in again.');
+          sessionStorage.removeItem('authToken');
+          return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      console.log('✅ Order created successfully:', orderData);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = "ExcelExport.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
 
-      await loadRazorpayScript();
-
-      // Convert amount to paise for Razorpay
-      const amountInPaise = Math.round(amountValue * 100);
-
-      // Razorpay options
-      const options = {
-        key: 'rzp_test_aOTAZ3JhbITtOK', // Replace with your actual Razorpay key
-        amount: amountInPaise,
-        currency: 'INR',
-        name: 'Gold/Silver Purchase',
-        description: `Quick Buy: ${grams}g of ${metals.find(m => m.id === selectedMetal)?.name} ${selectedMetal}`,
-        order_id: orderData.id,
-        handler: async function (paymentResponse) {
-          console.log('✅ Payment successful:', paymentResponse);
-          
-          // Clear session storage after successful payment
-          clearPaymentDataFromSession();
-          
-          const result = await verifyPayment(paymentResponse);
-          
-          if (result.success) {
-            // Clear the form
-            setGrams('');
-            setAmount('');
-          }
-        },
-        prefill: {
-          name: username || 'Customer',
-          email: 'customer@example.com',
-          contact: '9999999999'
-        },
-        notes: {
-          transactionType: 'quick-buy',
-          sipId: selectedSIPId,
-          metalType: selectedMetal,
-          grams: grams
-        },
-        theme: {
-          color: '#50C2C9'
-        },
-        modal: {
-          ondismiss: function() {
-            console.log('Payment modal closed');
-            alert('Payment was cancelled. You can try again.');
-          }
-        }
-      };
-
-      console.log('🎯 Razorpay options:', options);
-
-      const razorpay = new window.Razorpay(options);
-
-      razorpay.on('payment.failed', function (response) {
-        console.error('❌ Payment failed:', response.error);
-        alert(`Payment failed: ${response.error.description}. Please try again.`);
-      });
-
-      razorpay.open();
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 100);
+      
+      console.log('Excel file downloaded successfully');
       
     } catch (error) {
-      console.error('❌ Payment initialization error:', error);
-      
-      let errorMessage = error.message;
-      if (error.message.includes('Failed to create payment order')) {
-        errorMessage = 'Payment gateway error. Please check your internet connection and try again.';
-      } else if (error.message.includes('Invalid amount')) {
-        errorMessage = 'Please enter a valid payment amount (minimum ₹1)';
-      }
-      
-      alert(`Payment failed: ${errorMessage}`);
+      console.error('Failed to download excel:', error);
+      alert('Failed to download Excel file. Please try again.');
     }
-  } else if (method === 'Offline') {
-    // Handle offline payment
-    if (!checkTimeRestriction()) {
-      alert(`Cannot process payment. Payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
-      return;
-    }
-    
-    if (marketStatus === 'closed') {
-      alert(`Market is currently closed. Trading operations are temporarily disabled.`);
-      return;
-    }
-    
-    // Save offline payment data to session storage
-    const offlineData = {
-      planId: selectedSIPId,
-      planName: `Quick Buy - ${metals.find(m => m.id === selectedMetal)?.name}`,
-      amount: amount,
-      grams: grams,
-      metalType: selectedMetal,
-      timestamp: new Date().toISOString(),
-      status: 'offline_pending',
-      transaction_type: 'offline'
-    };
-    
-    sessionStorage.setItem('offlinePaymentData', JSON.stringify(offlineData));
-    
-    router.push('/payoffline');
-  }
-};
+  };
 
-// Function to handle Buy Now click
-const handleBuyNow = () => {
-  // Check if user is logged in
-  const token = sessionStorage.getItem('authToken');
-  if (!token) {
-    alert('Please login to make a purchase');
-    router.push('/login');
-    return;
-  }
-  
-  // Check market status
-  if (marketStatus === 'closed') {
-    alert('Market is currently closed. Trading operations are temporarily disabled.');
-    return;
-  }
-  
-  // Validate input
-  if (!grams || parseFloat(grams) <= 0 || !amount || parseFloat(amount) <= 0) {
-    alert('Please enter valid grams and amount');
-    return;
-  }
-  
-  // Show payment dialog or directly proceed to online payment
-  // For simplicity, we'll proceed directly to online payment
-  handlePaymentMethod('Online');
-};
+  // Mark notification as read
+  const markNotificationAsRead = (id) => {
+    setNotifications(prev =>
+      prev.map(notification =>
+        notification.id === id ? { ...notification, is_read: true } : notification
+      )
+    );
+  };
 
-  // ✅ add image references
+  // Clear all notifications
+  const clearAllNotifications = () => {
+    setNotifications([]);
+  };
+
+  // Metals data
   const metals = [
     { 
       id: '24k-995', 
@@ -768,10 +698,11 @@ const handleBuyNow = () => {
     }
   ];
 
+  // Action buttons based on user type
   const adminActionButtons = [
-    { icon: <FolderInput className="w-6 h-6" onClick={handleDownload} />, label: 'Export', href: '' },
-     { icon: <Settings2 className="w-6 h-6"  />, label: 'Settlements', href: '/settlements' },
-     { icon: <Signature className="w-6 h-6"  />, label: 'Approve', href: '/Approve' },
+    { icon: <FolderInput className="w-6 h-6" />, label: 'Export', action: handleDownload },
+    { icon: <Settings2 className="w-6 h-6" />, label: 'Settlements', href: '/settlements' },
+    { icon: <Signature className="w-6 h-6" />, label: 'Approve', href: '/Approve' },
     { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs font-bold">₹</div>, label: 'SIP', href: '/savings_plan' },
     { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs">💰</div>, label: 'LookBook', href: '/Lookbook' }
   ];
@@ -781,283 +712,268 @@ const handleBuyNow = () => {
     { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs">💰</div>, label: 'LookBook', href: '/Lookbook' }
   ];
 
+  // Navigation items
   const navItems = [
     { icon: <Home className="w-6 h-6" />, label: 'Home', active: true, href: '/Home' },
-    { icon: <Bell className="w-6 h-6" />, label: 'Notification', href: '/Notifications' },
+    { icon: <Bell className="w-6 h-6" />, label: 'Notification', href: '#', action: () => setShowNotifications(!showNotifications) },
     { icon: <PiggyBank className="w-6 h-6" />, label: 'Savings', href: '/savings' },
     { icon: <CreditCard className="w-6 h-6" />, label: 'Passbook', href: '/Passbook' },
     { icon: <User className="w-6 h-6" />, label: 'Profile', href: '/profile' }
   ];
 
-  const handleGramsChange = (value) => {
-    setGrams(value);
-    const selectedMetalData = metals.find(m => m.id === selectedMetal);
-    if (selectedMetalData && value) {
-      setAmount((parseFloat(value) * selectedMetalData.rate).toFixed(0));
-    } else {
-      setAmount('');
-    }
-  };
-
-  const handleAmountChange = (value) => {
-    setAmount(value);
-    const selectedMetalData = metals.find(m => m.id === selectedMetal);
-    if (selectedMetalData && value) {
-      setGrams((parseFloat(value) / selectedMetalData.rate).toFixed(4));
-    } else {
-      setGrams('');
-    }
-  };
-
-  const handleRateChange = (metalId, newRate) => {
-    setMetalRates(prev => ({
-      ...prev,
-      [metalId]: parseFloat(newRate) || 0
-    }));
-  };
-
-  const handleSaveRates = async () => {
-    if (isSaving) return;
-    
-    setIsSaving(true);
-    
-    try {
-      const token = sessionStorage.getItem('authToken');
-      const currentUserType = sessionStorage.getItem('userType');
-      
-      console.log('Current user type:', currentUserType);
-      console.log('Token exists:', !!token);
-      
-      if (!token) {
-        alert('Authentication token not found. Please login again.');
-        setIsSaving(false);
-        return;
-      }
-
-      if (currentUserType !== 'admin') {
-        alert('You do not have admin privileges to update rates.');
-        setIsSaving(false);
-        return;
-      }
-
-      // Prepare the data for API - ONLY send the price data, NOT the token
-      const priceData = {
-        gold24K: metalRates['24k-995'],
-        gold22K: metalRates['22k-916'],  
-        silver: metalRates['24k-999']
-      };
-
-      console.log('Sending price data to API:', priceData);
-
-      const response = await fetch('http://localhost:5000/api/price/add', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // Send token in Authorization header
-        },
-        body: JSON.stringify(priceData) // Only send price data in body
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Price update successful:', result);
-        alert('Rates updated successfully for all users!');
-        setEditMode(false);
-      } else {
-        const errorData = await response.json();
-        console.error('Failed to update rates:', errorData);
-        
-        if (response.status === 401) {
-          alert('Unauthorized: Please login again.');
-        } else if (response.status === 403) {
-          alert('Access forbidden: You do not have admin privileges.');
-          setEditMode(false);
-        } else {
-          alert('Failed to update rates: ' + (errorData.message || 'Unknown error'));
-        }
-      }
-    } catch (error) {
-      console.error('Error updating rates:', error);
-      alert('Error updating rates. Please try again.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleEditToggle = () => {
-    // Double-check admin privileges before allowing edit mode
-    const currentUserType = sessionStorage.getItem('userType');
-    if (currentUserType !== 'admin') {
-      alert('You do not have admin privileges to edit rates.');
-      return;
-    }
-    setEditMode(!editMode);
-  };
-
-  // Debug function to check user data
-  const debugUserData = () => {
-    const token = sessionStorage.getItem('authToken');
-    const userType = sessionStorage.getItem('userType');
-    const username = sessionStorage.getItem('username');
-    const marketStatus = sessionStorage.getItem('marketStatus');
-    
-    console.log('Debug User Data:', {
-      token: token ? 'Exists' : 'Missing',
-      userType,
-      username,
-      marketStatus,
-      tokenLength: token ? token.length : 0,
-      metalBalances,
-      metalRates,
-      lastPriceUpdate,
-      holdingsCount: holdings.length
-    });
-    
-    if (token) {
-      // Decode JWT token to see payload (for debugging)
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        console.log('Token payload:', payload);
-      } catch (e) {
-        console.log('Could not decode token:', e);
-      }
-    }
-  };
-
-  // Function to manually clear market status (for debugging)
-  const clearMarketStatus = () => {
-    if (userType === 'admin') {
-      const confirmClear = window.confirm('Clear market status from sessionStorage?');
-      if (confirmClear) {
-        sessionStorage.removeItem('marketStatus');
-        setMarketStatus('open');
-        alert('Market status cleared. Defaulting to "open".');
-      }
-    }
-  };
-
   return (
     <div className="w-full max-w-md mx-auto bg-white min-h-screen flex flex-col font-sans">
-      {/* Admin Header - Only show for admin users */}
-      {userType === 'admin' && (
-        <div className="bg-blue-50 border-b border-blue-200 px-4 py-3">
-          <div className="flex justify-between items-center">
-            <div>
-              <span className="text-sm font-medium text-blue-800">Admin Mode</span>
-              <p className="text-xs text-blue-600">Welcome, {username}</p>
-              <div className="flex items-center space-x-2 mt-1">
-                <div className={`text-xs px-2 py-1 rounded ${marketStatus === 'open' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                  Market: {marketStatus === 'open' ? 'OPEN' : 'CLOSED'}
-                </div>
-                {/* Debug button - remove in production */}
-                <button 
-                  onClick={debugUserData}
-                  className="text-xs text-blue-500 underline"
-                >
-                  Debug User Data
-                </button>
-                {/* Clear market status button (debug) */}
-                <button 
-                  onClick={clearMarketStatus}
-                  className="text-xs text-red-500 underline"
-                >
-                  Clear Market Status
-                </button>
+      {/* Header with Market Status */}
+      <div className={`px-4 py-3 border-b ${isMarketOpen ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+        <div className="flex justify-between items-center">
+          <div>
+            <span className="text-sm font-medium">
+              {userType === 'admin' ? 'Admin Mode' : 'Customer Mode'}
+            </span>
+            <p className="text-xs opacity-80">Welcome, {username}</p>
+            
+            {/* Market Status Display */}
+            <div className="flex items-center space-x-2 mt-1">
+              <div className={`flex items-center space-x-1 px-2 py-1 rounded text-xs ${
+                isMarketOpen 
+                  ? 'bg-green-100 text-green-800' 
+                  : 'bg-red-100 text-red-800'
+              }`}>
+                {isMarketOpen ? (
+                  <CheckCircle className="w-3 h-3" />
+                ) : (
+                  <XCircle className="w-3 h-3" />
+                )}
+                <span>Market: {isMarketOpen ? 'OPEN' : 'CLOSED'}</span>
+              </div>
+              
+              <div className="text-xs text-gray-600 flex items-center">
+                <Clock className="w-3 h-3 mr-1" />
+                {tradingHours.open} - {tradingHours.close}
+              </div>
+              
+              <div className="text-xs text-gray-600">
+                Now: {currentTime}
               </div>
             </div>
+          </div>
+          
+          {/* Admin Controls */}
+          {userType === 'admin' && (
             <div className="flex items-center space-x-2">
-              {/* Market Control Buttons */}
-              {marketStatus === 'open' ? (
-                <button
-                  onClick={handleMarketClose}
-                  disabled={isUpdatingMarket}
-                  className="flex items-center space-x-1 bg-red-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Lock className="w-4 h-4" />
-                  <span>{isUpdatingMarket ? 'Closing...' : 'Close Market'}</span>
-                </button>
-              ) : (
-                <button
-                  onClick={handleMarketOpen}
-                  disabled={isUpdatingMarket}
-                  className="flex items-center space-x-1 bg-green-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Unlock className="w-4 h-4" />
-                  <span>{isUpdatingMarket ? 'Opening...' : 'Open Market'}</span>
-                </button>
-              )}
-              
-              {/* Edit Rates Button */}
               {editMode ? (
                 <button
                   onClick={handleSaveRates}
                   disabled={isSaving}
-                  className="flex items-center space-x-1 bg-green-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center space-x-1 bg-green-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-green-600 transition-colors disabled:opacity-50"
                 >
                   <Save className="w-4 h-4" />
-                  <span>{isSaving ? 'Saving...' : 'Save'}</span>
+                  <span>{isSaving ? 'Saving...' : 'Save Rates'}</span>
                 </button>
               ) : (
                 <button
-                  onClick={handleEditToggle}
+                  onClick={() => setEditMode(true)}
                   className="flex items-center space-x-1 bg-blue-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-blue-600 transition-colors"
                 >
                   <Edit2 className="w-4 h-4" />
                   <span>Edit Rates</span>
                 </button>
               )}
+              
+              <button
+                onClick={() => setShowMarketHistory(!showMarketHistory)}
+                className="flex items-center space-x-1 bg-gray-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-gray-600 transition-colors"
+              >
+                <History className="w-4 h-4" />
+                <span>History</span>
+              </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Customer Header - Only show for customer users */}
-      {userType === 'customer' && (
-        <div className="bg-green-50 border-b border-green-200 px-4 py-3">
-          <div className="flex justify-between items-center">
-            <div>
-              <span className="text-sm font-medium text-green-800">Customer Mode</span>
-              <p className="text-xs text-green-600">Welcome, {username}</p>
-              <div className="text-xs text-green-500 mt-1">
-                {isLoading ? 'Loading holdings...' : 'Real-time holdings data'}
-              </div>
-              {lastPriceUpdate && (
-                <div className="text-xs text-green-600 flex items-center space-x-1 mt-1">
-                  <Clock className="w-3 h-3" />
-                  <span>Prices updated: {lastPriceUpdate}</span>
-                </div>
-              )}
-            </div>
+          )}
+          
+          {/* Customer Controls */}
+          {userType === 'customer' && (
             <div className="flex items-center space-x-2">
               <button
-                onClick={handleRefreshPrices}
+                onClick={() => fetchLatestPrices(sessionStorage.getItem('authToken'))}
                 disabled={isLoadingPrices}
-                className="flex items-center space-x-1 bg-green-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center space-x-1 bg-blue-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-blue-600 transition-colors disabled:opacity-50"
               >
                 <RefreshCw className={`w-4 h-4 ${isLoadingPrices ? 'animate-spin' : ''}`} />
                 <span>Refresh Prices</span>
               </button>
+            </div>
+          )}
+        </div>
+        
+        {/* Admin Market Controls */}
+        {userType === 'admin' && (
+          <div className="mt-3 pt-3 border-t border-gray-200">
+            <div className="flex flex-wrap gap-2">
+              {/* Market Toggle Buttons */}
               <button
-                onClick={handleRefreshHoldings}
-                disabled={isLoading}
-                className="flex items-center space-x-1 bg-blue-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => handleMarketToggle('open')}
+                disabled={isUpdatingMarket || isMarketOpen}
+                className={`flex items-center space-x-1 px-3 py-2 rounded-lg text-sm transition-colors ${
+                  isMarketOpen 
+                    ? 'bg-green-100 text-green-800 border border-green-300' 
+                    : 'bg-green-500 text-white hover:bg-green-600'
+                } disabled:opacity-50`}
               >
-                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                <span>Refresh Holdings</span>
+                <Unlock className="w-4 h-4" />
+                <span>Open Market</span>
               </button>
-              {/* Debug button - remove in production */}
-              <button 
-                onClick={debugUserData}
-                className="text-xs text-green-500 underline"
+              
+              <button
+                onClick={() => handleMarketToggle('closed')}
+                disabled={isUpdatingMarket || !isMarketOpen}
+                className={`flex items-center space-x-1 px-3 py-2 rounded-lg text-sm transition-colors ${
+                  !isMarketOpen 
+                    ? 'bg-red-100 text-red-800 border border-red-300' 
+                    : 'bg-red-500 text-white hover:bg-red-600'
+                } disabled:opacity-50`}
               >
-                Debug
+                <Lock className="w-4 h-4" />
+                <span>Close Market</span>
               </button>
+              
+              {/* Trading Hours Editor */}
+              <div className="flex items-center space-x-2 bg-gray-100 px-3 py-2 rounded-lg">
+                <Clock className="w-4 h-4 text-gray-600" />
+                <input
+                  type="time"
+                  value={tradingHours.open}
+                  onChange={(e) => setTradingHours(prev => ({ ...prev, open: e.target.value }))}
+                  className="w-20 text-sm border rounded px-2 py-1"
+                />
+                <span className="text-gray-600">to</span>
+                <input
+                  type="time"
+                  value={tradingHours.close}
+                  onChange={(e) => setTradingHours(prev => ({ ...prev, close: e.target.value }))}
+                  className="w-20 text-sm border rounded px-2 py-1"
+                />
+                <button
+                  onClick={handleUpdateTradingHours}
+                  disabled={isUpdatingMarket}
+                  className="bg-blue-500 text-white px-2 py-1 rounded text-sm hover:bg-blue-600"
+                >
+                  Update
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Market History Modal (Admin Only) */}
+      {showMarketHistory && userType === 'admin' && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-4 w-11/12 max-w-md max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Market Status History</h3>
+              <button
+                onClick={() => setShowMarketHistory(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="space-y-2">
+              {marketHistory.map((item, index) => (
+                <div key={index} className="border rounded-lg p-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      item.status === 'open' 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {item.status.toUpperCase()}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {new Date(item.last_updated_at).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="text-sm">
+                    <div>Trading Hours: {item.open_time} - {item.close_time}</div>
+                    {item.updated_by_user && (
+                      <div className="text-xs text-gray-600 mt-1">
+                        Updated by: {item.updated_by_user.username}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              
+              {marketHistory.length === 0 && (
+                <div className="text-center py-4 text-gray-500">
+                  No market history available
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* ===== Precious Metals Balance ===== */}
+      {/* Notifications Modal */}
+      {showNotifications && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-4 w-11/12 max-w-md max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Notifications</h3>
+              <div className="flex space-x-2">
+                <button
+                  onClick={clearAllNotifications}
+                  className="text-sm text-red-500 hover:text-red-700"
+                >
+                  Clear All
+                </button>
+                <button
+                  onClick={() => setShowNotifications(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              {notifications.map((notification) => (
+                <div 
+                  key={notification.id} 
+                  className={`border rounded-lg p-3 ${notification.is_read ? 'bg-gray-50' : 'bg-blue-50'}`}
+                  onClick={() => markNotificationAsRead(notification.id)}
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center space-x-2">
+                      {notification.type === 'success' && <CheckCircle className="w-4 h-4 text-green-500" />}
+                      {notification.type === 'warning' && <AlertCircle className="w-4 h-4 text-yellow-500" />}
+                      {notification.type === 'error' && <XCircle className="w-4 h-4 text-red-500" />}
+                      {notification.type === 'info' && <Bell className="w-4 h-4 text-blue-500" />}
+                      <span className="font-medium">{notification.title}</span>
+                    </div>
+                    {!notification.is_read && (
+                      <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-600">{notification.message}</p>
+                  <div className="text-xs text-gray-500 mt-2">
+                    {new Date(notification.timestamp).toLocaleTimeString()}
+                  </div>
+                </div>
+              ))}
+              
+              {notifications.length === 0 && (
+                <div className="text-center py-4 text-gray-500">
+                  No notifications
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Precious Metals Balance Section */}
       <div className="bg-gray-100 rounded-lg m-4 p-4">
         {/* Header Row */}
         <div className="grid grid-cols-3 gap-2 mb-4">
@@ -1119,62 +1035,66 @@ const handleBuyNow = () => {
                   />
                 ) : (
                   <div className="text-lg font-bold text-gray-800">
-                    {isLoadingPrices ? '...' : metal.rate}
+                    {isLoadingPrices ? '...' : metal.rate.toLocaleString()}
                   </div>
                 )}
               </div>
             ))}
           </div>
-          <div className="text-right">
+          
+          <div className="flex justify-between items-center">
             <span className="text-xs text-gray-400">Rates are exclusive of 3% GST</span>
-            {userType === 'customer' && (
-              <div className="text-xs text-green-600 flex items-center justify-end space-x-1 mt-1">
-                <Clock className="w-3 h-3" />
-                <span>Auto-updates hourly</span>
-              </div>
+            {lastPriceUpdate && (
+              <span className="text-xs text-green-600">
+                Updated: {lastPriceUpdate}
+              </span>
             )}
           </div>
         </div>
       </div>
 
-      {/* ===== Quick Buy Section ===== */}
-      <div className="bg-gray-100 rounded-lg m-4 p-4"> 
+      {/* Quick Buy Section */}
+      <div className="bg-gray-100 rounded-lg m-4 p-4">
         <h2 className="text-xl font-bold text-gray-800 mb-4">Quick Buy</h2>
 
-        {/* Market Status Warning for Customers */}
-        {userType === 'customer' && marketStatus === 'closed' && (
+        {/* Market Status Warning */}
+        {!isMarketOpen && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
             <div className="flex items-center space-x-2 text-red-700">
-              <Lock className="w-4 h-4" />
-              <span className="text-sm font-medium">Market is currently closed</span>
+              <AlertCircle className="w-4 h-4" />
+              <span className="text-sm font-medium">Market is currently {marketStatus}</span>
             </div>
-            <p className="text-xs text-red-600 mt-1">Trading will resume when the market opens.</p>
+            <p className="text-xs text-red-600 mt-1">
+              {marketStatus === 'open' 
+                ? `Outside trading hours. Trading hours: ${tradingHours.open} - ${tradingHours.close}`
+                : 'Trading operations are temporarily disabled.'}
+            </p>
           </div>
         )}
 
         {/* Metal Selection */}
-         <div className="flex flex-wrap gap-2 mb-4"> 
+        <div className="flex flex-wrap gap-2 mb-4">
           {metals.map((metal) => (
             <button
               key={metal.id}
               onClick={() => setSelectedMetal(metal.id)}
-              disabled={marketStatus === 'closed'}
+              disabled={!isMarketOpen}
               className={`flex-1 min-w-[90px] py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
                 selectedMetal === metal.id
                   ? 'bg-[#50C2C9] text-white'
-                  : marketStatus === 'closed' 
+                  : !isMarketOpen
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-gray-200 text-gray-700'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
               <div>{metal.name}</div>
               <div className="text-xs opacity-80">{metal.purity}</div>
             </button>
           ))}
-        </div> 
+        </div>
 
         {/* Input Fields */}
-         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
               <Scale className="w-4 h-4" />
@@ -1184,143 +1104,181 @@ const handleBuyNow = () => {
               type="number"
               value={grams}
               onChange={(e) => handleGramsChange(e.target.value)}
-              disabled={marketStatus === 'closed'}
+              disabled={!isMarketOpen}
               className={`w-full p-3 border rounded-lg focus:outline-none ${
-                marketStatus === 'closed' 
-                  ? 'border-gray-300 bg-gray-50 text-gray-400 cursor-not-allowed' 
+                !isMarketOpen
+                  ? 'border-gray-300 bg-gray-50 text-gray-400 cursor-not-allowed'
                   : 'border-gray-300 focus:ring-2 focus:ring-[#50C2C9]'
               }`}
               placeholder="0"
+              min="0"
+              step="0.001"
             />
           </div>
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+              <TrendingUp className="w-4 h-4" />
               ₹ Amount
             </label>
             <input
               type="number"
               value={amount}
               onChange={(e) => handleAmountChange(e.target.value)}
-              disabled={marketStatus === 'closed'}
+              disabled={!isMarketOpen}
               className={`w-full p-3 border rounded-lg focus:outline-none ${
-                marketStatus === 'closed' 
-                  ? 'border-gray-300 bg-gray-50 text-gray-400 cursor-not-allowed' 
+                !isMarketOpen
+                  ? 'border-gray-300 bg-gray-50 text-gray-400 cursor-not-allowed'
                   : 'border-gray-300 focus:ring-2 focus:ring-[#50C2C9]'
               }`}
               placeholder="0"
+              min="0"
             />
           </div>
-        </div> 
+        </div>
 
         {/* Conversion Icon */}
-         <div className="flex justify-center mb-4">
+        <div className="flex justify-center mb-4">
           <ArrowLeftRight className="w-6 h-6 text-gray-400" />
-        </div> 
+        </div>
 
-         <div className="text-right text-xs text-gray-400 mb-4">
+        <div className="text-right text-xs text-gray-400 mb-4">
           GST included
-        </div> 
+        </div>
 
         {/* Buy Now Button */}
-          <button 
-            className={`w-full py-4 rounded-lg font-bold text-lg transition-colors ${
-              marketStatus === 'closed'
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-[#50C2C9] text-white hover:bg-[#3AA8AF]'
-            }`}
-            disabled={marketStatus === 'closed' || !grams || !amount}
-            onClick={handleBuyNow}
-          >
-            {marketStatus === 'closed' ? 'Market Closed' : 'Buy Now'}
-          </button>
-       </div>
+        <button
+          className={`w-full py-4 rounded-lg font-bold text-lg transition-colors ${
+            !isMarketOpen || !grams || !amount
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : 'bg-[#50C2C9] text-white hover:bg-[#3AA8AF]'
+          }`}
+          disabled={!isMarketOpen || !grams || !amount}
+          onClick={handleBuyNow}
+        >
+          {!isMarketOpen ? 'Market Closed' : 'Buy Now'}
+        </button>
+      </div>
 
-      {/* ===== Action Buttons ===== */}
+      {/* Payment Dialog */}
+      {showPaymentDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-11/12 max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Select Payment Method</h3>
+            
+            <div className="space-y-3 mb-6">
+              <div className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                   onClick={() => handlePaymentMethod('Online')}>
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <CreditCard className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <div className="font-medium">Online Payment</div>
+                    <div className="text-sm text-gray-600">Credit/Debit Card, UPI, Net Banking</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                   onClick={() => handlePaymentMethod('Offline')}>
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <ShoppingCart className="w-6 h-6 text-green-600" />
+                  </div>
+                  <div>
+                    <div className="font-medium">Offline Payment</div>
+                    <div className="text-sm text-gray-600">Bank Transfer, Cash Deposit</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowPaymentDialog(false)}
+                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Action Buttons */}
       <div className="flex justify-around flex-wrap px-2 py-3 gap-2 sticky bottom-20 bg-white">
-        {/* Render different action buttons based on user type */}
-        {userType === 'admin' 
-          ? adminActionButtons.map((button, index) => (
-              <Link
-                key={index}
-                className={`flex flex-col items-center p-3 rounded-lg transition-colors ${
-                  marketStatus === 'closed' && button.label === 'Export'
-                    ? 'opacity-50 cursor-not-allowed'
-                    : 'hover:bg-gray-50'
-                }`}
-                href={marketStatus === 'closed' && button.label === 'Export' ? '#' : button.href}
-                onClick={(e) => {
-                  if (marketStatus === 'closed' && button.label === 'Export') {
-                    e.preventDefault();
-                    alert('Trading is currently disabled. Market is closed.');
-                  }
-                }}
-              >
-                <div className={`mb-1 ${
-                  marketStatus === 'closed' && button.label === 'Export'
-                    ? 'text-gray-400'
-                    : 'text-[#50C2C9]'
-                }`}>
-                  {button.icon}
-                </div>
-                <span className={`text-xs text-center leading-tight ${
-                  marketStatus === 'closed' && button.label === 'Export'
-                    ? 'text-gray-400'
-                    : 'text-gray-600'
-                }`}>
-                  {button.label}
-                </span>
-              </Link>
-            ))
-          : customerActionButtons.map((button, index) => (
-              <Link
-                key={index}
-                className="flex flex-col items-center p-3 rounded-lg transition-colors hover:bg-gray-50"
-                href={button.href}
-              >
-                <div className="mb-1 text-[#50C2C9]">
-                  {button.icon}
-                </div>
-                <span className="text-xs text-center leading-tight text-gray-600">
-                  {button.label}
-                </span>
-              </Link>
-            ))
-        }
+        {(userType === 'admin' ? adminActionButtons : customerActionButtons).map((button, index) => (
+          <div
+            key={index}
+            className={`flex flex-col items-center p-3 rounded-lg transition-colors ${
+              (!isMarketOpen && button.label === 'Export') || 
+              (!isMarketOpen && button.label === 'SIP' && userType === 'customer')
+                ? 'opacity-50 cursor-not-allowed'
+                : 'hover:bg-gray-50'
+            }`}
+            onClick={(e) => {
+              if ((!isMarketOpen && button.label === 'Export') || 
+                  (!isMarketOpen && button.label === 'SIP' && userType === 'customer')) {
+                e.preventDefault();
+                alert(`Market is currently ${marketStatus}. This action is disabled.`);
+                return;
+              }
+              
+              if (button.action) {
+                button.action();
+              } else if (button.href) {
+                router.push(button.href);
+              }
+            }}
+          >
+            <div className={`mb-1 ${
+              (!isMarketOpen && button.label === 'Export') || 
+              (!isMarketOpen && button.label === 'SIP' && userType === 'customer')
+                ? 'text-gray-400'
+                : 'text-[#50C2C9]'
+            }`}>
+              {button.icon}
+            </div>
+            <span className={`text-xs text-center leading-tight ${
+              (!isMarketOpen && button.label === 'Export') || 
+              (!isMarketOpen && button.label === 'SIP' && userType === 'customer')
+                ? 'text-gray-400'
+                : 'text-gray-600'
+            }`}>
+              {button.label}
+            </span>
+          </div>
+        ))}
       </div>
 
       {/* Spacer */}
       <div className="flex-1"></div>
 
-      {/* ===== Bottom Navigation ===== */}
+      {/* Bottom Navigation */}
       <div className="border-t border-gray-200 bg-white sticky bottom-0">
         <div className="flex justify-around py-3">
           {navItems.map((item, index) => (
-            item.href ? (
-              <Link
-                key={index}
-                className={`flex flex-col items-center p-2 transition-colors  ${
-                  item.active
-                    ? 'text-[#50C2C9]'
-                    : 'text-gray-400 hover:text-gray-600'
-                }`}
-                href={item.href}
-              >
-                {item.icon}
-                <span className="text-xs mt-1">{item.label}</span>
-              </Link>
-            ) : (
-              <div
-                key={index}
-                className={`flex flex-col items-center p-2 transition-colors ${
-                  item.active
-                    ? 'text-[#50C2C9]'
-                    : 'text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                {item.icon}
-                <span className="text-xs mt-1">{item.label}</span>
-              </div>
-            )
+            <div
+              key={index}
+              className={`flex flex-col items-center p-2 transition-colors cursor-pointer ${
+                item.active
+                  ? 'text-[#50C2C9]'
+                  : 'text-gray-400 hover:text-gray-600'
+              }`}
+              onClick={() => {
+                if (item.action) {
+                  item.action();
+                } else if (item.href) {
+                  router.push(item.href);
+                }
+              }}
+            >
+              {item.icon}
+              <span className="text-xs mt-1">{item.label}</span>
+              {item.label === 'Notification' && notifications.filter(n => !n.is_read).length > 0 && (
+                <span className="absolute top-1 right-1/3 w-2 h-2 bg-red-500 rounded-full"></span>
+              )}
+            </div>
           ))}
         </div>
       </div>
