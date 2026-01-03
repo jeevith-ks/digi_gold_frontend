@@ -20,7 +20,7 @@ const PreciousMetalsApp = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingPrices, setIsLoadingPrices] = useState(false);
   const [lastPriceUpdate, setLastPriceUpdate] = useState(null);
-  const [marketStatus, setMarketStatus] = useState('closed');
+  const [marketStatus, setMarketStatus] = useState('CLOSED');
   const [isMarketOpen, setIsMarketOpen] = useState(false);
   const [isUpdatingMarket, setIsUpdatingMarket] = useState(false);
   const [tradingHours, setTradingHours] = useState({ open: '10:00', close: '18:00' });
@@ -118,38 +118,17 @@ const PreciousMetalsApp = () => {
   const updateCurrentTime = () => {
     const now = new Date();
     setCurrentTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-    
-    // Check if we should update market open status based on time
-    checkTimeBasedMarketStatus();
-  };
-
-  // Check if current time is within trading hours
-  const checkTimeBasedMarketStatus = () => {
-    const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const currentTimeInMinutes = hours * 60 + minutes;
-    
-    const [openHour, openMinute] = tradingHours.open.split(':').map(Number);
-    const [closeHour, closeMinute] = tradingHours.close.split(':').map(Number);
-    
-    const openTimeInMinutes = openHour * 60 + openMinute;
-    const closeTimeInMinutes = closeHour * 60 + closeMinute;
-    
-    const isWithinTime = currentTimeInMinutes >= openTimeInMinutes && 
-                        currentTimeInMinutes <= closeTimeInMinutes;
-    
-    // Only update if market status is 'open' but time is outside trading hours
-    if (marketStatus === 'open' && !isWithinTime) {
-      setIsMarketOpen(false);
-    }
   };
 
   // Fetch market status from API
   const fetchMarketStatus = async () => {
     try {
       const token = sessionStorage.getItem('authToken');
-      const response = await fetch('http://localhost:5000/api/market-status/', {
+      const userType = sessionStorage.getItem('userType');
+      
+      // Always use the admin endpoint to get market status
+      // This endpoint should be accessible to both admin and customers
+      const response = await fetch('http://localhost:5000/api/admin/market-status', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -161,38 +140,91 @@ const PreciousMetalsApp = () => {
         const data = await response.json();
         console.log('Market Status Data:', data);
         
-        setMarketStatus(data.marketStatus.status);
-        setTradingHours({
-          open: data.marketStatus.open_time,
-          close: data.marketStatus.close_time
-        });
-        setIsMarketOpen(data.isMarketOpen);
+        // Extract market status from response
+        let marketStatusValue = 'CLOSED';
+        let marketOpen = false;
+        
+        if (data.marketStatus) {
+          // Response has marketStatus object
+          marketStatusValue = data.marketStatus.status;
+          marketOpen = marketStatusValue === 'OPEN';
+          
+          // Update trading hours if available
+          if (data.marketStatus.open_time && data.marketStatus.close_time) {
+            setTradingHours({
+              open: data.marketStatus.open_time,
+              close: data.marketStatus.close_time
+            });
+          }
+        } else if (data.status) {
+          // Direct status in response
+          marketStatusValue = data.status;
+          marketOpen = marketStatusValue === 'OPEN';
+        }
+        
+        // Update state
+        setMarketStatus(marketStatusValue);
+        setIsMarketOpen(marketOpen);
         
         // Store in sessionStorage for persistence
-        sessionStorage.setItem('marketStatus', data.marketStatus.status);
-        sessionStorage.setItem('tradingHours', JSON.stringify({
-          open: data.marketStatus.open_time,
-          close: data.marketStatus.close_time
-        }));
+        sessionStorage.setItem('marketStatus', marketStatusValue);
+        sessionStorage.setItem('tradingHours', JSON.stringify(tradingHours));
+        sessionStorage.setItem('isMarketOpen', marketOpen.toString());
         
-        // Add notification if status changed
-        if (data.marketStatus.status === 'closed') {
+        console.log('Market status updated:', { 
+          status: marketStatusValue, 
+          isOpen: marketOpen,
+          tradingHours 
+        });
+        
+        // Add notification if status changed to CLOSED
+        if (marketStatusValue === 'CLOSED') {
           addNotification({
             title: 'Market Closed',
             message: 'Trading operations are currently disabled',
             type: 'warning'
           });
         }
+      } else {
+        console.error('Failed to fetch market status:', response.status);
+        
+        // Fallback to sessionStorage if API fails
+        const storedStatus = sessionStorage.getItem('marketStatus');
+        const storedHours = sessionStorage.getItem('tradingHours');
+        const storedIsOpen = sessionStorage.getItem('isMarketOpen');
+        
+        if (storedStatus) {
+          setMarketStatus(storedStatus);
+          setIsMarketOpen(storedIsOpen === 'true');
+        }
+        
+        if (storedHours) {
+          setTradingHours(JSON.parse(storedHours));
+        }
       }
     } catch (error) {
       console.error('Error fetching market status:', error);
+      
+      // Fallback to sessionStorage
+      const storedStatus = sessionStorage.getItem('marketStatus');
+      const storedHours = sessionStorage.getItem('tradingHours');
+      const storedIsOpen = sessionStorage.getItem('isMarketOpen');
+      
+      if (storedStatus) {
+        setMarketStatus(storedStatus);
+        setIsMarketOpen(storedIsOpen === 'true');
+      }
+      
+      if (storedHours) {
+        setTradingHours(JSON.parse(storedHours));
+      }
     }
   };
 
   // Fetch market history (admin only)
   const fetchMarketHistory = async (token) => {
     try {
-      const response = await fetch('http://localhost:5000/api/market-status/history?limit=10', {
+      const response = await fetch('http://localhost:5000/api/admin/market-status/history', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -202,7 +234,7 @@ const PreciousMetalsApp = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setMarketHistory(data.history);
+        setMarketHistory(data.history || data);
       }
     } catch (error) {
       console.error('Error fetching market history:', error);
@@ -350,8 +382,8 @@ const PreciousMetalsApp = () => {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/market-status/', {
-        method: 'PUT',
+      const response = await fetch('http://localhost:5000/api/admin/market-status', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -367,19 +399,25 @@ const PreciousMetalsApp = () => {
         const data = await response.json();
         
         setMarketStatus(newStatus);
-        setIsMarketOpen(newStatus === 'open' && checkCurrentTimeInRange());
+        setIsMarketOpen(newStatus === 'OPEN');
+        
+        // Store in sessionStorage
+        sessionStorage.setItem('marketStatus', newStatus);
+        sessionStorage.setItem('isMarketOpen', (newStatus === 'OPEN').toString());
         
         // Add notification
         addNotification({
-          title: `Market ${newStatus === 'open' ? 'Opened' : 'Closed'}`,
-          message: data.message,
-          type: newStatus === 'open' ? 'success' : 'warning'
+          title: `Market ${newStatus === 'OPEN' ? 'Opened' : 'Closed'}`,
+          message: data.message || `Market has been ${newStatus === 'OPEN' ? 'opened' : 'closed'}`,
+          type: newStatus === 'OPEN' ? 'success' : 'warning'
         });
         
-        // Refresh market history
-        await fetchMarketHistory(token);
+        // Refresh market history for admin
+        if (userType === 'admin') {
+          await fetchMarketHistory(token);
+        }
         
-        alert(data.message);
+        alert(data.message || 'Market status updated successfully');
       } else {
         const errorData = await response.json();
         alert(errorData.message || 'Failed to update market status');
@@ -409,8 +447,8 @@ const PreciousMetalsApp = () => {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/market-status/', {
-        method: 'PUT',
+      const response = await fetch('http://localhost:5000/api/admin/market-status', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -425,8 +463,8 @@ const PreciousMetalsApp = () => {
       if (response.ok) {
         const data = await response.json();
         
-        // Recheck if market should be open based on new times
-        setIsMarketOpen(marketStatus === 'open' && checkCurrentTimeInRange());
+        // Store updated trading hours
+        sessionStorage.setItem('tradingHours', JSON.stringify(tradingHours));
         
         addNotification({
           title: 'Trading Hours Updated',
@@ -466,7 +504,7 @@ const PreciousMetalsApp = () => {
 
   // Check if transaction is allowed
   const canPerformTransaction = () => {
-    if (marketStatus !== 'open') {
+    if (marketStatus !== 'OPEN') {
       return { allowed: false, reason: 'Market is currently closed' };
     }
     
@@ -514,8 +552,49 @@ const PreciousMetalsApp = () => {
       return;
     }
     
-    // Your existing payment logic here...
-    console.log('Processing payment via:', method);
+    // Process payment based on method
+    const token = sessionStorage.getItem('authToken');
+    const selectedMetalData = metals.find(m => m.id === selectedMetal);
+    
+    try {
+      const transactionData = {
+        amount: parseFloat(amount),
+        utr_no: `TRX-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        transaction_type: method === 'Online' ? 'ONLINE' : 'OFFLINE',
+        category: 'DEBIT',
+        metal_type: selectedMetalData.metalType,
+        transaction_status: 'PENDING'
+      };
+      
+      const response = await fetch('http://localhost:5000/api/transactions/add-transaction', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(transactionData)
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        alert('Transaction initiated successfully!');
+        
+        if (method === 'Offline') {
+          alert('Please contact admin with OTP for verification');
+        }
+        
+        // Refresh holdings
+        await fetchHoldings(token);
+        
+      } else {
+        const error = await response.json();
+        alert(error.message || 'Transaction failed');
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      alert('Payment processing failed');
+    }
+    
     setShowPaymentDialog(false);
   };
 
@@ -744,7 +823,7 @@ const PreciousMetalsApp = () => {
                 ) : (
                   <XCircle className="w-3 h-3" />
                 )}
-                <span>Market: {isMarketOpen ? 'OPEN' : 'CLOSED'}</span>
+                <span>Market: {marketStatus}</span>
               </div>
               
               <div className="text-xs text-gray-600 flex items-center">
@@ -811,7 +890,7 @@ const PreciousMetalsApp = () => {
             <div className="flex flex-wrap gap-2">
               {/* Market Toggle Buttons */}
               <button
-                onClick={() => handleMarketToggle('open')}
+                onClick={() => handleMarketToggle('OPEN')}
                 disabled={isUpdatingMarket || isMarketOpen}
                 className={`flex items-center space-x-1 px-3 py-2 rounded-lg text-sm transition-colors ${
                   isMarketOpen 
@@ -824,7 +903,7 @@ const PreciousMetalsApp = () => {
               </button>
               
               <button
-                onClick={() => handleMarketToggle('closed')}
+                onClick={() => handleMarketToggle('CLOSED')}
                 disabled={isUpdatingMarket || !isMarketOpen}
                 className={`flex items-center space-x-1 px-3 py-2 rounded-lg text-sm transition-colors ${
                   !isMarketOpen 
@@ -880,32 +959,30 @@ const PreciousMetalsApp = () => {
             </div>
             
             <div className="space-y-2">
-              {marketHistory.map((item, index) => (
+              {marketHistory.length > 0 ? marketHistory.map((item, index) => (
                 <div key={index} className="border rounded-lg p-3">
                   <div className="flex justify-between items-center mb-2">
                     <span className={`px-2 py-1 rounded text-xs ${
-                      item.status === 'open' 
+                      item.status === 'OPEN' 
                         ? 'bg-green-100 text-green-800' 
                         : 'bg-red-100 text-red-800'
                     }`}>
-                      {item.status.toUpperCase()}
+                      {item.status}
                     </span>
                     <span className="text-xs text-gray-500">
-                      {new Date(item.last_updated_at).toLocaleString()}
+                      {new Date(item.updated_at || item.last_updated_at).toLocaleString()}
                     </span>
                   </div>
                   <div className="text-sm">
-                    <div>Trading Hours: {item.open_time} - {item.close_time}</div>
-                    {item.updated_by_user && (
+                    <div>Trading Hours: {item.open_time || '10:00'} - {item.close_time || '18:00'}</div>
+                    {item.updated_by && (
                       <div className="text-xs text-gray-600 mt-1">
-                        Updated by: {item.updated_by_user.username}
+                        Updated by: {item.updated_by}
                       </div>
                     )}
                   </div>
                 </div>
-              ))}
-              
-              {marketHistory.length === 0 && (
+              )) : (
                 <div className="text-center py-4 text-gray-500">
                   No market history available
                 </div>
@@ -1065,9 +1142,7 @@ const PreciousMetalsApp = () => {
               <span className="text-sm font-medium">Market is currently {marketStatus}</span>
             </div>
             <p className="text-xs text-red-600 mt-1">
-              {marketStatus === 'open' 
-                ? `Outside trading hours. Trading hours: ${tradingHours.open} - ${tradingHours.close}`
-                : 'Trading operations are temporarily disabled.'}
+              Trading operations are temporarily disabled. Please try again when market is open.
             </p>
           </div>
         )}
@@ -1078,12 +1153,9 @@ const PreciousMetalsApp = () => {
             <button
               key={metal.id}
               onClick={() => setSelectedMetal(metal.id)}
-              disabled={!isMarketOpen}
               className={`flex-1 min-w-[90px] py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
                 selectedMetal === metal.id
                   ? 'bg-[#50C2C9] text-white'
-                  : !isMarketOpen
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
@@ -1104,12 +1176,7 @@ const PreciousMetalsApp = () => {
               type="number"
               value={grams}
               onChange={(e) => handleGramsChange(e.target.value)}
-              disabled={!isMarketOpen}
-              className={`w-full p-3 border rounded-lg focus:outline-none ${
-                !isMarketOpen
-                  ? 'border-gray-300 bg-gray-50 text-gray-400 cursor-not-allowed'
-                  : 'border-gray-300 focus:ring-2 focus:ring-[#50C2C9]'
-              }`}
+              className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#50C2C9] border-gray-300`}
               placeholder="0"
               min="0"
               step="0.001"
@@ -1124,12 +1191,7 @@ const PreciousMetalsApp = () => {
               type="number"
               value={amount}
               onChange={(e) => handleAmountChange(e.target.value)}
-              disabled={!isMarketOpen}
-              className={`w-full p-3 border rounded-lg focus:outline-none ${
-                !isMarketOpen
-                  ? 'border-gray-300 bg-gray-50 text-gray-400 cursor-not-allowed'
-                  : 'border-gray-300 focus:ring-2 focus:ring-[#50C2C9]'
-              }`}
+              className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#50C2C9] border-gray-300`}
               placeholder="0"
               min="0"
             />
@@ -1145,7 +1207,7 @@ const PreciousMetalsApp = () => {
           GST included
         </div>
 
-        {/* Buy Now Button */}
+        {/* Buy Now Button - Only disabled when market is closed */}
         <button
           className={`w-full py-4 rounded-lg font-bold text-lg transition-colors ${
             !isMarketOpen || !grams || !amount
@@ -1205,25 +1267,13 @@ const PreciousMetalsApp = () => {
         </div>
       )}
 
-      {/* Action Buttons */}
+      {/* Action Buttons - Only disable specific actions based on requirements */}
       <div className="flex justify-around flex-wrap px-2 py-3 gap-2 sticky bottom-20 bg-white">
         {(userType === 'admin' ? adminActionButtons : customerActionButtons).map((button, index) => (
           <div
             key={index}
-            className={`flex flex-col items-center p-3 rounded-lg transition-colors ${
-              (!isMarketOpen && button.label === 'Export') || 
-              (!isMarketOpen && button.label === 'SIP' && userType === 'customer')
-                ? 'opacity-50 cursor-not-allowed'
-                : 'hover:bg-gray-50'
-            }`}
+            className={`flex flex-col items-center p-3 rounded-lg transition-colors hover:bg-gray-50`}
             onClick={(e) => {
-              if ((!isMarketOpen && button.label === 'Export') || 
-                  (!isMarketOpen && button.label === 'SIP' && userType === 'customer')) {
-                e.preventDefault();
-                alert(`Market is currently ${marketStatus}. This action is disabled.`);
-                return;
-              }
-              
               if (button.action) {
                 button.action();
               } else if (button.href) {
@@ -1231,20 +1281,10 @@ const PreciousMetalsApp = () => {
               }
             }}
           >
-            <div className={`mb-1 ${
-              (!isMarketOpen && button.label === 'Export') || 
-              (!isMarketOpen && button.label === 'SIP' && userType === 'customer')
-                ? 'text-gray-400'
-                : 'text-[#50C2C9]'
-            }`}>
+            <div className={`mb-1 text-[#50C2C9]`}>
               {button.icon}
             </div>
-            <span className={`text-xs text-center leading-tight ${
-              (!isMarketOpen && button.label === 'Export') || 
-              (!isMarketOpen && button.label === 'SIP' && userType === 'customer')
-                ? 'text-gray-400'
-                : 'text-gray-600'
-            }`}>
+            <span className={`text-xs text-center leading-tight text-gray-600`}>
               {button.label}
             </span>
           </div>
