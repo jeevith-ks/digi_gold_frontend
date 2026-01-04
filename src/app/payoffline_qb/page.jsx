@@ -6,7 +6,11 @@ import { useRouter } from "next/navigation";
 export default function PayofflinePage() {
   const [amount, setAmount] = useState("");
   const [sipType, setSipType] = useState("");
-  const [sipId, setSipId] = useState(""); // Add sipId state
+  const [sipId, setSipId] = useState("");
+  const [transactionId, setTransactionId] = useState(""); // New field from session storage
+  const [metalType, setMetalType] = useState(""); // New field from session storage
+  const [metalName, setMetalName] = useState(""); // New field from session storage
+  const [grams, setGrams] = useState(""); // New field from session storage
   const [utrNo, setUtrNo] = useState("");
   const [otp, setOtp] = useState("");
   const [shop, setShop] = useState("Select Shop");
@@ -19,35 +23,75 @@ export default function PayofflinePage() {
   const router = useRouter();
 
   useEffect(() => {
-    const storedTrId = sessionStorage.getItem("offline_tr_id");
-    if (storedTrId) {
-      setTrId(storedTrId);
-      setStep(2);
-      setMessage("Found existing transaction. Please verify OTP.");
-    }
-
+    // Try to get data from session storage
     try {
-      const amountPayingValuesStr = sessionStorage.getItem("amountPayingValues");
-      if (amountPayingValuesStr) {
-        const amountPayingValues = JSON.parse(amountPayingValuesStr);
+      // First check for the complete offline payment data object
+      const offlinePaymentDataStr = sessionStorage.getItem("offlinePaymentData");
+      
+      if (offlinePaymentDataStr) {
+        const offlineData = JSON.parse(offlinePaymentDataStr);
+        console.log("Found offline payment data in session:", offlineData);
         
-        // Get both planId and currentSIPId
-        const planId = sessionStorage.getItem("planId");
-        const currentSIPId = sessionStorage.getItem("currentSIPId");
+        // Set fields from the offline payment data
+        if (offlineData.amount) {
+          setAmount(offlineData.amount.toString());
+        }
         
-        // Use currentSIPId if available, otherwise use planId
-        const sipIdToUse = currentSIPId || planId;
+        if (offlineData.sipType) {
+          setSipType(offlineData.sipType.toUpperCase().trim());
+        }
         
-        if (sipIdToUse && amountPayingValues[sipIdToUse]) {
-          const amountStr = amountPayingValues[sipIdToUse].replace(/[^0-9.]/g, "");
-          setAmount(amountStr);
-          setSipId(sipIdToUse); // Set sipId state
+        if (offlineData.sipId) {
+          setSipId(offlineData.sipId);
+        }
+        
+        if (offlineData.transactionId) {
+          setTransactionId(offlineData.transactionId);
+        }
+        
+        if (offlineData.metalType) {
+          setMetalType(offlineData.metalType);
+        }
+        
+        if (offlineData.metalName) {
+          setMetalName(offlineData.metalName);
+        }
+        
+        if (offlineData.grams) {
+          setGrams(offlineData.grams.toString());
+        }
+      } else {
+        // Fallback to old session storage structure
+        console.log("No offlinePaymentData found, checking old structure");
+        
+        const amountPayingValuesStr = sessionStorage.getItem("amount");
+        if (amountPayingValuesStr) {
+          const amountPayingValues = JSON.parse(amountPayingValuesStr);
+          
+          const planId = sessionStorage.getItem("planId");
+          const currentSIPId = sessionStorage.getItem("sipId");
+          
+          const sipIdToUse = currentSIPId || planId;
+          
+          if (sipIdToUse && amountPayingValues[sipIdToUse]) {
+            const amountStr = amountPayingValues[sipIdToUse].replace(/[^0-9.]/g, "");
+            setAmount(amountStr);
+            setSipId(sipIdToUse);
+          }
+        }
+
+        const storedSipType = sessionStorage.getItem("sipType");
+        if (storedSipType) {
+          setSipType(storedSipType.toUpperCase().trim());
         }
       }
 
-      const storedSipType = sessionStorage.getItem("sipType");
-      if (storedSipType) {
-        setSipType(storedSipType.toUpperCase().trim());
+      // Check for existing transaction ID
+      const storedTrId = sessionStorage.getItem("offline_tr_id");
+      if (storedTrId) {
+        setTrId(storedTrId);
+        setStep(2);
+        setMessage("Found existing transaction. Please verify OTP.");
       }
     } catch (error) {
       console.error("Session storage error:", error);
@@ -58,8 +102,8 @@ export default function PayofflinePage() {
   const handleTransactionSubmit = async () => {
     const numericAmount = parseFloat(amount) || 0;
 
-    if (!numericAmount || !sipType) {
-      setMessage("Please check amount and SIP type");
+    if (!numericAmount || !sipType || !sipId) {
+      setMessage("Please check amount, SIP type and SIP ID");
       return;
     }
 
@@ -71,14 +115,19 @@ export default function PayofflinePage() {
       const transactionData = {
         amount: numericAmount,
         sip_type: sipType,
-        sip_id: sipId, // Use the sipId state
+        sip_id: sipId,
         utr_no: utrNo.trim() || null,
         transaction_type: "OFFLINE",
         category: "CREDIT",
         shop: shop !== "Select Shop" ? shop : null,
+        // Add additional fields from session storage if available
+        ...(transactionId && { transaction_id: transactionId }),
+        ...(metalType && { metal_type: metalType }),
+        ...(metalName && { metal_name: metalName }),
+        ...(grams && { grams: parseFloat(grams) }),
       };
 
-      console.log("Sending transaction data:", transactionData); // Debug log
+      console.log("Sending transaction data:", transactionData);
 
       const response = await fetch(
         "http://localhost:5000/api/transactions/",
@@ -170,6 +219,9 @@ export default function PayofflinePage() {
         setMessage("✅ OTP verified successfully!");
         sessionStorage.removeItem("offline_tr_id");
 
+        // Also clean up the offline payment data after successful verification
+        sessionStorage.removeItem("offlinePaymentData");
+
         setTimeout(() => router.push("/savings_plan"), 2000);
       } else {
         setMessage(result.message || "OTP verification failed");
@@ -225,6 +277,19 @@ export default function PayofflinePage() {
           <>
             <div className="space-y-4">
               <div className="text-left">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Transaction ID</label>
+                <input
+                  type="text"
+                  value={transactionId}
+                  readOnly
+                  className="w-full border border-gray-300 rounded-lg p-2 bg-gray-50"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {transactionId ? `Transaction ID: ${transactionId}` : 'Transaction ID not found'}
+                </p>
+              </div>
+
+              <div className="text-left">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
                 <input
                   type="text"
@@ -264,6 +329,45 @@ export default function PayofflinePage() {
               </div>
 
               <div className="text-left">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Metal Type</label>
+                <input
+                  type="text"
+                  value={metalType}
+                  readOnly
+                  className="w-full border border-gray-300 rounded-lg p-2 bg-gray-50"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {metalType ? `Metal Type: ${metalType}` : 'Metal type not found'}
+                </p>
+              </div>
+
+              <div className="text-left">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Metal Name</label>
+                <input
+                  type="text"
+                  value={metalName}
+                  readOnly
+                  className="w-full border border-gray-300 rounded-lg p-2 bg-gray-50"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {metalName ? `Metal Name: ${metalName}` : 'Metal name not found'}
+                </p>
+              </div>
+
+              <div className="text-left">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Grams</label>
+                <input
+                  type="text"
+                  value={grams ? `${grams} grams` : ''}
+                  readOnly
+                  className="w-full border border-gray-300 rounded-lg p-2 bg-gray-50"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {grams ? `Grams: ${grams}` : 'Grams not found'}
+                </p>
+              </div>
+
+              <div className="text-left">
                 <label className="block text-sm font-medium text-gray-700 mb-1">UTR Number (Optional)</label>
                 <input
                   type="text"
@@ -299,14 +403,20 @@ export default function PayofflinePage() {
                   <span className="font-medium">SIP ID:</span> {sipId || "Not found"}
                 </p>
                 <p className="text-sm text-blue-700">
+                  <span className="font-medium">Transaction ID:</span> {transactionId || "Not found"}
+                </p>
+                <p className="text-sm text-blue-700">
                   <span className="font-medium">Amount to send:</span> ₹{amount || "0"}
+                </p>
+                <p className="text-sm text-blue-700">
+                  <span className="font-medium">Metal:</span> {metalName || "Not specified"}
                 </p>
               </div>
             </div>
 
             <button
               onClick={handleTransactionSubmit}
-              disabled={loading || !amount || !sipType || !sipId} // Also check sipId
+              disabled={loading || !amount || !sipType || !sipId}
               className="w-full bg-[#50C2C9] text-white py-2 rounded-lg mt-6 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Submitting..." : "Submit Transaction"}
@@ -331,6 +441,9 @@ export default function PayofflinePage() {
                   <span className="font-mono ml-2">{trId}</span>
                 </p>
                 <p className="text-sm text-yellow-700">
+                  <span className="font-medium">Original Transaction ID:</span> {transactionId}
+                </p>
+                <p className="text-sm text-yellow-700">
                   <span className="font-medium">SIP ID:</span> {sipId}
                 </p>
                 <p className="text-sm text-yellow-700">
@@ -340,6 +453,11 @@ export default function PayofflinePage() {
                   <span className="font-medium">SIP Type:</span> 
                   <span className="capitalize ml-2">{sipType}</span>
                 </p>
+                {metalName && (
+                  <p className="text-sm text-yellow-700">
+                    <span className="font-medium">Metal:</span> {metalName} ({grams} grams)
+                  </p>
+                )}
                 <p className="text-xs text-yellow-600 mt-2">
                   Ask admin for OTP and enter it below
                 </p>

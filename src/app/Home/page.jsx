@@ -23,7 +23,7 @@ const PreciousMetalsApp = () => {
   const [marketStatus, setMarketStatus] = useState('CLOSED');
   const [isMarketOpen, setIsMarketOpen] = useState(false);
   const [isUpdatingMarket, setIsUpdatingMarket] = useState(false);
-  const [tradingHours, setTradingHours] = useState({ open: '10:00', close: '24:00' });
+  const [tradingHours, setTradingHours] = useState({ open: '10:00', close: '18:00' });
   const [currentTime, setCurrentTime] = useState('');
   const [marketHistory, setMarketHistory] = useState([]);
   const [showMarketHistory, setShowMarketHistory] = useState(false);
@@ -1037,7 +1037,7 @@ const PreciousMetalsApp = () => {
       sessionStorage.setItem('offlinePaymentData', JSON.stringify(offlineData));
       
       setShowPaymentDialog(false);
-      router.push('/payoffline');
+      router.push('/payoffline_qb');
     }
   };
 
@@ -1237,7 +1237,7 @@ const PreciousMetalsApp = () => {
   // Navigation items
   const navItems = [
     { icon: <Home className="w-6 h-6" />, label: 'Home', active: true, href: '/Home' },
-    { icon: <Bell className="w-6 h-6" />, label: 'Notification', href: '#', action: () => setShowNotifications(!showNotifications) },
+    { icon: <Bell className="w-6 h-6" />, label: 'Notification', href: '/Notifications' },
     { icon: <PiggyBank className="w-6 h-6" />, label: 'Savings', href: '/savings' },
     { icon: <CreditCard className="w-6 h-6" />, label: 'Passbook', href: '/Passbook' },
     { icon: <User className="w-6 h-6" />, label: 'Profile', href: '/profile' }

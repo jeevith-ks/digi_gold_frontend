@@ -10,11 +10,6 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   ),
-  XCircle: () => (
-    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  ),
   User: () => (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -44,6 +39,16 @@ const Icons = {
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
     </svg>
+  ),
+  Coins: () => (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+  TrendingUp: () => (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+    </svg>
   )
 };
 
@@ -61,27 +66,20 @@ const LoadingSpinner = () => (
 // Status Badge Component
 const StatusBadge = ({ status }) => {
   const getStatusConfig = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'pending':
+    switch (status?.toUpperCase()) {
+      case 'ACTIVE':
         return {
           bgColor: 'bg-yellow-100',
           textColor: 'text-yellow-800',
           borderColor: 'border-yellow-200',
-          label: 'Pending'
+          label: 'Ready for Bonus'
         };
-      case 'approved':
+      case 'COMPLETED':
         return {
           bgColor: 'bg-green-100',
           textColor: 'text-green-800',
           borderColor: 'border-green-200',
-          label: 'Approved'
-        };
-      case 'rejected':
-        return {
-          bgColor: 'bg-red-100',
-          textColor: 'text-red-800',
-          borderColor: 'border-red-200',
-          label: 'Rejected'
+          label: 'Bonus Approved'
         };
       default:
         return {
@@ -103,7 +101,7 @@ const StatusBadge = ({ status }) => {
 };
 
 // Approval Card Component
-const ApprovalCard = ({ request, onApprove, onReject, isProcessing }) => {
+const ApprovalCard = ({ request, onApprove, isProcessing }) => {
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     try {
@@ -111,12 +109,29 @@ const ApprovalCard = ({ request, onApprove, onReject, isProcessing }) => {
       return date.toLocaleDateString('en-IN', {
         day: '2-digit',
         month: 'short',
-        year: 'numeric'
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
       });
     } catch {
       return 'Invalid Date';
     }
   };
+
+  const formatCurrency = (amount) => {
+    const numAmount = parseFloat(amount || 0);
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 2
+    }).format(numAmount);
+  };
+
+  // Determine if the request needs approval
+  const needsApproval = request.status === 'ACTIVE';
+
+  // Calculate bonus amount
+  const bonusAmount = request.total_amount_paid ? parseFloat(request.total_amount_paid) / 11 : 0;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
@@ -127,8 +142,10 @@ const ApprovalCard = ({ request, onApprove, onReject, isProcessing }) => {
             <Icons.User className="text-[#50C2C9]" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900">{request.userName || 'User'}</h3>
-            <p className="text-sm text-gray-500">{request.userEmail || request.email || 'No email'}</p>
+            <h3 className="font-semibold text-gray-900">
+              {request.user?.username || `${request.user?.first_name || ''} ${request.user?.last_name || ''}`.trim() || 'User'}
+            </h3>
+            <p className="text-sm text-gray-500">{request.user?.email || 'No email'}</p>
           </div>
         </div>
         <StatusBadge status={request.status} />
@@ -136,66 +153,123 @@ const ApprovalCard = ({ request, onApprove, onReject, isProcessing }) => {
 
       {/* Card Content */}
       <div className="p-4 space-y-4">
-        {/* Request Details */}
+        {/* SIP Plan Details */}
         <div className="space-y-3">
-          <div className="flex items-center gap-2 text-gray-600">
-            <Icons.FileText className="h-4 w-4" />
-            <span className="text-sm font-medium">Request Type:</span>
-            <span className="text-sm">{request.requestType || 'General'}</span>
-          </div>
-
-          <div className="flex items-center gap-2 text-gray-600">
-            <Icons.Calendar className="h-4 w-4" />
-            <span className="text-sm font-medium">Submitted:</span>
-            <span className="text-sm">{formatDate(request.submittedAt || request.createdAt)}</span>
-          </div>
-
-          {/* Additional Details */}
-          {request.details && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <h4 className="text-sm font-semibold text-gray-700 mb-2">Details:</h4>
-              <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
-                {request.details}
-              </p>
-            </div>
-          )}
-
-          {/* Request Data (if any) */}
-          {request.data && Object.keys(request.data).length > 0 && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <h4 className="text-sm font-semibold text-gray-700 mb-2">Request Data:</h4>
-              <div className="space-y-2">
-                {Object.entries(request.data).map(([key, value]) => (
-                  <div key={key} className="flex justify-between text-sm">
-                    <span className="text-gray-600">{key}:</span>
-                    <span className="text-gray-900 font-medium">{String(value)}</span>
-                  </div>
-                ))}
+          <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+            <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
+              <Icons.Coins className="h-4 w-4" />
+              SIP Plan Details
+            </h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Plan Name:</span>
+                <span className="font-semibold text-gray-900">{request.sipPlanAdmin?.Yojna_name || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Metal Type:</span>
+                <span className="font-semibold text-gray-900 capitalize">{request.sipPlanAdmin?.metal_type?.toLowerCase() || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Monthly Amount:</span>
+                <span className="font-semibold text-gray-900">{formatCurrency(request.sipPlanAdmin?.range_amount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Plan Duration:</span>
+                <span className="font-semibold text-gray-900">12 months</span>
               </div>
             </div>
-          )}
+          </div>
+
+          {/* User Progress */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2">
+                <Icons.TrendingUp className="h-4 w-4 text-gray-400" />
+                <span className="text-gray-600">Progress:</span>
+              </div>
+              <div className="text-right">
+                <span className="font-semibold text-gray-900">11</span>
+                <span className="text-gray-500">/12 months</span>
+              </div>
+            </div>
+            
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-[#50C2C9] h-2 rounded-full" 
+                style={{ width: '92%' }} // 11/12 = 91.67%
+              ></div>
+            </div>
+
+            <div className="flex justify-between text-sm pt-2">
+              <span className="text-gray-600">Total Paid (11 months):</span>
+              <span className="font-semibold text-gray-900">{formatCurrency(request.total_amount_paid)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">12th Month Bonus:</span>
+              <span className="font-semibold text-green-600">{formatCurrency(bonusAmount)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Payment History:</span>
+              <span className={`font-semibold ${request.has_delayed_payment ? 'text-red-600' : 'text-green-600'}`}>
+                {request.has_delayed_payment ? 'Has delays' : 'On-time payments'}
+              </span>
+            </div>
+          </div>
+
+          {/* Dates */}
+          <div className="pt-3 border-t border-gray-100 space-y-2">
+            <div className="flex items-center gap-2 text-gray-600">
+              <Icons.Calendar className="h-4 w-4" />
+              <span className="text-sm">Started:</span>
+              <span className="text-sm font-medium">{formatDate(request.created_at)}</span>
+            </div>
+            {request.next_due_date && (
+              <div className="flex items-center gap-2 text-gray-600">
+                <Icons.Calendar className="h-4 w-4" />
+                <span className="text-sm">Next Due:</span>
+                <span className="text-sm font-medium">{formatDate(request.next_due_date)}</span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Action Buttons - Only show for pending requests */}
-        {request.status?.toLowerCase() === 'pending' && (
+        {/* Action Button - Only show for active SIPs */}
+        {needsApproval && (
           <div className="pt-4 border-t border-gray-100">
-            <div className="flex gap-3">
-              <button
-                onClick={() => onApprove(request.id)}
-                disabled={isProcessing}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#50C2C9] text-white rounded-lg font-medium hover:bg-[#45b1b9] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <Icons.CheckCircle className="h-4 w-4" />
-                Approve
-              </button>
-              <button
-                onClick={() => onReject(request.id)}
-                disabled={isProcessing}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <Icons.XCircle className="h-4 w-4" />
-                Reject
-              </button>
+            <button
+              onClick={() => onApprove(request.id)}
+              disabled={isProcessing === request.id}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#50C2C9] text-white rounded-lg font-medium hover:bg-[#45b1b9] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isProcessing === request.id ? (
+                <>
+                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Processing Approval...
+                </>
+              ) : (
+                <>
+                  <Icons.CheckCircle className="h-4 w-4" />
+                  Approve 12th Month Bonus
+                </>
+              )}
+            </button>
+            <p className="text-xs text-gray-500 mt-2 text-center">
+              Approve to release {formatCurrency(bonusAmount)} bonus to user
+            </p>
+          </div>
+        )}
+
+        {/* Note: Show this for already completed SIPs */}
+        {!needsApproval && (
+          <div className="pt-3 border-t border-gray-100">
+            <div className="text-center p-3 rounded-lg bg-green-50 border border-green-100">
+              <p className="text-sm font-medium text-green-700">
+                <Icons.CheckCircle className="h-4 w-4 inline mr-1" />
+                12th Month Bonus Approved
+              </p>
+              <p className="text-xs text-green-600 mt-1">
+                Bonus of {formatCurrency(bonusAmount)} was paid on {formatDate(request.updatedAt || new Date().toISOString())}
+              </p>
             </div>
           </div>
         )}
@@ -204,8 +278,8 @@ const ApprovalCard = ({ request, onApprove, onReject, isProcessing }) => {
       {/* Card Footer */}
       <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
         <div className="flex justify-between items-center text-xs text-gray-500">
-          <span>ID: {request.id?.substring(0, 8) || 'N/A'}</span>
-          <span>Last updated: {formatDate(request.updatedAt)}</span>
+          <span>SIP ID: {request.id?.substring(0, 8)}...</span>
+          <span>Plan: {request.sipPlanAdmin?.Yojna_name?.substring(0, 15)}...</span>
         </div>
       </div>
     </div>
@@ -219,7 +293,8 @@ export default function AdminApprovalPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [processingId, setProcessingId] = useState(null);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState('all'); // all, pending, approved, rejected
+  const [successMessage, setSuccessMessage] = useState('');
+  const [filter, setFilter] = useState('pending'); // pending, completed
   const router = useRouter();
 
   // Fetch approval requests
@@ -231,8 +306,9 @@ export default function AdminApprovalPage() {
         setRefreshing(true);
       }
       setError('');
+      setSuccessMessage('');
 
-      // Get auth token (adjust based on your auth system)
+      // Get auth token
       const token = localStorage.getItem('adminToken') || sessionStorage.getItem('authToken');
       
       if (!token) {
@@ -241,7 +317,7 @@ export default function AdminApprovalPage() {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/approve', {
+      const response = await fetch('http://localhost:5000/api/admin/approve', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -250,17 +326,28 @@ export default function AdminApprovalPage() {
 
       if (!response.ok) {
         if (response.status === 401) {
-          throw new Error('Admin authentication required');
+          throw new Error('Admin authentication required. Please login again.');
         }
-        throw new Error(`Failed to fetch requests: ${response.status}`);
+        throw new Error(`Failed to fetch requests: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
-      console.log('Fetched approval requests:', data);
-      setRequests(data);
+      console.log('Fetched SIP bonus requests:', data);
+      
+      // Transform data for better UI display
+      const transformedData = Array.isArray(data) ? data.map(request => ({
+        ...request,
+        // For UI display purposes
+        userName: request.user?.username || `${request.user?.first_name || ''} ${request.user?.last_name || ''}`.trim(),
+        userEmail: request.user?.email,
+        sipPlanName: request.sipPlanAdmin?.Yojna_name,
+      })) : [];
+      
+      setRequests(transformedData);
+      
     } catch (err) {
       console.error('Error fetching approval requests:', err);
-      setError(err.message || 'Failed to load approval requests');
+      setError(err.message || 'Failed to load SIP bonus requests. Please try again.');
       setRequests([]);
     } finally {
       setLoading(false);
@@ -269,32 +356,40 @@ export default function AdminApprovalPage() {
   };
 
   // Handle approve request
-  const handleApprove = async (requestId) => {
+  const handleApprove = async (sipId) => {
+    if (!sipId) {
+      setError('No SIP ID found');
+      return;
+    }
+
     try {
-      setProcessingId(requestId);
+      setProcessingId(sipId);
       setError('');
+      setSuccessMessage('');
 
       const token = localStorage.getItem('adminToken') || sessionStorage.getItem('authToken');
       
       if (!token) {
-        throw new Error('Authentication required');
+        throw new Error('Authentication required. Please login as admin.');
       }
 
-      const response = await fetch('http://localhost:5000/api/approved', {
+      // Send the fixedSip.id in the request body as sip_id
+      const response = await fetch('http://localhost:5000/api/admin/approved', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          requestId: requestId,
+          sip_id: sipId,  // This is the fixedSip.id
           action: 'approve',
           timestamp: new Date().toISOString()
         })
       });
 
       if (!response.ok) {
-        throw new Error(`Approval failed: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`Approval failed: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
@@ -302,69 +397,21 @@ export default function AdminApprovalPage() {
 
       // Update local state
       setRequests(prev => prev.map(req => 
-        req.id === requestId 
-          ? { ...req, status: 'approved', updatedAt: new Date().toISOString() }
+        req.id === sipId 
+          ? { ...req, status: 'COMPLETED', updatedAt: new Date().toISOString() }
           : req
       ));
 
-      // Show success message
-      alert('Request approved successfully!');
+      setSuccessMessage(result.message || '12th Month Bonus approved successfully!');
+      
+      // Auto-refresh after 2 seconds
+      setTimeout(() => {
+        fetchApprovalRequests(false);
+      }, 2000);
       
     } catch (err) {
       console.error('Error approving request:', err);
-      setError(err.message || 'Failed to approve request');
-      alert(`Error: ${err.message}`);
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  // Handle reject request
-  const handleReject = async (requestId) => {
-    try {
-      setProcessingId(requestId);
-      setError('');
-
-      const token = localStorage.getItem('adminToken') || sessionStorage.getItem('authToken');
-      
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-
-      const response = await fetch('http://localhost:5000/api/approved', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          requestId: requestId,
-          action: 'reject',
-          timestamp: new Date().toISOString()
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Rejection failed: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log('Rejection successful:', result);
-
-      // Update local state
-      setRequests(prev => prev.map(req => 
-        req.id === requestId 
-          ? { ...req, status: 'rejected', updatedAt: new Date().toISOString() }
-          : req
-      ));
-
-      // Show success message
-      alert('Request rejected successfully!');
-      
-    } catch (err) {
-      console.error('Error rejecting request:', err);
-      setError(err.message || 'Failed to reject request');
-      alert(`Error: ${err.message}`);
+      setError(err.message || 'Failed to approve 12th Month Bonus. Please try again.');
     } finally {
       setProcessingId(null);
     }
@@ -372,20 +419,33 @@ export default function AdminApprovalPage() {
 
   // Filter requests
   const filteredRequests = requests.filter(request => {
-    if (filter === 'all') return true;
-    if (filter === 'pending') return request.status?.toLowerCase() === 'pending';
-    if (filter === 'approved') return request.status?.toLowerCase() === 'approved';
-    if (filter === 'rejected') return request.status?.toLowerCase() === 'rejected';
+    if (filter === 'pending') {
+      return request.status === 'ACTIVE';
+    }
+    if (filter === 'completed') {
+      return request.status?.toUpperCase() === 'COMPLETED';
+    }
     return true;
   });
 
   // Counts for filter badges
   const counts = {
-    all: requests.length,
-    pending: requests.filter(r => r.status?.toLowerCase() === 'pending').length,
-    approved: requests.filter(r => r.status?.toLowerCase() === 'approved').length,
-    rejected: requests.filter(r => r.status?.toLowerCase() === 'rejected').length
+    pending: requests.filter(r => r.status === 'ACTIVE').length,
+    completed: requests.filter(r => r.status?.toUpperCase() === 'COMPLETED').length
   };
+
+  // Calculate total bonus amount for pending requests
+  const totalPendingBonus = requests
+    .filter(r => r.status === 'ACTIVE')
+    .reduce((sum, request) => {
+      const bonus = request.total_amount_paid ? parseFloat(request.total_amount_paid) / 11 : 0;
+      return sum + bonus;
+    }, 0);
+
+  // Calculate total paid amount
+  const totalInvestment = requests.reduce((sum, request) => {
+    return sum + parseFloat(request.total_amount_paid || 0);
+  }, 0);
 
   useEffect(() => {
     fetchApprovalRequests();
@@ -398,6 +458,17 @@ export default function AdminApprovalPage() {
   const handleBack = () => {
     router.back();
   };
+
+  // Clear messages after 5 seconds
+  useEffect(() => {
+    if (error || successMessage) {
+      const timer = setTimeout(() => {
+        setError('');
+        setSuccessMessage('');
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error, successMessage]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
@@ -413,14 +484,14 @@ export default function AdminApprovalPage() {
                 <Icons.ArrowLeft className="h-5 w-5 text-gray-700" />
               </button>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Admin Approval Panel</h1>
-                <p className="text-sm text-gray-500">Review and manage approval requests</p>
+                <h1 className="text-xl font-bold text-gray-900">Approval Page</h1>
+                {/* <p className="text-sm text-gray-500">Approve 12th month bonus for completed 11-month SIPs</p> */}
               </div>
             </div>
             
             <button
               onClick={handleRefresh}
-              disabled={refreshing}
+              disabled={refreshing || loading}
               className="flex items-center gap-2 px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
               {refreshing ? (
@@ -435,10 +506,8 @@ export default function AdminApprovalPage() {
           {/* Filter Tabs */}
           <div className="flex gap-2 overflow-x-auto pb-2">
             {[
-              { key: 'all', label: 'All Requests' },
-              { key: 'pending', label: 'Pending' },
-              { key: 'approved', label: 'Approved' },
-              { key: 'rejected', label: 'Rejected' }
+              { key: 'pending', label: 'Pending Approval' },
+              { key: 'completed', label: 'Completed' }
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -465,40 +534,84 @@ export default function AdminApprovalPage() {
 
       {/* Main Content */}
       <div className="p-4">
-        {/* Stats Summary */}
-        <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
-            <div className="text-2xl font-bold text-gray-900">{counts.all}</div>
-            <div className="text-sm text-gray-500">Total Requests</div>
+        {/* Success Message */}
+        {successMessage && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 rounded-full">
+                <Icons.CheckCircle className="h-5 w-5 text-green-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-green-800">Success</h3>
+                <p className="text-green-600">{successMessage}</p>
+              </div>
+              <button
+                onClick={() => setSuccessMessage('')}
+                className="p-1 hover:bg-green-100 rounded-full"
+              >
+                <svg className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
-            <div className="text-2xl font-bold text-yellow-600">{counts.pending}</div>
-            <div className="text-sm text-gray-500">Pending</div>
-          </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
-            <div className="text-2xl font-bold text-green-600">{counts.approved}</div>
-            <div className="text-sm text-gray-500">Approved</div>
-          </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
-            <div className="text-2xl font-bold text-red-600">{counts.rejected}</div>
-            <div className="text-sm text-gray-500">Rejected</div>
-          </div>
-        </div>
+        )}
 
         {/* Error Message */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-red-100 rounded-full">
-                <Icons.XCircle className="h-5 w-5 text-red-600" />
+                <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
               </div>
-              <div>
+              <div className="flex-1">
                 <h3 className="font-semibold text-red-800">Error</h3>
                 <p className="text-red-600">{error}</p>
               </div>
+              <button
+                onClick={() => setError('')}
+                className="p-1 hover:bg-red-100 rounded-full"
+              >
+                <svg className="h-4 w-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
           </div>
         )}
+
+        {/* Stats Summary */}
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-xl p-4 border border-gray-200">
+            <div className="text-2xl font-bold text-yellow-600">{counts.pending}</div>
+            <div className="text-sm text-gray-500">Pending Approval</div>
+            <div className="text-xs text-yellow-600 mt-1">
+              {new Intl.NumberFormat('en-IN', {
+                style: 'currency',
+                currency: 'INR',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+              }).format(totalPendingBonus)} total bonus
+            </div>
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-gray-200">
+            <div className="text-2xl font-bold text-green-600">{counts.completed}</div>
+            <div className="text-sm text-gray-500">Bonus Approved</div>
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-gray-200">
+            <div className="text-2xl font-bold text-blue-600">
+              {new Intl.NumberFormat('en-IN', {
+                style: 'currency',
+                currency: 'INR',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+              }).format(totalInvestment)}
+            </div>
+            <div className="text-sm text-gray-500">Total SIP Investment</div>
+          </div>
+        </div>
 
         {/* Loading State */}
         {loading ? (
@@ -509,11 +622,20 @@ export default function AdminApprovalPage() {
             <div className="mb-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">
-                  {filter === 'all' ? 'All Requests' : `${filter.charAt(0).toUpperCase() + filter.slice(1)} Requests`}
+                  {filter === 'pending' ? 'SIPs Ready for 12th Month Bonus' : 'Completed SIP Bonuses'}
                   <span className="ml-2 text-sm font-normal text-gray-500">
                     ({filteredRequests.length} found)
                   </span>
                 </h2>
+                {filteredRequests.length > 0 && (
+                  <button
+                    onClick={handleRefresh}
+                    className="text-sm text-[#50C2C9] hover:text-[#45b1b9] flex items-center gap-1"
+                  >
+                    <Icons.Refresh className="h-3 w-3" />
+                    Refresh
+                  </button>
+                )}
               </div>
 
               {filteredRequests.length === 0 ? (
@@ -522,12 +644,12 @@ export default function AdminApprovalPage() {
                     <Icons.Shield className="h-8 w-8 text-gray-400" />
                   </div>
                   <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                    {requests.length === 0 ? 'No Approval Requests' : `No ${filter} Requests`}
+                    {filter === 'pending' ? 'No SIPs Ready for Bonus' : 'No Completed Bonuses'}
                   </h3>
                   <p className="text-gray-500 mb-4">
-                    {requests.length === 0 
-                      ? 'There are no approval requests at the moment.' 
-                      : `There are no ${filter} approval requests.`}
+                    {filter === 'pending' 
+                      ? 'There are no SIPs that have completed 11 payments yet.' 
+                      : 'No 12th month bonuses have been approved yet.'}
                   </p>
                   <button
                     onClick={handleRefresh}
@@ -543,49 +665,107 @@ export default function AdminApprovalPage() {
                       key={request.id}
                       request={request}
                       onApprove={handleApprove}
-                      onReject={handleReject}
-                      isProcessing={processingId === request.id}
+                      isProcessing={processingId}
                     />
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Admin Info & Actions */}
+            {/* Information Panel */}
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-3 bg-[#50C2C9]/10 rounded-lg">
                   <Icons.Shield className="h-6 w-6 text-[#50C2C9]" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">Admin Actions</h3>
-                  <p className="text-sm text-gray-500">Manage approval requests</p>
+                  <h3 className="font-semibold text-gray-900">12th Month Bonus Program</h3>
+                  <p className="text-sm text-gray-500">Automatic bonus for completing 12-month SIPs</p>
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <h4 className="font-medium text-blue-800 mb-2">Pending Requests</h4>
-                  <p className="text-sm text-blue-600">
-                    {counts.pending} request{counts.pending !== 1 ? 's' : ''} need{counts.pending === 1 ? 's' : ''} your attention
-                  </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
+                  <h4 className="font-medium text-blue-800 mb-2">How It Works</h4>
+                  <ul className="text-sm text-blue-600 space-y-2">
+                    <li className="flex items-start">
+                      <span className="inline-block w-6 h-6 bg-blue-100 text-blue-800 rounded-full text-xs flex items-center justify-center mr-2 mt-0.5">1</span>
+                      <span>User completes 11 monthly payments of a 12-month SIP</span>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="inline-block w-6 h-6 bg-blue-100 text-blue-800 rounded-full text-xs flex items-center justify-center mr-2 mt-0.5">2</span>
+                      <span>System automatically lists SIP for 12th month bonus approval</span>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="inline-block w-6 h-6 bg-blue-100 text-blue-800 rounded-full text-xs flex items-center justify-center mr-2 mt-0.5">3</span>
+                      <span>Admin approves bonus (equal to one monthly payment)</span>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="inline-block w-6 h-6 bg-blue-100 text-blue-800 rounded-full text-xs flex items-center justify-center mr-2 mt-0.5">4</span>
+                      <span>Bonus is credited and gold added to user holdings</span>
+                    </li>
+                  </ul>
                 </div>
-                <div className="p-4 bg-green-50 rounded-lg">
-                  <h4 className="font-medium text-green-800 mb-2">Approved Requests</h4>
-                  <p className="text-sm text-green-600">
-                    {counts.approved} request{counts.approved !== 1 ? 's' : ''} approved
-                  </p>
+                <div className="p-4 bg-green-50 rounded-lg border border-green-100">
+                  <h4 className="font-medium text-green-800 mb-2">Bonus Calculation</h4>
+                  <div className="text-sm text-green-700 space-y-2">
+                    <div className="p-3 bg-green-100 rounded-lg">
+                      <div className="font-medium">Formula:</div>
+                      <div className="text-xs mt-1">12th Month Bonus = Total Paid Amount ÷ 11</div>
+                    </div>
+                    <div className="p-3 bg-green-100 rounded-lg">
+                      <div className="font-medium">Example:</div>
+                      <div className="text-xs mt-1">
+                        If user paid ₹11,000 over 11 months<br/>
+                        Bonus = ₹11,000 ÷ 11 = ₹1,000
+                      </div>
+                    </div>
+                    <div className="text-xs text-green-600 mt-2">
+                      * Bonus is paid as cash credit and equivalent gold
+                    </div>
+                  </div>
                 </div>
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-medium text-gray-800 mb-2">Total Processed</h4>
-                  <p className="text-sm text-gray-600">
-                    {counts.approved + counts.rejected} request{counts.approved + counts.rejected !== 1 ? 's' : ''} processed
-                  </p>
+              </div>
+
+              {/* Quick Stats */}
+              <div className="mt-6 pt-6 border-t border-gray-100">
+                <div className="flex flex-wrap gap-4">
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-gray-900">{requests.length}</div>
+                    <div className="text-xs text-gray-500">Total 12-Month SIPs</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-yellow-600">{counts.pending}</div>
+                    <div className="text-xs text-gray-500">Awaiting Bonus</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-green-600">{counts.completed}</div>
+                    <div className="text-xs text-gray-500">Bonus Paid</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-blue-600">
+                      {new Intl.NumberFormat('en-IN', {
+                        style: 'currency',
+                        currency: 'INR',
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0
+                      }).format(totalPendingBonus)}
+                    </div>
+                    <div className="text-xs text-gray-500">Pending Bonus Value</div>
+                  </div>
                 </div>
               </div>
             </div>
           </>
         )}
+      </div>
+
+      {/* Footer */}
+      <div className="mt-8 p-4 border-t border-gray-200 bg-white">
+        <div className="text-center text-sm text-gray-500">
+          <p>SIP 12th Month Bonus Approval System • {new Date().getFullYear()}</p>
+          <p className="mt-1">Only shows 12-month SIP plans with exactly 11 payments completed</p>
+        </div>
       </div>
     </div>
   );

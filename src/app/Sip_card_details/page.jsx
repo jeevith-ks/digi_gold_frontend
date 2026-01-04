@@ -88,7 +88,7 @@ const SIPPage = () => {
     }
   };
 
-  // Enhanced verifyPayment function with transaction sending
+  // Enhanced verifyPayment function with transaction sending - FIXED VERSION
   const verifyPayment = async (paymentResponse, isOffline = false, offlineData = null) => {
     try {
       setProcessingPayment(true);
@@ -101,7 +101,6 @@ const SIPPage = () => {
       }
       
       // IMPORTANT: Get the amount that was used to create the order
-      // We need to get this from the same place we used to create the order
       let amount;
       
       if (showAmountInput && manualAmount) {
@@ -117,11 +116,13 @@ const SIPPage = () => {
       console.log('🔐 Verifying payment with details:', {
         orderId: paymentResponse.razorpay_order_id,
         paymentId: paymentResponse.razorpay_payment_id,
+        signature: paymentResponse.razorpay_signature,
         amountToVerify: amount,
-        sipId: selectedSIPId
+        sipId: selectedSIPId,
+        isOffline: isOffline
       });
       
-      // For online payment verification
+      // For both online and offline payments
       const verifyResponse = await fetch('http://localhost:5000/api/razorpay/verify-payment', {
         method: 'POST',
         headers: {
@@ -133,7 +134,8 @@ const SIPPage = () => {
           razorpay_payment_id: paymentResponse.razorpay_payment_id,
           razorpay_signature: paymentResponse.razorpay_signature,
           sipId: selectedSIPId,
-          amount: amount, // This is the crucial part - must send the amount!
+          amount: amount,
+          isOffline: isOffline || false
         }),
       });
 
@@ -141,11 +143,31 @@ const SIPPage = () => {
       
       if (verifyResponse.ok) {
         console.log('✅ Payment verified successfully:', verifyData);
-        // ... rest of your success handling code ...
+        
+        // Clear session storage after successful payment
+        clearPaymentDataFromSession();
+        
+        // Clear the stored amount for this SIP
+        const newAmountPayingValues = { ...amountPayingValues };
+        delete newAmountPayingValues[selectedSIPId];
+        setAmountPayingValues(newAmountPayingValues);
+        sessionStorage.setItem('amountPayingValues', JSON.stringify(newAmountPayingValues));
+        
+        // Show success message
+        alert('Payment successful! Your SIP has been updated.');
+        
+        // Refresh the SIP data
+        if (userType === 'admin') {
+          await fetchAllSIPs();
+        } else {
+          await fetchUserSIPs();
+        }
+        
+        return { success: true, data: verifyData };
       } else {
         console.error('❌ Payment verification failed:', verifyData);
-        alert(`Payment verification failed: ${verifyData.error}`);
-        return { success: false, error: verifyData.error };
+        alert(`Payment verification failed: ${verifyData.error || verifyData.message}`);
+        return { success: false, error: verifyData.error || verifyData.message };
       }
     } catch (error) {
       console.error('❌ Payment verification error:', error);
@@ -161,8 +183,16 @@ const SIPPage = () => {
     try {
       console.log('📤 Submitting offline payment:', offlinePaymentData);
       
+      // For offline payment, we need to create a mock payment response
+      const mockPaymentResponse = {
+        razorpay_order_id: offlinePaymentData.orderId || `offline_${Date.now()}`,
+        razorpay_payment_id: `offline_payment_${Date.now()}`,
+        razorpay_signature: `offline_signature_${Date.now()}`,
+        offline: true
+      };
+      
       // First verify the offline payment
-      const verificationResult = await verifyPayment(offlinePaymentData, true);
+      const verificationResult = await verifyPayment(mockPaymentResponse, true, offlinePaymentData);
       
       if (verificationResult.success) {
         // Clear offline payment data from sessionStorage
@@ -321,7 +351,7 @@ const SIPPage = () => {
       const response = await fetch('http://localhost:5000/api/sip/all', {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application.json'
         }
       });
 
@@ -979,6 +1009,12 @@ const SIPPage = () => {
   const handlePay = (id, plan, e) => {
     e.stopPropagation();
     
+    // Check if SIP is completed
+    if (plan.status === 'COMPLETED') {
+      alert('This SIP plan has been completed. Please check your holdings for details.');
+      return;
+    }
+    
     // Check time restriction before opening payment dialog
     if (!checkTimeRestriction()) {
       alert(`Cannot make payment. SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
@@ -1099,7 +1135,7 @@ const SIPPage = () => {
     });
   };
 
-  // Enhanced payment method handler with sessionStorage integration
+  // Enhanced payment method handler with sessionStorage integration - FIXED VERSION
   const handlePaymentMethod = async (method) => {
     // Check time restriction before proceeding with payment
     if (!checkTimeRestriction()) {
@@ -1161,9 +1197,11 @@ const SIPPage = () => {
           showAmountInput,
           planType: selectedPlan.type,
           planName: selectedPlan.name,
+          isFixed: selectedPlan.isFixed,
           isFlexible: !selectedPlan.isFixed,
-          amountInPaise: amount ,
-          sipId: selectedSIPId
+          amountInPaise: amount * 100,
+          sipId: selectedSIPId,
+          metalType: selectedPlan.metalType
         });
 
         // Store payment details in sessionStorage for Razorpay
@@ -1171,8 +1209,9 @@ const SIPPage = () => {
         sessionStorage.setItem('razorpaySIPId', selectedSIPId);
         sessionStorage.setItem('razorpayPlanType', selectedPlan.type);
         sessionStorage.setItem('razorpayMetalType', selectedPlan.metalType || '22KT Gold');
+        sessionStorage.setItem('razorpayIsFixed', selectedPlan.isFixed ? 'true' : 'false');
 
-        const razorpayAmount = amount; // Convert to paise for Razorpay
+        const razorpayAmount = Math.round(amount * 100); // Convert to paise for Razorpay
         
         console.log('💰 Razorpay amount in paise:', razorpayAmount);
 
@@ -1185,7 +1224,7 @@ const SIPPage = () => {
         console.log('📞 Calling Razorpay API...');
         console.log('Request URL:', 'http://localhost:5000/api/razorpay/create-order');
         console.log('Request payload:', {
-          amount: amount,
+          amount: razorpayAmount,
           metalType: selectedPlan.metalType || '22KT Gold',
           sipMonths: selectedPlan.totalMonths || 12,
           sipType: selectedPlan.isFixed ? 'fixed' : 'flexible',
@@ -1196,10 +1235,10 @@ const SIPPage = () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}` // Use your backend auth token
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            amount: amount,
+            amount: razorpayAmount,
             metalType: selectedPlan.metalType || '22KT Gold',
             sipMonths: selectedPlan.totalMonths || 12,
             sipType: selectedPlan.isFixed ? 'fixed' : 'flexible',
@@ -1214,7 +1253,7 @@ const SIPPage = () => {
         const responseText = await response.text();
         console.log('📋 API Response text:', responseText);
 
-        let orderData; // Rename to orderData to avoid confusion
+        let orderData;
         try {
           orderData = JSON.parse(responseText);
         } catch (parseError) {
@@ -1231,31 +1270,24 @@ const SIPPage = () => {
 
         await loadRazorpayScript();
 
-        // Convert amount to paise for Razorpay
-        const amountInPaise = Math.round(amount * 100);
-
-        // Razorpay options - use orderData.id (not responseData.id)
+        // Razorpay options - use orderData.id
         const options = {
           key: 'rzp_test_aOTAZ3JhbITtOK',
-          amount: amountInPaise,
+          amount: razorpayAmount,
           currency: 'INR',
           name: 'Gold SIP Investment',
           description: `${selectedPlan.metalType} ${selectedPlan.type} Payment - ${selectedPlan.name}`,
-          order_id: orderData.id, // Use orderData.id from above
+          order_id: orderData.id,
           handler: async function (paymentResponse) {
             console.log('✅ Payment successful:', paymentResponse);
             
-            // Clear session storage after successful payment
-            clearPaymentDataFromSession();
-            
+            // Call verifyPayment with the payment response
             const result = await verifyPayment(paymentResponse);
             
             if (result.success) {
-              // Clear the stored amount for this SIP
-              const newAmountPayingValues = { ...amountPayingValues };
-              delete newAmountPayingValues[selectedSIPId];
-              setAmountPayingValues(newAmountPayingValues);
-              sessionStorage.setItem('amountPayingValues', JSON.stringify(newAmountPayingValues));
+              console.log('✅ Payment verification and processing completed successfully');
+            } else {
+              console.error('❌ Payment processing failed:', result.error);
             }
           },
           prefill: {
@@ -1267,7 +1299,8 @@ const SIPPage = () => {
             sipType: selectedPlan.isFixed ? 'fixed' : 'flexible',
             sipId: selectedSIPId,
             metalType: selectedPlan.metalType,
-            isManualAmount: showAmountInput && manualAmount ? 'yes' : 'no'
+            isManualAmount: showAmountInput && manualAmount ? 'yes' : 'no',
+            amount: amount
           },
           theme: {
             color: '#50C2C9'
@@ -1321,17 +1354,26 @@ const SIPPage = () => {
         return;
       }
       
-      // ================================================
-      // CHANGE 1: Save offline payment data to session storage
-      // ================================================
+      // Determine the amount for offline payment
+      let amount;
+      if (showAmountInput && manualAmount) {
+        amount = parseAmount(manualAmount);
+      } else {
+        amount = selectedPlan.monthlyAmount || parseAmount(selectedPlan.investMin);
+      }
+      
+      // Save offline payment data to session storage
       const offlineData = {
         planId: selectedSIPId,
         planName: selectedPlan.name,
+        planType: selectedPlan.type,
         MetalType: selectedPlan.metalType,
-        amount: showAmountInput && manualAmount ? manualAmount : selectedPlan.investMin,
+        amount: amount,
         timestamp: new Date().toISOString(),
         status: 'offline_pending',
-        transaction_type: 'offline'
+        transaction_type: 'offline',
+        isFixed: selectedPlan.isFixed,
+        isFlexible: !selectedPlan.isFixed
       };
       
       console.log('💾 Storing offline payment data in session storage:', offlineData);
@@ -1883,7 +1925,9 @@ const SIPPage = () => {
                     </div>
                     {plan.status && (
                       <div className={`inline-block px-2 py-1 rounded text-xs text-white ${
-                        plan.status === 'ACTIVE' ? 'bg-green-500' : plan.status === 'PAUSED' ? 'bg-yellow-500' : 'bg-gray-500'
+                        plan.status === 'ACTIVE' ? 'bg-green-500' : 
+                        plan.status === 'PAUSED' ? 'bg-yellow-500' : 
+                        plan.status === 'COMPLETED' ? 'bg-gray-500' : 'bg-gray-500'
                       }`}>
                         {plan.status}
                       </div>
@@ -1949,6 +1993,7 @@ const SIPPage = () => {
                         placeholder="₹0"
                         className="w-full bg-transparent border-none text-sm font-medium text-black text-center focus:outline-none focus:ring-0 focus:bg-white focus:bg-opacity-30 focus:rounded px-1"
                         style={{ color: 'black' }}
+                        disabled={plan.status === 'COMPLETED'}
                       />
                     </div>
                   </div>
@@ -1964,31 +2009,36 @@ const SIPPage = () => {
                   </div>
                 </div>
 
-                {/* ================================================
-                    CHANGE 2: Pay Button - Hide/Disable when market is closed for customers
-                    ================================================ */}
+                {/* Pay Button - Updated to handle COMPLETED status */}
                 {userType === 'customer' && (
                   <div className="flex justify-end pt-3">
                     {marketStatus === 'closed' ? (
                       <div className="px-6 py-2 rounded-md font-semibold bg-gray-300 text-gray-500 cursor-not-allowed shadow-md">
                         Pay (Market Closed)
                       </div>
+                    ) : plan.status === 'COMPLETED' ? (
+                      <div className="px-4 py-2 rounded-md font-semibold bg-gray-100 text-gray-700 cursor-not-allowed shadow-md text-sm text-center">
+                        <div className="flex items-center space-x-1">
+                          <Check className="w-4 h-4" />
+                          <span>SIP Completed</span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Please check holdings</p>
+                      </div>
+                    ) : !isWithinAllowedTime ? (
+                      <button
+                        onClick={(e) => handlePay(plan.id, plan, e)}
+                        disabled={true}
+                        className="px-6 py-2 rounded-md font-semibold bg-gray-300 text-gray-500 cursor-not-allowed shadow-md"
+                        title="Payments only allowed between 10:00 AM and 6:00 PM"
+                      >
+                        Time Restricted
+                      </button>
                     ) : (
                       <button
                         onClick={(e) => handlePay(plan.id, plan, e)}
-                        disabled={!isWithinAllowedTime}
-                        className={`px-6 py-2 rounded-md font-semibold transition-colors shadow-md ${
-                          !isWithinAllowedTime
-                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            : 'bg-white text-[#50C2C9] hover:bg-opacity-90'
-                        }`}
-                        title={
-                          !isWithinAllowedTime 
-                            ? "Payments only allowed between 10:00 AM and 6:00 PM" 
-                            : ""
-                        }
+                        className="px-6 py-2 rounded-md font-semibold bg-white text-[#50C2C9] hover:bg-opacity-90 transition-colors shadow-md"
                       >
-                        {!isWithinAllowedTime ? 'Time Restricted' : 'Pay'}
+                        Pay
                       </button>
                     )}
                   </div>
@@ -2300,7 +2350,7 @@ const SIPPage = () => {
             {/* Payment Method Buttons */}
             <div className="space-y-3">
               <button
-                onClick={() => isWithinAllowedTime && marketStatus === 'OPEN' && handlePaymentMethod('Online')}
+                onClick={() => isWithinAllowedTime && marketStatus === 'open' && handlePaymentMethod('Online')}
                 disabled={!isWithinAllowedTime || marketStatus === 'closed' || (showAmountInput && !manualAmount) || processingPayment}
                 className={`w-full py-4 rounded-lg font-semibold transition-all shadow-md flex items-center justify-center space-x-2 ${
                   !isWithinAllowedTime || marketStatus === 'closed' || processingPayment
@@ -2331,10 +2381,10 @@ const SIPPage = () => {
               </button>
 
               <button
-                onClick={() => isWithinAllowedTime && marketStatus === 'OPEN' && handlePaymentMethod('Offline')}
-                disabled={!isWithinAllowedTime || marketStatus === 'CLOSED' || processingPayment}
+                onClick={() => isWithinAllowedTime && marketStatus === 'open' && handlePaymentMethod('Offline')}
+                disabled={!isWithinAllowedTime || marketStatus === 'closed' || processingPayment}
                 className={`w-full py-4 rounded-lg font-semibold transition-all shadow-md flex items-center justify-center space-x-2 ${
-                  !isWithinAllowedTime || marketStatus === 'CLOSED' || processingPayment
+                  !isWithinAllowedTime || marketStatus === 'closed' || processingPayment
                     ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                     : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                 }`}
@@ -2342,7 +2392,7 @@ const SIPPage = () => {
                 <span>
                   {processingPayment
                     ? 'Processing...'
-                    : marketStatus === 'CLOSED' 
+                    : marketStatus === 'closed' 
                     ? 'Offline Payment Disabled' 
                     : !isWithinAllowedTime 
                     ? 'Available 10:00 AM - 6:00 PM'
@@ -2381,7 +2431,7 @@ const SIPPage = () => {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span>market status:</span>
+                  <span>Market Status:</span>
                   <span className="font-semibold text-black text-sm">
                     {marketStatus}
                   </span>
