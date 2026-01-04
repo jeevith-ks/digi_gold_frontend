@@ -6,52 +6,104 @@ import { useRouter } from "next/navigation";
 export default function PayofflinePage() {
   const [amount, setAmount] = useState("");
   const [sipType, setSipType] = useState("");
-  const [sipId, setSipId] = useState(""); // Add sipId state
+  const [sipId, setSipId] = useState("");
   const [utrNo, setUtrNo] = useState("");
   const [otp, setOtp] = useState("");
   const [shop, setShop] = useState("Select Shop");
   const [message, setMessage] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [trId, setTrId] = useState("");
   const [step, setStep] = useState(1);
   const [apiResponse, setApiResponse] = useState("");
+  const [isQuickBuy, setIsQuickBuy] = useState(false);
+  const [metalType, setMetalType] = useState("");
+  const [metalName, setMetalName] = useState("");
+  const [grams, setGrams] = useState("");
   const router = useRouter();
 
   useEffect(() => {
-    const storedTrId = sessionStorage.getItem("offline_tr_id");
-    if (storedTrId) {
-      setTrId(storedTrId);
-      setStep(2);
-      setMessage("Found existing transaction. Please verify OTP.");
-    }
-
-    try {
-      const amountPayingValuesStr = sessionStorage.getItem("amountPayingValues");
-      if (amountPayingValuesStr) {
-        const amountPayingValues = JSON.parse(amountPayingValuesStr);
+    // Check if this is a quick buy from Home page
+    const checkQuickBuy = () => {
+      try {
+        // Check if paymentParameters exist in session storage (from Home page)
+        const paymentParamsStr = sessionStorage.getItem("paymentParameters");
+        const offlinePaymentDataStr = sessionStorage.getItem("offlinePaymentData");
         
-        // Get both planId and currentSIPId
-        const planId = sessionStorage.getItem("planId");
-        const currentSIPId = sessionStorage.getItem("currentSIPId");
-        
-        // Use currentSIPId if available, otherwise use planId
-        const sipIdToUse = currentSIPId || planId;
-        
-        if (sipIdToUse && amountPayingValues[sipIdToUse]) {
-          const amountStr = amountPayingValues[sipIdToUse].replace(/[^0-9.]/g, "");
-          setAmount(amountStr);
-          setSipId(sipIdToUse); // Set sipId state
+        if (paymentParamsStr) {
+          const paymentParams = JSON.parse(paymentParamsStr);
+          console.log("📋 Payment parameters found:", paymentParams);
+          
+          // Check if this is a quick buy (sipType = 'quick_buy')
+          if (paymentParams.method === 'Offline' && paymentParams.sipType === 'quick_buy') {
+            setIsQuickBuy(true);
+            
+            // Set all fields from quick buy data
+            setAmount(paymentParams.amount?.toString() || "");
+            setSipType("QUICK_BUY"); // Set to uppercase for consistency
+            setSipId(paymentParams.sipId || "");
+            setMetalType(paymentParams.metalType || "");
+            setMetalName(paymentParams.metalName || "");
+            setGrams(paymentParams.grams?.toString() || "");
+            
+            console.log("✅ Quick buy detected, fields populated from session storage");
+            return;
+          }
         }
-      }
+        
+        // Also check offlinePaymentData
+        if (offlinePaymentDataStr) {
+          const offlineData = JSON.parse(offlinePaymentDataStr);
+          console.log("📋 Offline payment data found:", offlineData);
+          
+          if (offlineData.transaction_type === 'OFFLINE') {
+            setIsQuickBuy(true);
+            
+            // Set all fields from offline payment data
+            setAmount(offlineData.amount?.toString() || "");
+            setSipType("QUICK_BUY");
+            setSipId(offlineData.sipId || "");
+            setMetalType(offlineData.metalType || "");
+            setMetalName(offlineData.metalName || "");
+            setGrams(offlineData.grams?.toString() || "");
+            
+            console.log("✅ Quick buy detected from offline payment data");
+            return;
+          }
+        }
 
-      const storedSipType = sessionStorage.getItem("sipType");
-      if (storedSipType) {
-        setSipType(storedSipType.toUpperCase().trim());
+        // If not quick buy, proceed with original logic for SIP payments
+        setIsQuickBuy(false);
+        console.log("ℹ️ Not a quick buy, using original SIP payment logic");
+
+        const amountPayingValuesStr = sessionStorage.getItem("amountPayingValues");
+        if (amountPayingValuesStr) {
+          const amountPayingValues = JSON.parse(amountPayingValuesStr);
+          
+          // Get both planId and currentSIPId
+          const planId = sessionStorage.getItem("planId");
+          const currentSIPId = sessionStorage.getItem("currentSIPId");
+          
+          // Use currentSIPId if available, otherwise use planId
+          const sipIdToUse = currentSIPId || planId;
+          
+          if (sipIdToUse && amountPayingValues[sipIdToUse]) {
+            const amountStr = amountPayingValues[sipIdToUse].replace(/[^0-9.]/g, "");
+            setAmount(amountStr);
+            setSipId(sipIdToUse);
+          }
+        }
+
+        const storedSipType = sessionStorage.getItem("sipType");
+        if (storedSipType) {
+          setSipType(storedSipType.toUpperCase().trim());
+        }
+      } catch (error) {
+        console.error("Session storage error:", error);
+        setIsQuickBuy(false);
       }
-    } catch (error) {
-      console.error("Session storage error:", error);
-    }
+    };
+
+    checkQuickBuy();
   }, []);
 
   /* ---------------- TRANSACTION SUBMIT ---------------- */
@@ -71,14 +123,20 @@ export default function PayofflinePage() {
       const transactionData = {
         amount: numericAmount,
         sip_type: sipType,
-        sip_id: sipId, // Use the sipId state
+        sip_id: sipId,
         utr_no: utrNo.trim() || null,
         transaction_type: "OFFLINE",
         category: "CREDIT",
         shop: shop !== "Select Shop" ? shop : null,
+        // Add quick buy specific fields
+        ...(isQuickBuy && {
+          metal_type: metalType,
+          grams: parseFloat(grams) || 0,
+          transaction_origin: "quick_buy"
+        })
       };
 
-      console.log("Sending transaction data:", transactionData); // Debug log
+      console.log("Sending transaction data:", transactionData);
 
       const response = await fetch(
         "http://localhost:5000/api/transactions/",
@@ -102,23 +160,26 @@ export default function PayofflinePage() {
         throw new Error(result.message || "Transaction failed");
       }
 
-      let receivedTrId = "";
-      if (result.tr_id) receivedTrId = result.tr_id;
-      else if (result.NewTransaction?.tr_id)
-        receivedTrId = result.NewTransaction.tr_id;
-      else if (result.transaction?.tr_id)
-        receivedTrId = result.transaction.tr_id;
-      else if (result.data?.tr_id) receivedTrId = result.data.tr_id;
+      // Check if transaction was created successfully
+      const transactionCreated = 
+        result.success || 
+        result.message?.toLowerCase().includes("created") ||
+        result.NewTransaction ||
+        result.transaction ||
+        result.data;
 
-      if (receivedTrId) {
-        sessionStorage.setItem("offline_tr_id", receivedTrId);
-        setTrId(receivedTrId);
+      if (transactionCreated) {
+        // Move to OTP verification step
         setStep(2);
-        setMessage(
-          `✅ Transaction created successfully! Transaction ID: ${receivedTrId}. Please ask admin for OTP.`
-        );
+        
+        // Show appropriate message
+        if (isQuickBuy) {
+          setMessage("✅ Quick buy transaction created successfully! Please ask admin for OTP.");
+        } else {
+          setMessage("✅ Transaction created successfully! Please ask admin for OTP.");
+        }
       } else {
-        setMessage("Transaction created but transaction ID not found.");
+        setMessage("Transaction creation failed. Please try again.");
       }
     } catch (error) {
       setMessage("Error: " + error.message);
@@ -129,7 +190,7 @@ export default function PayofflinePage() {
 
   /* ---------------- OTP VERIFICATION ---------------- */
   const handleVerifyOTP = async () => {
-    if (!trId || !otp.trim()) {
+    if (!sipId || !otp.trim()) {
       setMessage("Please enter OTP");
       return;
     }
@@ -149,7 +210,12 @@ export default function PayofflinePage() {
               sessionStorage.getItem("authToken") || ""
             }`,
           },
-          body: JSON.stringify({ tr_id: trId, otp: otp.trim() }),
+          body: JSON.stringify({ 
+            sip_id: sipId, 
+            otp: otp.trim(),
+            // Add quick buy flag for backend if needed
+            ...(isQuickBuy && { transaction_origin: "quick_buy" })
+          }),
         }
       );
 
@@ -167,10 +233,21 @@ export default function PayofflinePage() {
 
       if (successCheck) {
         setSuccess(true);
-        setMessage("✅ OTP verified successfully!");
-        sessionStorage.removeItem("offline_tr_id");
-
-        setTimeout(() => router.push("/savings_plan"), 2000);
+        
+        // Clear quick buy specific session storage
+        if (isQuickBuy) {
+          sessionStorage.removeItem("paymentParameters");
+          sessionStorage.removeItem("offlinePaymentData");
+          sessionStorage.removeItem("razorpayData");
+        }
+        
+        if (isQuickBuy) {
+          setMessage("✅ Quick buy OTP verified successfully! Redirecting to Home...");
+          setTimeout(() => router.push("/Home"), 2000);
+        } else {
+          setMessage("✅ OTP verified successfully! Redirecting to SIP page...");
+          setTimeout(() => router.push("/savings_plan"), 2000);
+        }
       } else {
         setMessage(result.message || "OTP verification failed");
       }
@@ -189,12 +266,17 @@ export default function PayofflinePage() {
   };
 
   const handleNewTransaction = () => {
-    sessionStorage.removeItem("offline_tr_id");
+    // Clear all relevant session storage
+    if (isQuickBuy) {
+      sessionStorage.removeItem("paymentParameters");
+      sessionStorage.removeItem("offlinePaymentData");
+    }
     handleReset();
   };
 
   const debugSessionStorage = () => {
     console.log("=== SESSION STORAGE ===");
+    console.log("Is Quick Buy:", isQuickBuy);
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i);
       console.log(key, sessionStorage.getItem(key));
@@ -205,7 +287,9 @@ export default function PayofflinePage() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 text-center border border-[#50C2C9]">
-        <h1 className="text-xl font-bold mb-4 text-[#50C2C9]">Offline Payment</h1>
+        <h1 className="text-xl font-bold mb-4 text-[#50C2C9]">
+          {isQuickBuy ? "Quick Buy - Offline Payment" : "Offline Payment"}
+        </h1>
         
         {/* Debug button */}
         <button 
@@ -218,12 +302,27 @@ export default function PayofflinePage() {
         {success ? (
           <div className="p-4 bg-green-100 border border-green-400 rounded-lg">
             <h2 className="text-lg font-semibold text-green-700">✅ Payment Successful!</h2>
-            <p className="text-green-600 mt-2">OTP verified. Redirecting...</p>
+            <p className="text-green-600 mt-2">
+              {isQuickBuy ? "Quick buy OTP verified. Redirecting..." : "OTP verified. Redirecting..."}
+            </p>
           </div>
         ) : step === 1 ? (
           // Step 1: Transaction Form
           <>
             <div className="space-y-4">
+              {/* Quick Buy Banner */}
+              {isQuickBuy && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center justify-center space-x-2">
+                    <span className="text-lg">⚡</span>
+                    <span className="font-medium text-blue-700">Quick Buy Transaction</span>
+                  </div>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Data auto-filled from your quick buy selection
+                  </p>
+                </div>
+              )}
+
               <div className="text-left">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
                 <input
@@ -236,6 +335,24 @@ export default function PayofflinePage() {
                   {amount ? `Amount: ₹${amount}` : 'Amount not found'}
                 </p>
               </div>
+
+              {/* Show metal details for quick buy */}
+              {isQuickBuy && metalName && (
+                <div className="text-left">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Metal Details</label>
+                  <div className="p-2 border border-gray-300 rounded-lg bg-gray-50">
+                    <p className="text-sm text-gray-700">
+                      <span className="font-medium">Metal:</span> {metalName}
+                      {metalType && ` (${metalType})`}
+                    </p>
+                    {grams && (
+                      <p className="text-sm text-gray-700 mt-1">
+                        <span className="font-medium">Grams:</span> {grams}g
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="text-left">
                 <label className="block text-sm font-medium text-gray-700 mb-1">SIP Type</label>
@@ -251,7 +368,9 @@ export default function PayofflinePage() {
               </div>
 
               <div className="text-left">
-                <label className="block text-sm font-medium text-gray-700 mb-1">SIP ID</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {isQuickBuy ? "Transaction ID" : "SIP ID"}
+                </label>
                 <input
                   type="text"
                   value={sipId}
@@ -259,7 +378,7 @@ export default function PayofflinePage() {
                   className="w-full border border-gray-300 rounded-lg p-2 bg-gray-50"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  {sipId ? `SIP ID: ${sipId}` : 'SIP ID not found'}
+                  {sipId ? `${isQuickBuy ? 'Transaction' : 'SIP'} ID: ${sipId}` : 'ID not found'}
                 </p>
               </div>
 
@@ -288,25 +407,38 @@ export default function PayofflinePage() {
                 </select>
               </div>
 
-              <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                <p className="text-sm text-blue-700">
-                  <span className="font-medium">Transaction Type:</span> OFFLINE
-                </p>
-                <p className="text-sm text-blue-700">
-                  <span className="font-medium">Category:</span> CREDIT
-                </p>
-                <p className="text-sm text-blue-700">
-                  <span className="font-medium">SIP ID:</span> {sipId || "Not found"}
-                </p>
-                <p className="text-sm text-blue-700">
-                  <span className="font-medium">Amount to send:</span> ₹{amount || "0"}
-                </p>
+              <div className={`p-3 rounded-lg border ${isQuickBuy ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Transaction Summary</h3>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Type:</span>
+                    <span className="font-medium text-gray-800">OFFLINE</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Category:</span>
+                    <span className="font-medium text-gray-800">CREDIT</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">{isQuickBuy ? 'Transaction' : 'SIP'} ID:</span>
+                    <span className="font-medium text-gray-800">{sipId || "Not found"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Amount:</span>
+                    <span className="font-medium text-gray-800">₹{amount || "0"}</span>
+                  </div>
+                  {isQuickBuy && metalName && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Metal:</span>
+                      <span className="font-medium text-gray-800">{metalName}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
             <button
               onClick={handleTransactionSubmit}
-              disabled={loading || !amount || !sipType || !sipId} // Also check sipId
+              disabled={loading || !amount || !sipType || !sipId}
               className="w-full bg-[#50C2C9] text-white py-2 rounded-lg mt-6 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Submitting..." : "Submit Transaction"}
@@ -324,23 +456,31 @@ export default function PayofflinePage() {
           // Step 2: OTP Verification
           <>
             <div className="space-y-4">
-              <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                <h3 className="text-sm font-semibold text-yellow-800 mb-2">Transaction Details</h3>
-                <p className="text-sm text-yellow-700">
-                  <span className="font-medium">Transaction ID:</span> 
-                  <span className="font-mono ml-2">{trId}</span>
-                </p>
-                <p className="text-sm text-yellow-700">
-                  <span className="font-medium">SIP ID:</span> {sipId}
-                </p>
-                <p className="text-sm text-yellow-700">
-                  <span className="font-medium">Amount:</span> ₹{amount}
-                </p>
-                <p className="text-sm text-yellow-700">
-                  <span className="font-medium">SIP Type:</span> 
-                  <span className="capitalize ml-2">{sipType}</span>
-                </p>
-                <p className="text-xs text-yellow-600 mt-2">
+              <div className={`p-3 rounded-lg border ${isQuickBuy ? 'bg-blue-50 border-blue-200' : 'bg-yellow-50 border-yellow-200'}`}>
+                <h3 className="text-sm font-semibold text-gray-800 mb-2">Transaction Details</h3>
+                {isQuickBuy && (
+                  <div className="flex items-center space-x-2 mb-2">
+                    <span className="text-lg">⚡</span>
+                    <span className="font-medium text-blue-700 text-sm">Quick Buy</span>
+                  </div>
+                )}
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">{isQuickBuy ? 'Quick Buy ID:' : 'SIP ID:'}</span>
+                    <span className="text-gray-800">{sipId}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Amount:</span>
+                    <span className="text-gray-800">₹{amount}</span>
+                  </div>
+                  {isQuickBuy && metalName && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Metal:</span>
+                      <span className="text-gray-800">{metalName}</span>
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-gray-600 mt-3">
                   Ask admin for OTP and enter it below
                 </p>
               </div>

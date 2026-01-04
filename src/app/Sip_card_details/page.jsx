@@ -2300,7 +2300,7 @@ const SIPPage = () => {
             {/* Payment Method Buttons */}
             <div className="space-y-3">
               <button
-                onClick={() => isWithinAllowedTime && marketStatus === 'open' && handlePaymentMethod('Online')}
+                onClick={() => isWithinAllowedTime && marketStatus === 'OPEN' && handlePaymentMethod('Online')}
                 disabled={!isWithinAllowedTime || marketStatus === 'closed' || (showAmountInput && !manualAmount) || processingPayment}
                 className={`w-full py-4 rounded-lg font-semibold transition-all shadow-md flex items-center justify-center space-x-2 ${
                   !isWithinAllowedTime || marketStatus === 'closed' || processingPayment
@@ -2331,10 +2331,10 @@ const SIPPage = () => {
               </button>
 
               <button
-                onClick={() => isWithinAllowedTime && marketStatus === 'open' && handlePaymentMethod('Offline')}
-                disabled={!isWithinAllowedTime || marketStatus === 'closed' || processingPayment}
+                onClick={() => isWithinAllowedTime && marketStatus === 'OPEN' && handlePaymentMethod('Offline')}
+                disabled={!isWithinAllowedTime || marketStatus === 'CLOSED' || processingPayment}
                 className={`w-full py-4 rounded-lg font-semibold transition-all shadow-md flex items-center justify-center space-x-2 ${
-                  !isWithinAllowedTime || marketStatus === 'closed' || processingPayment
+                  !isWithinAllowedTime || marketStatus === 'CLOSED' || processingPayment
                     ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                     : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                 }`}
@@ -2342,7 +2342,7 @@ const SIPPage = () => {
                 <span>
                   {processingPayment
                     ? 'Processing...'
-                    : marketStatus === 'closed' 
+                    : marketStatus === 'CLOSED' 
                     ? 'Offline Payment Disabled' 
                     : !isWithinAllowedTime 
                     ? 'Available 10:00 AM - 6:00 PM'
@@ -2378,6 +2378,12 @@ const SIPPage = () => {
                   <span>Amount:</span>
                   <span className="font-semibold text-black text-sm">
                     {showAmountInput && manualAmount ? manualAmount : selectedPlan?.investMin}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>market status:</span>
+                  <span className="font-semibold text-black text-sm">
+                    {marketStatus}
                   </span>
                 </div>
                 {showAmountInput && manualAmount && selectedPlan?.type === 'Flexible SIP' && (
