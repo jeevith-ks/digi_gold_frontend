@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, X, Calendar, Clock, DollarSign, Edit, Users, Plus, Check, AlertCircle, Lock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { Metal } from 'next/font/google';
 
 const SIPPage = () => {
   const router = useRouter();
@@ -296,14 +295,15 @@ const SIPPage = () => {
   }, []);
 
   // Function to check if current time is within allowed hours (10:00 AM to 6:00 PM)
+  // FIXED: This function now only checks for Fixed SIPs, not Flexible SIPs
   const checkTimeRestriction = (now = new Date()) => {
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
     const currentTimeInMinutes = currentHour * 60 + currentMinute;
     
     // Define allowed time range: 10:00 AM (600 minutes) to 6:00 PM (1080 minutes)
-    const startTimeInMinutes = 0 * 60; // 10:00 AM = 600 minutes
-    const endTimeInMinutes = 24 * 60;   // 6:00 PM = 1080 minutes
+    const startTimeInMinutes = 10 * 60; // 10:00 AM = 600 minutes
+    const endTimeInMinutes = 18 * 60;   // 6:00 PM = 1080 minutes
     
     const isWithinTime = currentTimeInMinutes >= startTimeInMinutes && 
                          currentTimeInMinutes <= endTimeInMinutes;
@@ -330,6 +330,21 @@ const SIPPage = () => {
     });
   };
 
+  // Check if we should disable operations based on plan type
+  const shouldDisableForFixedSIP = () => {
+    return !isWithinAllowedTime;
+  };
+
+  // Check if we should disable operations based on plan type
+  const shouldDisableOperations = (planType) => {
+    // For Fixed SIP: Check time restriction
+    // For Flexible SIP: No time restriction (always allowed)
+    if (planType === 'Fixed SIP' || planType === 'Fixed') {
+      return shouldDisableForFixedSIP();
+    }
+    return false; // Flexible SIP always allowed
+  };
+
   // Save amount paying values to sessionStorage whenever they change
   useEffect(() => {
     if (Object.keys(amountPayingValues).length > 0) {
@@ -351,7 +366,7 @@ const SIPPage = () => {
       const response = await fetch('http://localhost:5000/api/sip/all', {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application.json'
+          'Content-Type': 'application/json'
         }
       });
 
@@ -453,7 +468,6 @@ const SIPPage = () => {
   // Fetch latest prices from API
   const fetchLatestPrices = async (token) => {
     try {
-      // setIsLoadingPrices(true);
       console.log('💰 Fetching latest prices...');
 
       const response = await fetch('http://localhost:5000/api/price/', {
@@ -471,33 +485,19 @@ const SIPPage = () => {
         console.log('✅ Latest prices received:', data);
         
         if (data.latestPrice) {
-          // Update metal rates with latest prices
-          // setMetalRates({
-          //   '24k-995': data.latestPrice.gold24K,
-          //   '22k-916': data.latestPrice.gold22K,
-          //   '24k-999': data.latestPrice.silver
-          // });
-          
-          // Update last price update time
-          // setLastPriceUpdate(new Date().toLocaleTimeString());
           console.log('🔄 Metal rates updated with latest prices');
         }
       } else {
         console.error('❌ Failed to fetch prices:', response.status);
-        // Keep existing rates if fetch fails
       }
     } catch (error) {
       console.error('❌ Error fetching prices:', error);
-      // Keep existing rates on error
-    } finally {
-      // setIsLoadingPrices(false);
     }
   };
 
   // Fetch holdings data for customers
   const fetchHoldings = async (token) => {
     try {
-      // setIsLoading(true);
       console.log('🔐 Fetching holdings for customer...');
 
       const response = await fetch('http://localhost:5000/api/holdings', {
@@ -513,38 +513,20 @@ const SIPPage = () => {
       if (response.ok) {
         const data = await response.json();
         console.log('✅ Holdings data received:', data);
-        // setHoldings(data.holdings || data); // Handle both response formats
-        
-        // Update metal balances based on holdings data
-        // updateMetalBalances(data.holdings || data);
       } else {
         console.error('❌ Failed to fetch holdings:', response.status);
-        // Set zeros if fetch fails
-        // setMetalBalances({
-        //   '24k-995': '0.0000',
-        //   '22k-916': '0.0000',
-        //   '24k-999': '0.0000'
-        // });
       }
     } catch (error) {
       console.error('❌ Error fetching holdings:', error);
-      // Set zeros on error
-      // setMetalBalances({
-      //   '24k-995': '0.0000',
-      //   '22k-916': '0.0000',
-      //   '24k-999': '0.0000'
-      // });
-    } finally {
-      // setIsLoading(false);
     }
   };
 
   // NEW FUNCTION: Fetch available fixed SIP plans for customers
   const fetchAvailableFixedSIPs = async () => {
     try {
-      // Check time restriction before fetching
-      if (!checkTimeRestriction()) {
-        setError(`SIP plans can only be chosen between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+      // Check time restriction before fetching (only for Fixed SIP)
+      if (!isWithinAllowedTime) {
+        setError(`Fixed SIP plans can only be chosen between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
         return;
       }
 
@@ -605,9 +587,9 @@ const SIPPage = () => {
   // NEW FUNCTION: Choose a fixed SIP plan
   const handleChooseFixedSIP = async (planId) => {
     try {
-      // Check time restriction before proceeding
-      if (!checkTimeRestriction()) {
-        alert(`Cannot choose SIP plan. SIP plans can only be chosen between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+      // Check time restriction before proceeding (only for Fixed SIP)
+      if (!isWithinAllowedTime) {
+        alert(`Cannot choose Fixed SIP plan. Fixed SIP plans can only be chosen between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
         return;
       }
 
@@ -1015,9 +997,10 @@ const SIPPage = () => {
       return;
     }
     
-    // Check time restriction before opening payment dialog
-    if (!checkTimeRestriction()) {
-      alert(`Cannot make payment. SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+    // FIXED: Check time restriction only for Fixed SIP, not for Flexible SIP
+    const isFixedSIP = plan.isFixed || plan.type === 'Fixed SIP';
+    if (isFixedSIP && !isWithinAllowedTime) {
+      alert(`Cannot make payment for Fixed SIP. Fixed SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
       return;
     }
     
@@ -1078,9 +1061,9 @@ const SIPPage = () => {
   // Handle Create Fixed SIP for Customers
   const handleCreateFixedSIP_customers = () => {
     if (userType === 'customer' && activeTab === 'All') {
-      // Check time restriction before proceeding
-      if (!checkTimeRestriction()) {
-        alert(`Cannot create SIP plan. SIP plans can only be chosen between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+      // Check time restriction before proceeding (only for Fixed SIP)
+      if (!isWithinAllowedTime) {
+        alert(`Cannot create Fixed SIP plan. Fixed SIP plans can only be chosen between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
         return;
       }
       
@@ -1137,9 +1120,10 @@ const SIPPage = () => {
 
   // Enhanced payment method handler with sessionStorage integration - FIXED VERSION
   const handlePaymentMethod = async (method) => {
-    // Check time restriction before proceeding with payment
-    if (!checkTimeRestriction()) {
-      alert(`Cannot process payment. SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+    // FIXED: Check time restriction only for Fixed SIP, not for Flexible SIP
+    const isFixedSIP = selectedPlan?.isFixed || selectedPlan?.type === 'Fixed SIP';
+    if (isFixedSIP && !isWithinAllowedTime) {
+      alert(`Cannot process payment for Fixed SIP. Fixed SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
       setShowPaymentDialog(false);
       return;
     }
@@ -1342,9 +1326,10 @@ const SIPPage = () => {
         alert(`Payment failed: ${errorMessage}`);
       }
     } else if (method === 'Offline') {
-      // Check time restriction for offline payment too
-      if (!checkTimeRestriction()) {
-        alert(`Cannot process payment. SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+      // FIXED: Check time restriction only for Fixed SIP, not for Flexible SIP
+      const isFixedSIP = selectedPlan?.isFixed || selectedPlan?.type === 'Fixed SIP';
+      if (isFixedSIP && !isWithinAllowedTime) {
+        alert(`Cannot process payment for Fixed SIP. Fixed SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
         return;
       }
       
@@ -1427,12 +1412,7 @@ const SIPPage = () => {
 
   const createFlexibleSIP = async () => {
     try {
-      // Check time restriction before creating SIP
-      if (!checkTimeRestriction()) {
-        alert(`Cannot create SIP plan. SIP plans can only be chosen between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
-        return;
-      }
-
+      // FIXED: No time restriction for Flexible SIP creation
       // Check market status before creating SIP
       if (marketStatus === 'closed') {
         alert(`Market is currently closed. Trading operations, including SIP creation, are temporarily disabled.`);
@@ -1576,13 +1556,13 @@ const SIPPage = () => {
               Select a fixed SIP plan to invest in
             </p>
             
-            {/* Time Restriction Banner */}
+            {/* Time Restriction Banner - Only for Fixed SIP */}
             {!isWithinAllowedTime && (
               <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
                 <div className="flex items-center space-x-2">
                   <AlertCircle className="w-4 h-4 text-red-500" />
                   <span className="text-xs font-medium text-red-700">
-                    SIP selection is only available between 10:00 AM and 6:00 PM
+                    Fixed SIP selection is only available between 10:00 AM and 6:00 PM
                   </span>
                 </div>
                 <p className="text-xs text-red-600 mt-1">
@@ -1635,7 +1615,7 @@ const SIPPage = () => {
                       selectedFixedSIPId === plan.id
                         ? 'border-green-500 bg-green-50'
                         : 'border-gray-200 hover:border-[#50C2C9]'
-                    } ${!isWithinAllowedTime || marketStatus === 'closed' ? 'opacity-60' : ''}`}
+                    } ${(!isWithinAllowedTime || marketStatus === 'closed') ? 'opacity-60' : ''}`}
                   >
                     <div className="flex justify-between items-start mb-3">
                       <div>
@@ -1672,7 +1652,7 @@ const SIPPage = () => {
                     ) : (
                       <button
                         onClick={() => isWithinAllowedTime && marketStatus === 'open' && handleChooseFixedSIP(plan.id)}
-                        disabled={!plan.isActive || choosingSIP || !isWithinAllowedTime || marketStatus === 'closed'}
+                        disabled={!plan.isActive || choosingSIP || (!isWithinAllowedTime || marketStatus === 'closed')}
                         className={`w-full py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2 ${
                           plan.isActive && isWithinAllowedTime && marketStatus === 'open'
                             ? 'bg-green-600 text-white hover:bg-green-700' 
@@ -1801,17 +1781,19 @@ const SIPPage = () => {
         </div>
       </div>
 
-      {/* Time Restriction Banner */}
-      {!isWithinAllowedTime && userType === 'customer' && (
+      {/* Time Restriction Banner - Updated for Fixed SIP only */}
+      {!isWithinAllowedTime && userType === 'customer' && activeTab === 'All' && (
         <div className="px-4 py-3 bg-red-50 border-b border-red-200">
           <div className="flex items-center space-x-2">
             <AlertCircle className="w-4 h-4 text-red-500" />
             <div>
               <p className="text-sm font-medium text-red-700">
-                ⏰ SIP Payment Restricted
+                ⏰ Fixed SIP Payment Restricted
               </p>
               <p className="text-xs text-red-600 mt-1">
-                SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: {formatTime(currentTime)}
+                Fixed SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: {formatTime(currentTime)}
+                <br />
+                <span className="font-semibold">Note:</span> Flexible SIP payments are available 24/7.
               </p>
             </div>
           </div>
@@ -1911,140 +1893,152 @@ const SIPPage = () => {
       {!loading && !error && (
         <div className={`flex-1 px-4 space-y-4 transition-all duration-300 ${showPaymentDialog || showCreateFlexibleSIPDialog ? 'blur-md filter' : ''}`}>
           {displayPlans.length > 0 ? (
-            displayPlans.map((plan) => (
-              <div
-                key={plan.id}
-                className={`${plan.color} rounded-lg p-4 cursor-pointer hover:opacity-90 transition-opacity`}
-              >
-                {/* Plan Title - White Text */}
-                <div className="mb-4">
-                  <h3 className="text-lg font-bold mb-1 text-white">{plan.name}</h3>
-                  <div className="flex items-center gap-2">
-                    <div className="inline-block bg-white bg-opacity-20 px-2 py-1 rounded text-xs text-white">
-                      {plan.type}
+            displayPlans.map((plan) => {
+              const isFixedSIP = plan.isFixed || plan.type === 'Fixed SIP';
+              const shouldDisable = (isFixedSIP && !isWithinAllowedTime) || marketStatus === 'closed';
+              
+              return (
+                <div
+                  key={plan.id}
+                  className={`${plan.color} rounded-lg p-4 cursor-pointer hover:opacity-90 transition-opacity`}
+                >
+                  {/* Plan Title - White Text */}
+                  <div className="mb-4">
+                    <h3 className="text-lg font-bold mb-1 text-white">{plan.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <div className="inline-block bg-white bg-opacity-20 px-2 py-1 rounded text-xs text-white">
+                        {plan.type}
+                      </div>
+                      {plan.status && (
+                        <div className={`inline-block px-2 py-1 rounded text-xs text-white ${
+                          plan.status === 'ACTIVE' ? 'bg-green-500' : 
+                          plan.status === 'PAUSED' ? 'bg-yellow-500' : 
+                          plan.status === 'COMPLETED' ? 'bg-gray-500' : 'bg-gray-500'
+                        }`}>
+                          {plan.status}
+                        </div>
+                      )}
                     </div>
-                    {plan.status && (
-                      <div className={`inline-block px-2 py-1 rounded text-xs text-white ${
-                        plan.status === 'ACTIVE' ? 'bg-green-500' : 
-                        plan.status === 'PAUSED' ? 'bg-yellow-500' : 
-                        plan.status === 'COMPLETED' ? 'bg-gray-500' : 'bg-gray-500'
-                      }`}>
-                        {plan.status}
+                    
+                    {/* User Info for Admin View */}
+                    {userType === 'admin' && plan.userName && (
+                      <div className="mt-2 flex items-center space-x-1">
+                        <Users className="w-3 h-3 text-white opacity-80" />
+                        <span className="text-xs text-white opacity-80">{plan.userName}</span>
                       </div>
                     )}
                   </div>
-                  
-                  {/* User Info for Admin View */}
-                  {userType === 'admin' && plan.userName && (
-                    <div className="mt-2 flex items-center space-x-1">
-                      <Users className="w-3 h-3 text-white opacity-80" />
-                      <span className="text-xs text-white opacity-80">{plan.userName}</span>
+
+                  {/* Plan Details Section - BLACK TEXT for data fields */}
+                  <div className="border-t border-white border-opacity-30 pt-3 space-y-3">
+                    {/* Row 1: Due Date and Months */}
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Due Date */}
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-4 h-4 flex-shrink-0 text-white" />
+                        <span className="text-sm whitespace-nowrap text-white">{getDateLabel()}</span>
+                        <div className="bg-white bg-opacity-20 px-2 py-1 rounded-full min-w-[80px] text-center">
+                          <span className="text-sm font-medium text-black">
+                            {getDisplayDate(plan)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Months Progress */}
+                      <div className="flex items-center space-x-2">
+                        <Clock className="w-4 h-4 flex-shrink-0 text-white" />
+                        <span className="text-sm whitespace-nowrap text-white">Months:</span>
+                        <div className="bg-white bg-opacity-20 px-2 py-1 rounded-full min-w-[80px] text-center">
+                          <span className="text-sm font-medium text-black">
+                            {plan.monthsPaid}/{plan.totalMonths || 'N/A'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Row 2: Amount Invested */}
+                    <div className="flex items-center space-x-2">
+                      <DollarSign className="w-4 h-4 flex-shrink-0 text-white" />
+                      <span className="text-sm whitespace-nowrap text-white">Amount Invested:</span>
+                      <div className="bg-white bg-opacity-20 px-2 py-1 rounded-full min-w-[80px] text-center">
+                        <span className="text-sm font-medium text-black">
+                          {plan.totalAmount}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Row 3: Monthly Amount - EDITABLE FIELD */}
+                    <div className="flex items-center space-x-2">
+                      <DollarSign className="w-4 h-4 flex-shrink-0 text-white" />
+                      <span className="text-sm whitespace-nowrap text-white">Amount Paying:</span>
+                      <div className="bg-white bg-opacity-20 px-2 py-1 rounded-full min-w-[80px] text-center">
+                        <input
+                          type="text"
+                          value={amountPayingValues[plan.id] || ''}
+                          onChange={(e) => handleAmountPayingChange(plan.id, e.target.value)}
+                          placeholder="₹0"
+                          className="w-full bg-transparent border-none text-sm font-medium text-black text-center focus:outline-none focus:ring-0 focus:bg-white focus:bg-opacity-30 focus:rounded px-1"
+                          style={{ color: 'black' }}
+                          disabled={plan.status === 'COMPLETED'}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Row 4: Metal Type */}
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm whitespace-nowrap text-white">Metal:</span>
+                      <div className="bg-white bg-opacity-20 px-2 py-1 rounded-full text-center">
+                        <span className="text-sm font-medium text-black">
+                          {plan.metalType}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pay Button - Updated to handle COMPLETED status */}
+                  {userType === 'customer' && (
+                    <div className="flex justify-end pt-3">
+                      {plan.status === 'COMPLETED' ? (
+                        <div className="px-4 py-2 rounded-md font-semibold bg-gray-100 text-gray-700 cursor-not-allowed shadow-md text-sm text-center">
+                          <div className="flex items-center space-x-1">
+                            <Check className="w-4 h-4" />
+                            <span>SIP Completed</span>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">Please check holdings</p>
+                        </div>
+                      ) : shouldDisable ? (
+                        <button
+                          onClick={(e) => handlePay(plan.id, plan, e)}
+                          disabled={true}
+                          className="px-6 py-2 rounded-md font-semibold bg-gray-300 text-gray-500 cursor-not-allowed shadow-md"
+                          title={
+                            marketStatus === 'closed'
+                              ? "Market is currently closed"
+                              : isFixedSIP
+                              ? "Fixed SIP payments only allowed between 10:00 AM and 6:00 PM"
+                              : ""
+                          }
+                        >
+                          {marketStatus === 'closed' 
+                            ? 'Market Closed' 
+                            : isFixedSIP 
+                            ? 'Time Restricted' 
+                            : 'Pay'
+                          }
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => handlePay(plan.id, plan, e)}
+                          className="px-6 py-2 rounded-md font-semibold bg-white text-[#50C2C9] hover:bg-opacity-90 transition-colors shadow-md"
+                        >
+                          Pay
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
-
-                {/* Plan Details Section - BLACK TEXT for data fields */}
-                <div className="border-t border-white border-opacity-30 pt-3 space-y-3">
-                  {/* Row 1: Due Date and Months */}
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Due Date */}
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="w-4 h-4 flex-shrink-0 text-white" />
-                      <span className="text-sm whitespace-nowrap text-white">{getDateLabel()}</span>
-                      <div className="bg-white bg-opacity-20 px-2 py-1 rounded-full min-w-[80px] text-center">
-                        <span className="text-sm font-medium text-black">
-                          {getDisplayDate(plan)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Months Progress */}
-                    <div className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4 flex-shrink-0 text-white" />
-                      <span className="text-sm whitespace-nowrap text-white">Months:</span>
-                      <div className="bg-white bg-opacity-20 px-2 py-1 rounded-full min-w-[80px] text-center">
-                        <span className="text-sm font-medium text-black">
-                          {plan.monthsPaid}/{plan.totalMonths || 'N/A'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Row 2: Amount Invested */}
-                  <div className="flex items-center space-x-2">
-                    <DollarSign className="w-4 h-4 flex-shrink-0 text-white" />
-                    <span className="text-sm whitespace-nowrap text-white">Amount Invested:</span>
-                    <div className="bg-white bg-opacity-20 px-2 py-1 rounded-full min-w-[80px] text-center">
-                      <span className="text-sm font-medium text-black">
-                        {plan.totalAmount}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Row 3: Monthly Amount - EDITABLE FIELD */}
-                  <div className="flex items-center space-x-2">
-                    <DollarSign className="w-4 h-4 flex-shrink-0 text-white" />
-                    <span className="text-sm whitespace-nowrap text-white">Amount Paying:</span>
-                    <div className="bg-white bg-opacity-20 px-2 py-1 rounded-full min-w-[80px] text-center">
-                      <input
-                        type="text"
-                        value={amountPayingValues[plan.id] || ''}
-                        onChange={(e) => handleAmountPayingChange(plan.id, e.target.value)}
-                        placeholder="₹0"
-                        className="w-full bg-transparent border-none text-sm font-medium text-black text-center focus:outline-none focus:ring-0 focus:bg-white focus:bg-opacity-30 focus:rounded px-1"
-                        style={{ color: 'black' }}
-                        disabled={plan.status === 'COMPLETED'}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Row 4: Metal Type */}
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm whitespace-nowrap text-white">Metal:</span>
-                    <div className="bg-white bg-opacity-20 px-2 py-1 rounded-full text-center">
-                      <span className="text-sm font-medium text-black">
-                        {plan.metalType}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Pay Button - Updated to handle COMPLETED status */}
-                {userType === 'customer' && (
-                  <div className="flex justify-end pt-3">
-                    {marketStatus === 'closed' ? (
-                      <div className="px-6 py-2 rounded-md font-semibold bg-gray-300 text-gray-500 cursor-not-allowed shadow-md">
-                        Pay (Market Closed)
-                      </div>
-                    ) : plan.status === 'COMPLETED' ? (
-                      <div className="px-4 py-2 rounded-md font-semibold bg-gray-100 text-gray-700 cursor-not-allowed shadow-md text-sm text-center">
-                        <div className="flex items-center space-x-1">
-                          <Check className="w-4 h-4" />
-                          <span>SIP Completed</span>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">Please check holdings</p>
-                      </div>
-                    ) : !isWithinAllowedTime ? (
-                      <button
-                        onClick={(e) => handlePay(plan.id, plan, e)}
-                        disabled={true}
-                        className="px-6 py-2 rounded-md font-semibold bg-gray-300 text-gray-500 cursor-not-allowed shadow-md"
-                        title="Payments only allowed between 10:00 AM and 6:00 PM"
-                      >
-                        Time Restricted
-                      </button>
-                    ) : (
-                      <button
-                        onClick={(e) => handlePay(plan.id, plan, e)}
-                        className="px-6 py-2 rounded-md font-semibold bg-white text-[#50C2C9] hover:bg-opacity-90 transition-colors shadow-md"
-                      >
-                        Pay
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="text-center py-8">
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -2074,11 +2068,7 @@ const SIPPage = () => {
               <button
                 onClick={() => {
                   if (userType === 'customer') {
-                    // Check time restriction
-                    if (!isWithinAllowedTime) {
-                      alert(`Cannot create SIP plan. SIP plans can only be chosen between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
-                      return;
-                    }
+                    // FIXED: No time restriction for Flexible SIP creation
                     // Check market status
                     if (marketStatus === 'closed') {
                       alert(`Market is currently closed. Trading operations, including SIP creation, are temporarily disabled.`);
@@ -2090,9 +2080,9 @@ const SIPPage = () => {
                     setShowCreateFlexibleSIPDialog(true);
                   }
                 }}
-                disabled={(userType === 'customer' && !isWithinAllowedTime) || marketStatus === 'closed'}
+                disabled={marketStatus === 'closed'}
                 className={`px-6 py-3 rounded-lg font-semibold shadow-md transition-all flex items-center space-x-2 ${
-                  (userType === 'customer' && !isWithinAllowedTime) || marketStatus === 'closed'
+                  marketStatus === 'closed'
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     : 'bg-[#50C2C9] text-white hover:bg-[#45b1b9]'
                 }`}
@@ -2128,7 +2118,7 @@ const SIPPage = () => {
                   marketStatus === 'closed' 
                     ? "Market is currently closed" 
                     : !isWithinAllowedTime 
-                    ? "SIP creation only available 10:00 AM - 6:00 PM" 
+                    ? "Fixed SIP creation only available 10:00 AM - 6:00 PM" 
                     : ""
                 }
               >
@@ -2154,17 +2144,20 @@ const SIPPage = () => {
             </button>
           </div>
 
-          {/* Time Restriction Info */}
+          {/* Time Restriction Info - Updated for Fixed SIP only */}
           {userType === 'customer' && (
             <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
               <div className="flex items-start space-x-2">
                 <Clock className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-xs font-medium text-yellow-800">
-                    ⏰ SIP Payment Hours
+                    ⏰ Payment Hours Information
                   </p>
                   <p className="text-xs text-yellow-700 mt-1">
-                    SIP payments can only be made between <span className="font-semibold">10:00 AM and 6:00 PM</span> every day.
+                    <span className="font-semibold">Fixed SIP:</span> Payments can only be made between <span className="font-semibold">10:00 AM and 6:00 PM</span> every day.
+                  </p>
+                  <p className="text-xs text-yellow-700 mt-1">
+                    <span className="font-semibold">Flexible SIP:</span> Payments are available <span className="font-semibold">24/7</span>.
                   </p>
                   <p className="text-xs text-yellow-600 mt-1">
                     Current time: <span className="font-medium">{formatTime(currentTime)}</span>
@@ -2228,17 +2221,17 @@ const SIPPage = () => {
                 {selectedPlan?.type}
               </div>
               
-              {/* Time Restriction Notice */}
-              {!isWithinAllowedTime && (
+              {/* Time Restriction Notice - Only for Fixed SIP */}
+              {selectedPlan?.isFixed && !isWithinAllowedTime && (
                 <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
                   <div className="flex items-center space-x-2 justify-center">
                     <AlertCircle className="w-4 h-4 text-red-500" />
                     <span className="text-xs font-medium text-red-700">
-                      ⏰ Payment Time Restricted
+                      ⏰ Fixed SIP Payment Time Restricted
                     </span>
                   </div>
                   <p className="text-xs text-red-600 mt-1">
-                    SIP payments can only be made between 10:00 AM and 6:00 PM
+                    Fixed SIP payments can only be made between 10:00 AM and 6:00 PM
                   </p>
                   <p className="text-xs text-red-600">
                     Current time: {formatTime(currentTime)}
@@ -2272,8 +2265,8 @@ const SIPPage = () => {
               {!showAmountInput && (
                 <div className="space-y-3">
                   <div 
-                    className={`border-2 ${!isWithinAllowedTime || marketStatus === 'closed' ? 'border-gray-300 bg-gray-50' : 'border-[#50C2C9] bg-blue-50'} rounded-lg p-4 cursor-pointer hover:bg-blue-100 transition-colors`}
-                    onClick={() => isWithinAllowedTime && marketStatus === 'open' && setShowAmountInput(true)}
+                    className={`border-2 ${(selectedPlan?.isFixed && !isWithinAllowedTime) || marketStatus === 'closed' ? 'border-gray-300 bg-gray-50' : 'border-[#50C2C9] bg-blue-50'} rounded-lg p-4 cursor-pointer hover:bg-blue-100 transition-colors`}
+                    onClick={() => !((selectedPlan?.isFixed && !isWithinAllowedTime) || marketStatus === 'closed') && setShowAmountInput(true)}
                   >
                     <div className="flex items-center justify-between">
                       <div>
@@ -2284,15 +2277,15 @@ const SIPPage = () => {
                         <p className="text-xs text-gray-500">
                           {marketStatus === 'closed'
                             ? 'Market is currently closed'
-                            : !isWithinAllowedTime 
-                            ? 'Payments disabled outside allowed hours' 
+                            : selectedPlan?.isFixed && !isWithinAllowedTime 
+                            ? 'Fixed SIP payments disabled outside allowed hours' 
                             : selectedPlan?.type === 'Flexible SIP' 
                               ? 'Click to enter custom amount' 
                               : 'Monthly installment amount'
                           }
                         </p>
                       </div>
-                      {isWithinAllowedTime && marketStatus === 'open' && <Edit className="w-4 h-4 text-[#50C2C9]" />}
+                      {!((selectedPlan?.isFixed && !isWithinAllowedTime) || marketStatus === 'closed') && <Edit className="w-4 h-4 text-[#50C2C9]" />}
                     </div>
                   </div>
                   {selectedPlan?.type === 'Flexible SIP' && (
@@ -2314,7 +2307,7 @@ const SIPPage = () => {
                       placeholder="Enter amount (e.g., 5000)"
                       className="w-full p-4 border-2 border-[#50C2C9] rounded-lg focus:ring-2 focus:ring-[#50C2C9] focus:border-transparent text-lg font-medium text-black"
                       autoFocus
-                      disabled={!isWithinAllowedTime || marketStatus === 'closed'}
+                      disabled={(selectedPlan?.isFixed && !isWithinAllowedTime) || marketStatus === 'closed'}
                     />
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex space-x-1">
                       <button
@@ -2350,10 +2343,10 @@ const SIPPage = () => {
             {/* Payment Method Buttons */}
             <div className="space-y-3">
               <button
-                onClick={() => isWithinAllowedTime && marketStatus === 'open' && handlePaymentMethod('Online')}
-                disabled={!isWithinAllowedTime || marketStatus === 'closed' || (showAmountInput && !manualAmount) || processingPayment}
+                onClick={() => !((selectedPlan?.isFixed && !isWithinAllowedTime) || marketStatus === 'closed' || processingPayment) && handlePaymentMethod('Online')}
+                disabled={(selectedPlan?.isFixed && !isWithinAllowedTime) || marketStatus === 'closed' || (showAmountInput && !manualAmount) || processingPayment}
                 className={`w-full py-4 rounded-lg font-semibold transition-all shadow-md flex items-center justify-center space-x-2 ${
-                  !isWithinAllowedTime || marketStatus === 'closed' || processingPayment
+                  (selectedPlan?.isFixed && !isWithinAllowedTime) || marketStatus === 'closed' || processingPayment
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     : (showAmountInput && !manualAmount)
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -2370,7 +2363,7 @@ const SIPPage = () => {
                     <Lock className="w-4 h-4" />
                     <span>Market Closed</span>
                   </>
-                ) : !isWithinAllowedTime ? (
+                ) : selectedPlan?.isFixed && selectedPlan?.isFlexible && !isWithinAllowedTime ? (
                   <>
                     <Clock className="w-4 h-4" />
                     <span>Available 10:00 AM - 6:00 PM</span>
@@ -2381,10 +2374,10 @@ const SIPPage = () => {
               </button>
 
               <button
-                onClick={() => isWithinAllowedTime && marketStatus === 'open' && handlePaymentMethod('Offline')}
-                disabled={!isWithinAllowedTime || marketStatus === 'closed' || processingPayment}
+                onClick={() => !((selectedPlan?.isFixed && !isWithinAllowedTime) || marketStatus === 'closed' || processingPayment) && handlePaymentMethod('Offline')}
+                disabled={(selectedPlan?.isFixed && !isWithinAllowedTime) || marketStatus === 'closed' || processingPayment}
                 className={`w-full py-4 rounded-lg font-semibold transition-all shadow-md flex items-center justify-center space-x-2 ${
-                  !isWithinAllowedTime || marketStatus === 'closed' || processingPayment
+                  (selectedPlan?.isFixed && !isWithinAllowedTime) || marketStatus === 'closed' || processingPayment
                     ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                     : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                 }`}
@@ -2394,7 +2387,7 @@ const SIPPage = () => {
                     ? 'Processing...'
                     : marketStatus === 'closed' 
                     ? 'Offline Payment Disabled' 
-                    : !isWithinAllowedTime 
+                    : selectedPlan?.isFixed && selectedPlan?.isFlexible && !isWithinAllowedTime 
                     ? 'Available 10:00 AM - 6:00 PM'
                     : 'Pay Offline'
                   }
@@ -2436,6 +2429,16 @@ const SIPPage = () => {
                     {marketStatus}
                   </span>
                 </div>
+                {selectedPlan?.isFixed && (
+                  <div className="flex justify-between">
+                    <span>Payment Hours:</span>
+                    <span className={`font-semibold text-sm ${
+                      isWithinAllowedTime ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {isWithinAllowedTime ? '10:00 AM - 6:00 PM' : 'Outside allowed hours'}
+                    </span>
+                  </div>
+                )}
                 {showAmountInput && manualAmount && selectedPlan?.type === 'Flexible SIP' && (
                   <div className="flex justify-between">
                     <span>Payment Type:</span>
@@ -2447,13 +2450,13 @@ const SIPPage = () => {
                   <span className={`font-medium ${
                     marketStatus === 'closed' 
                       ? 'text-red-600' 
-                      : !isWithinAllowedTime 
+                      : selectedPlan?.isFixed && !isWithinAllowedTime 
                       ? 'text-red-600' 
                       : 'text-green-600'
                   }`}>
                     {marketStatus === 'closed' 
                       ? 'Market Closed' 
-                      : !isWithinAllowedTime 
+                      : selectedPlan?.isFixed && !isWithinAllowedTime 
                       ? 'Time Restricted' 
                       : 'Allowed'
                     }
@@ -2495,21 +2498,7 @@ const SIPPage = () => {
                 Start your flexible gold investment plan
               </p>
               
-              {/* Time Restriction Notice */}
-              {!isWithinAllowedTime && (
-                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="flex items-center space-x-2 justify-center">
-                    <AlertCircle className="w-4 h-4 text-red-500" />
-                    <span className="text-xs font-medium text-red-700">
-                      SIP creation is only available between 10:00 AM and 6:00 PM
-                    </span>
-                  </div>
-                  <p className="text-xs text-red-600 mt-1">
-                    Current time: {formatTime(currentTime)}. Please try again during allowed hours.
-                  </p>
-                </div>
-              )}
-
+              {/* FIXED: No time restriction notice for Flexible SIP */}
               {/* Market Status Notice */}
               {marketStatus === 'closed' && (
                 <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
@@ -2536,7 +2525,7 @@ const SIPPage = () => {
                   value={getDisplayMetalType(metalType)} // <-- Shows the display name
                   onChange={(e) => setMetalType(getEnumMetalType(e.target.value))} // <-- Sets enum value
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#50C2C9] focus:border-transparent text-black"
-                  disabled={!isWithinAllowedTime || marketStatus === 'closed' || createSIPLoading}
+                  disabled={marketStatus === 'closed' || createSIPLoading}
                 >
                   <option value="22KT Gold">22KT Gold</option>
                   <option value="24KT Gold">24KT Gold</option>
@@ -2552,7 +2541,7 @@ const SIPPage = () => {
                   value={totalMonths}
                   onChange={(e) => setTotalMonths(parseInt(e.target.value))}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#50C2C9] focus:border-transparent text-black"
-                  disabled={!isWithinAllowedTime || marketStatus === 'closed' || createSIPLoading}
+                  disabled={marketStatus === 'closed' || createSIPLoading}
                 >
                   <option value={6}>6 Months</option>
                   <option value={12}>12 Months</option>
@@ -2563,9 +2552,9 @@ const SIPPage = () => {
             {/* Create Button */}
             <button
               onClick={createFlexibleSIP}
-              disabled={createSIPLoading || !isWithinAllowedTime || marketStatus === 'closed'}
+              disabled={createSIPLoading || marketStatus === 'closed'}
               className={`w-full py-4 rounded-lg font-semibold transition-all shadow-md flex items-center justify-center space-x-2 ${
-                createSIPLoading || !isWithinAllowedTime || marketStatus === 'closed'
+                createSIPLoading || marketStatus === 'closed'
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : 'bg-[#50C2C9] text-white hover:bg-[#45b1b9]'
               }`}
@@ -2580,11 +2569,6 @@ const SIPPage = () => {
                   <Lock className="w-4 h-4" />
                   <span>Market Closed</span>
                 </>
-              ) : !isWithinAllowedTime ? (
-                <>
-                  <Clock className="w-4 h-4" />
-                  <span>Available 10:00 AM - 6:00 PM</span>
-                </>
               ) : (
                 <span>Create Flexible SIP</span>
               )}
@@ -2593,9 +2577,7 @@ const SIPPage = () => {
             <p className="text-xs text-gray-500 text-center mt-3">
               {marketStatus === 'closed'
                 ? 'Market is currently closed. SIP operations are temporarily disabled.'
-                : isWithinAllowedTime 
-                ? 'You can add funds to your flexible SIP anytime'
-                : 'SIP creation is only available between 10:00 AM and 6:00 PM'
+                : 'You can add funds to your flexible SIP anytime'
               }
             </p>
           </div>
