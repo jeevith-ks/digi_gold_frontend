@@ -121,147 +121,60 @@ const PreciousMetalsApp = () => {
     setCurrentTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
   };
 
-  useEffect(() => {
-  // Check if this is a quick buy from Home page
-  const checkQuickBuy = () => {
-    try {
-      // Check if paymentParameters exist in session storage (from Home page)
-      const paymentParamsStr = sessionStorage.getItem("paymentParameters");
-      const offlinePaymentDataStr = sessionStorage.getItem("offlinePaymentData");
-      
-      console.log("📋 Checking session storage...");
-      console.log("paymentParameters:", paymentParamsStr);
-      console.log("offlinePaymentData:", offlinePaymentDataStr);
-      
-      if (paymentParamsStr) {
-        const paymentParams = JSON.parse(paymentParamsStr);
-        console.log("📋 Payment parameters found:", paymentParams);
-        
-        // Check if this is a quick buy (sipType = 'quick_buy')
-        if (paymentParams.method === 'Offline' && paymentParams.sipType === 'quick_buy') {
-          setIsQuickBuy(true);
-          
-          // Set all fields from quick buy data
-          setAmount(paymentParams.amount?.toString() || "");
-          setSipType("QUICK_BUY"); // Set to uppercase for consistency
-          
-          // Try different possible ID fields for quick buy
-          let transactionId = "";
-          if (paymentParams.sipId) transactionId = paymentParams.sipId;
-          else if (paymentParams.transactionId) transactionId = paymentParams.transactionId;
-          else if (paymentParams.id) transactionId = paymentParams.id;
-          
-          setSipId(transactionId);
-          setMetalType(paymentParams.metalType || "");
-          setMetalName(paymentParams.metalName || "");
-          setGrams(paymentParams.grams?.toString() || "");
-          
-          console.log("✅ Quick buy detected, fields populated from session storage");
-          console.log("Transaction ID set to:", transactionId);
-          return;
-        }
-      }
-      
-      // Also check offlinePaymentData
-      if (offlinePaymentDataStr) {
-        const offlineData = JSON.parse(offlinePaymentDataStr);
-        console.log("📋 Offline payment data found:", offlineData);
-        
-        if (offlineData.transaction_type === 'OFFLINE') {
-          setIsQuickBuy(true);
-          
-          // Set all fields from offline payment data
-          setAmount(offlineData.amount?.toString() || "");
-          setSipType("QUICK_BUY");
-          
-          // Try different possible ID fields for quick buy
-          let transactionId = "";
-          if (offlineData.sipId) transactionId = offlineData.sipId;
-          else if (offlineData.transactionId) transactionId = offlineData.transactionId;
-          else if (offlineData.id) transactionId = offlineData.id;
-          else if (offlineData.tr_id) transactionId = offlineData.tr_id;
-          
-          setSipId(transactionId);
-          setMetalType(offlineData.metalType || "");
-          setMetalName(offlineData.metalName || "");
-          setGrams(offlineData.grams?.toString() || "");
-          
-          console.log("✅ Quick buy detected from offline payment data");
-          console.log("Transaction ID set to:", transactionId);
-          return;
-        }
-      }
-
-      // If not quick buy, proceed with original logic for SIP payments
-      setIsQuickBuy(false);
-      console.log("ℹ️ Not a quick buy, using original SIP payment logic");
-
-      const amountPayingValuesStr = sessionStorage.getItem("amountPayingValues");
-      if (amountPayingValuesStr) {
-        const amountPayingValues = JSON.parse(amountPayingValuesStr);
-        
-        // Get both planId and currentSIPId
-        const planId = sessionStorage.getItem("planId");
-        const currentSIPId = sessionStorage.getItem("currentSIPId");
-        
-        // Use currentSIPId if available, otherwise use planId
-        const sipIdToUse = currentSIPId || planId;
-        
-        if (sipIdToUse && amountPayingValues[sipIdToUse]) {
-          const amountStr = amountPayingValues[sipIdToUse].replace(/[^0-9.]/g, "");
-          setAmount(amountStr);
-          setSipId(sipIdToUse);
-        }
-      }
-
-      const storedSipType = sessionStorage.getItem("sipType");
-      if (storedSipType) {
-        setSipType(storedSipType.toUpperCase().trim());
-      }
-    } catch (error) {
-      console.error("Session storage error:", error);
-      setIsQuickBuy(false);
+  // Function to generate unique transaction ID for quick buy
+  const generateQuickBuyTransactionId = () => {
+    // Get or create quick buy counter in sessionStorage
+    let quickBuyCounter = sessionStorage.getItem('quickBuyCounter');
+    
+    if (!quickBuyCounter) {
+      // Initialize counter if it doesn't exist
+      quickBuyCounter = '0';
+      sessionStorage.setItem('quickBuyCounter', quickBuyCounter);
     }
+    
+    // Increment counter
+    quickBuyCounter = parseInt(quickBuyCounter) + 1;
+    sessionStorage.setItem('quickBuyCounter', quickBuyCounter.toString());
+    
+    // Generate transaction ID in format: QB_001, QB_002, etc.
+    const transactionId = `QB_${String(quickBuyCounter).padStart(3, '0')}_${Date.now().toString().slice(-6)}`;
+    
+    console.log('🔢 Generated Transaction ID:', transactionId);
+    
+    return transactionId;
   };
 
-  checkQuickBuy();
-}, []);
-
-const debugSessionStorage = () => {
-  console.log("=== SESSION STORAGE DEBUG ===");
-  console.log("Is Quick Buy:", isQuickBuy);
-  console.log("Current sipId state:", sipId);
-  console.log("Current amount state:", amount);
-  console.log("Current metalName state:", metalName);
-  
-  // Check specific quick buy related keys
-  const paymentParamsStr = sessionStorage.getItem("paymentParameters");
-  const offlinePaymentDataStr = sessionStorage.getItem("offlinePaymentData");
-  
-  console.log("=== RAW SESSION STORAGE VALUES ===");
-  if (paymentParamsStr) {
-    console.log("paymentParameters:", JSON.parse(paymentParamsStr));
-  } else {
-    console.log("paymentParameters: NOT FOUND");
-  }
-  
-  if (offlinePaymentDataStr) {
-    console.log("offlinePaymentData:", JSON.parse(offlinePaymentDataStr));
-  } else {
-    console.log("offlinePaymentData: NOT FOUND");
-  }
-  
-  console.log("=== ALL SESSION STORAGE KEYS ===");
-  for (let i = 0; i < sessionStorage.length; i++) {
-    const key = sessionStorage.key(i);
-    try {
-      const value = sessionStorage.getItem(key);
-      console.log(key, "=>", JSON.parse(value));
-    } catch {
-      console.log(key, "=>", sessionStorage.getItem(key));
+  const debugSessionStorage = () => {
+    console.log("=== SESSION STORAGE DEBUG ===");
+    
+    // Check specific quick buy related keys
+    const paymentParamsStr = sessionStorage.getItem("paymentParameters");
+    const offlinePaymentDataStr = sessionStorage.getItem("offlinePaymentData");
+    
+    console.log("=== RAW SESSION STORAGE VALUES ===");
+    if (paymentParamsStr) {
+      console.log("paymentParameters:", JSON.parse(paymentParamsStr));
+    } else {
+      console.log("paymentParameters: NOT FOUND");
     }
-  }
-};
+    
+    if (offlinePaymentDataStr) {
+      console.log("offlinePaymentData:", JSON.parse(offlinePaymentDataStr));
+    } else {
+      console.log("offlinePaymentData: NOT FOUND");
+    }
+    
+    console.log("=== ALL SESSION STORAGE KEYS ===");
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      try {
+        const value = sessionStorage.getItem(key);
+        console.log(key, "=>", JSON.parse(value));
+      } catch {
+        console.log(key, "=>", sessionStorage.getItem(key));
+      }
+    }
+  };
 
   // Fetch market status from API
   const fetchMarketStatus = async () => {
@@ -525,405 +438,375 @@ const debugSessionStorage = () => {
   };
 
   // Verify payment function
-  // Verify payment function
-// Verify payment function
-const verifyPayment = async (paymentResponse, sipId) => {
-  try {
-    setProcessingPayment(true);
-    
-    const token = sessionStorage.getItem('authToken');
-    const selectedMetalData = metals.find(m => m.id === selectedMetal);
-    
-    if (!token) {
-      throw new Error('Authentication token not found. Please login again.');
-    }
-
-    console.log('🔐 Verifying payment with details:', {
-      sipId: sipId,
-      orderId: paymentResponse.razorpay_order_id,
-      paymentId: paymentResponse.razorpay_payment_id,
-      amount: parseFloat(amount),
-      metalType: selectedMetalData?.metalType
-    });
-
-    // For online payment verification
-    const verifyResponse = await fetch('http://localhost:5000/api/razorpay/verify-payment', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        razorpay_order_id: paymentResponse.razorpay_order_id,
-        razorpay_payment_id: paymentResponse.razorpay_payment_id,
-        razorpay_signature: paymentResponse.razorpay_signature,
-        amount: parseFloat(amount),
-        metal_type: selectedMetalData?.metalType,
-        transaction_type: 'quick_buy',
-        sip_id: sipId // Send the SIP ID
-      }),
-    });
-
-    // Check if response is ok first
-    if (!verifyResponse.ok) {
-      let errorMessage = 'Payment verification failed';
-      try {
-        const errorText = await verifyResponse.text();
-        if (errorText) {
-          try {
-            const errorData = JSON.parse(errorText);
-            errorMessage = errorData.error || errorData.message || errorMessage;
-          } catch {
-            errorMessage = errorText.substring(0, 100) || errorMessage;
-          }
-        }
-      } catch (e) {
-        console.error('Failed to parse verification error:', e);
+  const verifyPayment = async (paymentResponse, sipId) => {
+    try {
+      setProcessingPayment(true);
+      
+      const token = sessionStorage.getItem('authToken');
+      const selectedMetalData = metals.find(m => m.id === selectedMetal);
+      
+      if (!token) {
+        throw new Error('Authentication token not found. Please login again.');
       }
-      
-      throw new Error(`HTTP ${verifyResponse.status}: ${errorMessage}`);
-    }
 
-    // Parse JSON only if response is ok
-    const verifyData = await verifyResponse.json();
-    console.log('✅ Payment verified successfully:', verifyData);
-    
-    // Add transaction to database
-    const transactionResponse = await fetch('http://localhost:5000/api/transactions/add-transaction', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
+      console.log('🔐 Verifying payment with details:', {
+        sipId: sipId,
+        orderId: paymentResponse.razorpay_order_id,
+        paymentId: paymentResponse.razorpay_payment_id,
         amount: parseFloat(amount),
-        utr_no: `QRP-${paymentResponse.razorpay_payment_id}`,
-        transaction_type: 'ONLINE',
-        category: 'DEBIT',
-        metal_type: selectedMetalData?.metalType,
-        transaction_status: 'COMPLETED',
-        grams: parseFloat(grams),
-        sip_id: sipId // Include SIP ID in transaction
-      })
-    });
-
-    if (transactionResponse.ok) {
-      alert('Payment successful! Transaction has been recorded.');
-      
-      // Refresh holdings
-      await fetchHoldings(token);
-      
-      addNotification({
-        title: 'Payment Successful',
-        message: `Successfully purchased ${grams}g of ${selectedMetalData?.name}`,
-        type: 'success'
+        metalType: selectedMetalData?.metalType
       });
-      
-      // Reset form
-      setGrams('');
-      setAmount('');
-    } else {
-      console.error('Failed to record transaction');
-      alert('Payment successful but failed to record transaction. Please contact support.');
-    }
-    
-    return { success: true, data: verifyData };
-  } catch (error) {
-    console.error('❌ Payment verification error:', error);
-    alert(`Payment verification failed: ${error.message}`);
-    return { success: false, error: error.message };
-  } finally {
-    setProcessingPayment(false);
-  }
-};
-  // Function to generate unique SIP ID for quick buy
-const generateQuickBuySipId = () => {
-  // Get or create quick buy counter in sessionStorage
-  let quickBuyCounter = sessionStorage.getItem('quickBuyCounter');
-  
-  if (!quickBuyCounter) {
-    // Initialize counter if it doesn't exist
-    quickBuyCounter = '0';
-    sessionStorage.setItem('quickBuyCounter', quickBuyCounter);
-  }
-  
-  // Increment counter
-  quickBuyCounter = parseInt(quickBuyCounter) + 1;
-  sessionStorage.setItem('quickBuyCounter', quickBuyCounter.toString());
-  
-  // Generate SIP ID in format: quickbuy_001, quickbuy_002, etc.
-  const sipId = `quickbuy_${String(quickBuyCounter).padStart(3, '0')}`;
-  
-  console.log('🔢 Generated SIP ID:', sipId);
-  
-  return sipId;
-};
 
-  // Handle online payment with Razorpay
-  // Handle online payment with Razorpay
-// Handle online payment with Razorpay
-
-// Handle online payment with Razorpay
-// Handle online payment with Razorpay
-// Handle online payment with Razorpay
-const handleOnlinePayment = async () => {
-  try {
-    // Check market status
-    const transactionCheck = canPerformTransaction();
-    if (!transactionCheck.allowed) {
-      alert(`Cannot process transaction: ${transactionCheck.reason}`);
-      return;
-    }
-
-    // Validate input
-    if (!grams || parseFloat(grams) <= 0 || !amount || parseFloat(amount) <= 0) {
-      alert('Please enter valid grams and amount');
-      return;
-    }
-
-    setProcessingPayment(true);
-    
-    const token = sessionStorage.getItem('authToken');
-    const selectedMetalData = metals.find(m => m.id === selectedMetal);
-    
-    if (!token) {
-      alert('Please login to make a purchase');
-      router.push('/login');
-      return;
-    }
-
-    const paymentAmount = parseFloat(amount);
-    if (paymentAmount < 1) {
-      alert('Minimum payment amount is ₹1');
-      return;
-    }
-
-    // Generate unique SIP ID for quick buy
-    const sipId = generateQuickBuySipId();
-    
-    console.log('💰 Creating Razorpay order for:', {
-      sipId: sipId,
-      amount: paymentAmount,
-      metalType: selectedMetalData?.metalType,
-      grams: grams
-    });
-
-    // Update payment parameters in session storage with SIP ID
-    const existingParams = JSON.parse(sessionStorage.getItem('paymentParameters') || '{}');
-    const updatedParams = {
-      ...existingParams,
-      sipId: sipId,
-      razorpayOrderTime: new Date().toISOString()
-    };
-    sessionStorage.setItem('paymentParameters', JSON.stringify(updatedParams));
-    
-    // Also store specific data for Razorpay
-    const razorpayData = {
-      sipId: sipId,
-      amount: paymentAmount,
-      metalType: selectedMetalData?.metalType,
-      grams: grams,
-      timestamp: new Date().toISOString(),
-      tokenPresent: !!token
-    };
-    sessionStorage.setItem('razorpayData', JSON.stringify(razorpayData));
-
-    // Prepare the request body based on what backend expects
-    const requestBody = {
-      amount: paymentAmount,
-      metalType: selectedMetalData?.metalType,
-      sipType: 'quick_buy',
-      sipId: sipId, // Send sipId (not sip_id)
-      description: `Quick Buy - ${grams}g ${selectedMetalData?.name} (${selectedMetalData?.purity})`,
-      sipMonths: 1 // Add default value for sipMonths if required
-    };
-
-    console.log('📤 Sending to backend:', requestBody);
-
-    // Create Razorpay order
-    const response = await fetch('http://localhost:5000/api/razorpay/create-order', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    // Store API response details
-    const apiResponseData = {
-      requestBody: requestBody,
-      responseStatus: response.status,
-      responseTime: new Date().toISOString()
-    };
-    sessionStorage.setItem('apiResponseData', JSON.stringify(apiResponseData));
-
-    // First check if response is ok
-    if (!response.ok) {
-      // Try to get error message from response
-      let errorMessage = 'Failed to create payment order';
-      let errorDetails = '';
-      
-      try {
-        const errorText = await response.text();
-        console.log('❌ Backend error response:', errorText);
-        
-        if (errorText) {
-          try {
-            const errorData = JSON.parse(errorText);
-            errorMessage = errorData.error || errorData.message || errorMessage;
-            errorDetails = errorData.details || '';
-            
-            // Store error in session storage
-            const errorDataStorage = {
-              error: errorMessage,
-              details: errorDetails,
-              statusCode: response.status,
-              timestamp: new Date().toISOString()
-            };
-            sessionStorage.setItem('paymentError', JSON.stringify(errorDataStorage));
-          } catch {
-            errorMessage = errorText.substring(0, 100) || errorMessage;
-          }
-        }
-      } catch (e) {
-        console.error('Failed to parse error response:', e);
-      }
-      
-      throw new Error(`HTTP ${response.status}: ${errorMessage} ${errorDetails ? `(${errorDetails})` : ''}`);
-    }
-
-    // If response is ok, then parse JSON
-    const orderData = await response.json();
-    console.log('✅ Order created successfully:', orderData);
-
-    // Store successful order data
-    const successfulOrderData = {
-      orderId: orderData.id,
-      amount: orderData.amount,
-      currency: orderData.currency,
-      status: orderData.status,
-      timestamp: new Date().toISOString()
-    };
-    sessionStorage.setItem('razorpayOrderData', JSON.stringify(successfulOrderData));
-
-    await loadRazorpayScript();
-
-    // Convert amount to paise for Razorpay
-    const amountInPaise = Math.round(paymentAmount * 100);
-
-    // Razorpay options
-    const options = {
-      key: 'rzp_test_aOTAZ3JhbITtOK', // Replace with your actual Razorpay key
-      amount: amountInPaise,
-      currency: 'INR',
-      name: 'Gold Investment Platform',
-      description: `${grams}g ${selectedMetalData?.name} (${selectedMetalData?.purity})`,
-      order_id: orderData.id,
-      handler: async function (paymentResponse) {
-        console.log('✅ Payment successful:', paymentResponse);
-        
-        // Store payment success data
-        const paymentSuccessData = {
+      // For online payment verification
+      const verifyResponse = await fetch('http://localhost:5000/api/razorpay/verify-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
           razorpay_order_id: paymentResponse.razorpay_order_id,
           razorpay_payment_id: paymentResponse.razorpay_payment_id,
           razorpay_signature: paymentResponse.razorpay_signature,
-          timestamp: new Date().toISOString(),
-          sipId: sipId
-        };
-        sessionStorage.setItem('paymentSuccessData', JSON.stringify(paymentSuccessData));
-        
-        const result = await verifyPayment(paymentResponse, sipId); // Pass sipId to verifyPayment
-        
-        if (result.success) {
-          setShowPaymentDialog(false);
-          // Clear temporary session storage after successful payment
-          sessionStorage.removeItem('paymentParameters');
-          sessionStorage.removeItem('razorpayData');
-          sessionStorage.removeItem('apiResponseData');
+          amount: parseFloat(amount),
+          metal_type: selectedMetalData?.metalType,
+          transaction_type: 'quick_buy',
+          sip_id: sipId // Send the SIP ID
+        }),
+      });
+
+      // Check if response is ok first
+      if (!verifyResponse.ok) {
+        let errorMessage = 'Payment verification failed';
+        try {
+          const errorText = await verifyResponse.text();
+          if (errorText) {
+            try {
+              const errorData = JSON.parse(errorText);
+              errorMessage = errorData.error || errorData.message || errorMessage;
+            } catch {
+              errorMessage = errorText.substring(0, 100) || errorMessage;
+            }
+          }
+        } catch (e) {
+          console.error('Failed to parse verification error:', e);
         }
-      },
-      prefill: {
-        name: username || 'Customer',
-        email: 'customer@example.com',
-        contact: '9999999999'
-      },
-      notes: {
+        
+        throw new Error(`HTTP ${verifyResponse.status}: ${errorMessage}`);
+      }
+
+      // Parse JSON only if response is ok
+      const verifyData = await verifyResponse.json();
+      console.log('✅ Payment verified successfully:', verifyData);
+      
+      // Add transaction to database
+      const transactionResponse = await fetch('http://localhost:5000/api/transactions/add-transaction', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          amount: parseFloat(amount),
+          utr_no: `QRP-${paymentResponse.razorpay_payment_id}`,
+          transaction_type: 'ONLINE',
+          category: 'DEBIT',
+          metal_type: selectedMetalData?.metalType,
+          transaction_status: 'COMPLETED',
+          grams: parseFloat(grams),
+          sip_id: sipId // Include SIP ID in transaction
+        })
+      });
+
+      if (transactionResponse.ok) {
+        alert('Payment successful! Transaction has been recorded.');
+        
+        // Refresh holdings
+        await fetchHoldings(token);
+        
+        addNotification({
+          title: 'Payment Successful',
+          message: `Successfully purchased ${grams}g of ${selectedMetalData?.name}`,
+          type: 'success'
+        });
+        
+        // Reset form
+        setGrams('');
+        setAmount('');
+      } else {
+        console.error('Failed to record transaction');
+        alert('Payment successful but failed to record transaction. Please contact support.');
+      }
+      
+      return { success: true, data: verifyData };
+    } catch (error) {
+      console.error('❌ Payment verification error:', error);
+      alert(`Payment verification failed: ${error.message}`);
+      return { success: false, error: error.message };
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  // Handle online payment with Razorpay
+  const handleOnlinePayment = async () => {
+    try {
+      // Check market status
+      const transactionCheck = canPerformTransaction();
+      if (!transactionCheck.allowed) {
+        alert(`Cannot process transaction: ${transactionCheck.reason}`);
+        return;
+      }
+
+      // Validate input
+      if (!grams || parseFloat(grams) <= 0 || !amount || parseFloat(amount) <= 0) {
+        alert('Please enter valid grams and amount');
+        return;
+      }
+
+      setProcessingPayment(true);
+      
+      const token = sessionStorage.getItem('authToken');
+      const selectedMetalData = metals.find(m => m.id === selectedMetal);
+      
+      if (!token) {
+        alert('Please login to make a purchase');
+        router.push('/login');
+        return;
+      }
+
+      const paymentAmount = parseFloat(amount);
+      if (paymentAmount < 1) {
+        alert('Minimum payment amount is ₹1');
+        return;
+      }
+
+      // Generate unique SIP ID for quick buy
+      const sipId = generateQuickBuyTransactionId();
+      
+      console.log('💰 Creating Razorpay order for:', {
+        sipId: sipId,
+        amount: paymentAmount,
+        metalType: selectedMetalData?.metalType,
+        grams: grams
+      });
+
+      // Update payment parameters in session storage with SIP ID
+      const existingParams = JSON.parse(sessionStorage.getItem('paymentParameters') || '{}');
+      const updatedParams = {
+        ...existingParams,
+        sipId: sipId,
+        razorpayOrderTime: new Date().toISOString()
+      };
+      sessionStorage.setItem('paymentParameters', JSON.stringify(updatedParams));
+      
+      // Also store specific data for Razorpay
+      const razorpayData = {
+        sipId: sipId,
+        amount: paymentAmount,
         metalType: selectedMetalData?.metalType,
         grams: grams,
-        transactionType: 'quick_buy',
-        sipId: sipId // Include SIP ID in Razorpay notes
-      },
-      theme: {
-        color: '#50C2C9'
-      },
-      modal: {
-        ondismiss: function() {
-          console.log('Payment modal closed');
-          setProcessingPayment(false);
-          alert('Payment was cancelled. You can try again.');
+        timestamp: new Date().toISOString(),
+        tokenPresent: !!token
+      };
+      sessionStorage.setItem('razorpayData', JSON.stringify(razorpayData));
+
+      // Prepare the request body based on what backend expects
+      const requestBody = {
+        amount: paymentAmount,
+        metalType: selectedMetalData?.metalType,
+        sipType: 'quick_buy',
+        sipId: sipId, // Send sipId (not sip_id)
+        description: `Quick Buy - ${grams}g ${selectedMetalData?.name} (${selectedMetalData?.purity})`,
+        sipMonths: 1 // Add default value for sipMonths if required
+      };
+
+      console.log('📤 Sending to backend:', requestBody);
+
+      // Create Razorpay order
+      const response = await fetch('http://localhost:5000/api/razorpay/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      // Store API response details
+      const apiResponseData = {
+        requestBody: requestBody,
+        responseStatus: response.status,
+        responseTime: new Date().toISOString()
+      };
+      sessionStorage.setItem('apiResponseData', JSON.stringify(apiResponseData));
+
+      // First check if response is ok
+      if (!response.ok) {
+        // Try to get error message from response
+        let errorMessage = 'Failed to create payment order';
+        let errorDetails = '';
+        
+        try {
+          const errorText = await response.text();
+          console.log('❌ Backend error response:', errorText);
           
-          // Store cancellation in session storage
-          const cancellationData = {
-            reason: 'user_cancelled',
-            timestamp: new Date().toISOString(),
-            sipId: sipId,
-            amount: paymentAmount
-          };
-          sessionStorage.setItem('paymentCancellation', JSON.stringify(cancellationData));
+          if (errorText) {
+            try {
+              const errorData = JSON.parse(errorText);
+              errorMessage = errorData.error || errorData.message || errorMessage;
+              errorDetails = errorData.details || '';
+              
+              // Store error in session storage
+              const errorDataStorage = {
+                error: errorMessage,
+                details: errorDetails,
+                statusCode: response.status,
+                timestamp: new Date().toISOString()
+              };
+              sessionStorage.setItem('paymentError', JSON.stringify(errorDataStorage));
+            } catch {
+              errorMessage = errorText.substring(0, 100) || errorMessage;
+            }
+          }
+        } catch (e) {
+          console.error('Failed to parse error response:', e);
         }
+        
+        throw new Error(`HTTP ${response.status}: ${errorMessage} ${errorDetails ? `(${errorDetails})` : ''}`);
       }
-    };
 
-    console.log('🎯 Razorpay options:', options);
+      // If response is ok, then parse JSON
+      const orderData = await response.json();
+      console.log('✅ Order created successfully:', orderData);
 
-    const razorpay = new window.Razorpay(options);
+      // Store successful order data
+      const successfulOrderData = {
+        orderId: orderData.id,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        status: orderData.status,
+        timestamp: new Date().toISOString()
+      };
+      sessionStorage.setItem('razorpayOrderData', JSON.stringify(successfulOrderData));
 
-    razorpay.on('payment.failed', function (response) {
-      console.error('❌ Payment failed:', response.error);
+      await loadRazorpayScript();
+
+      // Convert amount to paise for Razorpay
+      const amountInPaise = Math.round(paymentAmount * 100);
+
+      // Razorpay options
+      const options = {
+        key: 'rzp_test_aOTAZ3JhbITtOK', // Replace with your actual Razorpay key
+        amount: amountInPaise,
+        currency: 'INR',
+        name: 'Gold Investment Platform',
+        description: `${grams}g ${selectedMetalData?.name} (${selectedMetalData?.purity})`,
+        order_id: orderData.id,
+        handler: async function (paymentResponse) {
+          console.log('✅ Payment successful:', paymentResponse);
+          
+          // Store payment success data
+          const paymentSuccessData = {
+            razorpay_order_id: paymentResponse.razorpay_order_id,
+            razorpay_payment_id: paymentResponse.razorpay_payment_id,
+            razorpay_signature: paymentResponse.razorpay_signature,
+            timestamp: new Date().toISOString(),
+            sipId: sipId
+          };
+          sessionStorage.setItem('paymentSuccessData', JSON.stringify(paymentSuccessData));
+          
+          const result = await verifyPayment(paymentResponse, sipId); // Pass sipId to verifyPayment
+          
+          if (result.success) {
+            setShowPaymentDialog(false);
+            // Clear temporary session storage after successful payment
+            sessionStorage.removeItem('paymentParameters');
+            sessionStorage.removeItem('razorpayData');
+            sessionStorage.removeItem('apiResponseData');
+          }
+        },
+        prefill: {
+          name: username || 'Customer',
+          email: 'customer@example.com',
+          contact: '9999999999'
+        },
+        notes: {
+          metalType: selectedMetalData?.metalType,
+          grams: grams,
+          transactionType: 'quick_buy',
+          sipId: sipId // Include SIP ID in Razorpay notes
+        },
+        theme: {
+          color: '#50C2C9'
+        },
+        modal: {
+          ondismiss: function() {
+            console.log('Payment modal closed');
+            setProcessingPayment(false);
+            alert('Payment was cancelled. You can try again.');
+            
+            // Store cancellation in session storage
+            const cancellationData = {
+              reason: 'user_cancelled',
+              timestamp: new Date().toISOString(),
+              sipId: sipId,
+              amount: paymentAmount
+            };
+            sessionStorage.setItem('paymentCancellation', JSON.stringify(cancellationData));
+          }
+        }
+      };
+
+      console.log('🎯 Razorpay options:', options);
+
+      const razorpay = new window.Razorpay(options);
+
+      razorpay.on('payment.failed', function (response) {
+        console.error('❌ Payment failed:', response.error);
+        setProcessingPayment(false);
+        
+        // Store payment failure in session storage
+        const paymentFailureData = {
+          error: response.error,
+          timestamp: new Date().toISOString(),
+          sipId: sipId,
+          amount: paymentAmount
+        };
+        sessionStorage.setItem('paymentFailure', JSON.stringify(paymentFailureData));
+        
+        alert(`Payment failed: ${response.error.description}. Please try again.`);
+      });
+
+      razorpay.open();
+      
+    } catch (error) {
+      console.error('❌ Payment initialization error:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+
       setProcessingPayment(false);
       
-      // Store payment failure in session storage
-      const paymentFailureData = {
-        error: response.error,
-        timestamp: new Date().toISOString(),
-        sipId: sipId,
-        amount: paymentAmount
-      };
-      sessionStorage.setItem('paymentFailure', JSON.stringify(paymentFailureData));
+      let errorMessage = error.message;
+      if (error.message.includes('500')) {
+        errorMessage = 'Server error. Please try again later or contact support.';
+      } else if (error.message.includes('Failed to create payment order')) {
+        errorMessage = 'Payment gateway error. Please check your internet connection and try again.';
+      } else if (errorMessage.includes('SIP ID is required')) {
+        errorMessage = 'SIP ID is required. This is a server configuration error.';
+      } else if (error.message.includes('Invalid amount')) {
+        errorMessage = 'Please enter a valid payment amount (minimum ₹1)';
+      } else if (error.message.includes('401') || error.message.includes('403')) {
+        errorMessage = 'Authentication failed. Please login again.';
+        sessionStorage.removeItem('authToken');
+        router.push('/login');
+      }
       
-      alert(`Payment failed: ${response.error.description}. Please try again.`);
-    });
-
-    razorpay.open();
-    
-  } catch (error) {
-    console.error('❌ Payment initialization error:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
-    });
-
-    setProcessingPayment(false);
-    
-    let errorMessage = error.message;
-    if (error.message.includes('500')) {
-      errorMessage = 'Server error. Please try again later or contact support.';
-    } else if (error.message.includes('Failed to create payment order')) {
-      errorMessage = 'Payment gateway error. Please check your internet connection and try again.';
-    } else if (errorMessage.includes('SIP ID is required')) {
-      errorMessage = 'SIP ID is required. This is a server configuration error.';
-    } else if (error.message.includes('Invalid amount')) {
-      errorMessage = 'Please enter a valid payment amount (minimum ₹1)';
-    } else if (error.message.includes('401') || error.message.includes('403')) {
-      errorMessage = 'Authentication failed. Please login again.';
-      sessionStorage.removeItem('authToken');
-      router.push('/login');
+      alert(`Payment failed: ${errorMessage}`);
     }
-    
-    alert(`Payment failed: ${errorMessage}`);
-  }
-};
+  };
 
   // Handle market toggle
   const handleMarketToggle = async (newStatus) => {
@@ -1104,54 +987,59 @@ const handleOnlinePayment = async () => {
   };
 
   // Handle payment method selection
-  // Handle payment method selection
-const handlePaymentMethod = async (method) => {
-  const transactionCheck = canPerformTransaction();
-  if (!transactionCheck.allowed) {
-    alert(`Cannot process payment: ${transactionCheck.reason}`);
-    setShowPaymentDialog(false);
-    return;
-  }
+  const handlePaymentMethod = async (method) => {
+    const transactionCheck = canPerformTransaction();
+    if (!transactionCheck.allowed) {
+      alert(`Cannot process payment: ${transactionCheck.reason}`);
+      setShowPaymentDialog(false);
+      return;
+    }
 
-  // Store payment parameters in session storage BEFORE processing
-  const selectedMetalData = metals.find(m => m.id === selectedMetal);
-  const paymentParams = {
-    method: method,
-    amount: parseFloat(amount),
-    grams: parseFloat(grams),
-    metalType: selectedMetalData?.metalType,
-    metalName: selectedMetalData?.name,
-    purity: selectedMetalData?.purity,
-    selectedMetal: selectedMetal,
-    timestamp: new Date().toISOString(),
-    status: 'pending',
-    marketStatus: marketStatus,
-    tradingHours: tradingHours,
-    currentTime: currentTime,
-    userType: userType,
-    username: username
-  };
-
-  console.log('💾 Storing payment parameters in session storage:', paymentParams);
-  sessionStorage.setItem('paymentParameters', JSON.stringify(paymentParams));
-  
-  if (method === 'Online') {
-    await handleOnlinePayment();
-  } else if (method === 'Offline') {
-    // For offline payment, also store the offline data
-    const offlineData = {
-      ...paymentParams,
-      transaction_type: 'OFFLINE',
-      status: 'offline_pending'
+    // Generate transaction ID for quick buy
+    const transactionId = generateQuickBuyTransactionId();
+    
+    const selectedMetalData = metals.find(m => m.id === selectedMetal);
+    const paymentParams = {
+      method: method,
+      amount: parseFloat(amount),
+      grams: parseFloat(grams),
+      metalType: selectedMetalData?.metalType,
+      metalName: selectedMetalData?.name,
+      purity: selectedMetalData?.purity,
+      selectedMetal: selectedMetal,
+      // Add transaction ID
+      transactionId: transactionId,
+      sipId: transactionId, // Also store as sipId
+      sipType: 'quick_buy', // Add sipType
+      timestamp: new Date().toISOString(),
+      status: 'pending',
+      marketStatus: marketStatus,
+      tradingHours: tradingHours,
+      currentTime: currentTime,
+      userType: userType,
+      username: username
     };
+
+    console.log('💾 Storing payment parameters in session storage:', paymentParams);
+    sessionStorage.setItem('paymentParameters', JSON.stringify(paymentParams));
     
-    console.log('💾 Storing offline payment data:', offlineData);
-    sessionStorage.setItem('offlinePaymentData', JSON.stringify(offlineData));
-    
-    setShowPaymentDialog(false);
-    router.push('/payoffline');
-  }
-};
+    if (method === 'Online') {
+      await handleOnlinePayment();
+    } else if (method === 'Offline') {
+      // For offline payment, also store the offline data
+      const offlineData = {
+        ...paymentParams,
+        transaction_type: 'OFFLINE',
+        status: 'offline_pending'
+      };
+      
+      console.log('💾 Storing offline payment data:', offlineData);
+      sessionStorage.setItem('offlinePaymentData', JSON.stringify(offlineData));
+      
+      setShowPaymentDialog(false);
+      router.push('/payoffline');
+    }
+  };
 
   // Handle rate change
   const handleRateChange = (metalId, newRate) => {

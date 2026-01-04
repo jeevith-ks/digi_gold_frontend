@@ -25,81 +25,134 @@ export default function PayofflinePage() {
     // Check if this is a quick buy from Home page
     const checkQuickBuy = () => {
       try {
+        console.log("🔍 Checking session storage for quick buy data...");
+        
         // Check if paymentParameters exist in session storage (from Home page)
         const paymentParamsStr = sessionStorage.getItem("paymentParameters");
         const offlinePaymentDataStr = sessionStorage.getItem("offlinePaymentData");
         
+        console.log("📋 Raw session storage values:");
+        console.log("- paymentParameters:", paymentParamsStr);
+        console.log("- offlinePaymentData:", offlinePaymentDataStr);
+        
+        // Check both sources
         if (paymentParamsStr) {
-          const paymentParams = JSON.parse(paymentParamsStr);
-          console.log("📋 Payment parameters found:", paymentParams);
-          
-          // Check if this is a quick buy (sipType = 'quick_buy')
-          if (paymentParams.method === 'Offline' && paymentParams.sipType === 'quick_buy') {
-            setIsQuickBuy(true);
+          try {
+            const paymentParams = JSON.parse(paymentParamsStr);
+            console.log("📋 Parsed paymentParameters:", paymentParams);
             
-            // Set all fields from quick buy data
-            setAmount(paymentParams.amount?.toString() || "");
-            setSipType("QUICK_BUY"); // Set to uppercase for consistency
-            setSipId(paymentParams.sipId || "");
-            setMetalType(paymentParams.metalType || "");
-            setMetalName(paymentParams.metalName || "");
-            setGrams(paymentParams.grams?.toString() || "");
-            
-            console.log("✅ Quick buy detected, fields populated from session storage");
-            return;
+            // Check if this is a quick buy (any payment method)
+            if (paymentParams.method === 'Offline' || paymentParams.method === 'Online') {
+              setIsQuickBuy(true);
+              
+              // Set all fields from quick buy data
+              setAmount(paymentParams.amount?.toString() || "");
+              setSipType(paymentParams.sipType || "QUICK_BUY");
+              
+              // Try to find transaction ID from various possible fields
+              let transactionId = "";
+              if (paymentParams.transactionId) transactionId = paymentParams.transactionId;
+              else if (paymentParams.sipId) transactionId = paymentParams.sipId;
+              else if (paymentParams.tr_id) transactionId = paymentParams.tr_id;
+              else if (paymentParams.id) transactionId = paymentParams.id;
+              else if (paymentParams.sip_id) transactionId = paymentParams.sip_id;
+              
+              setSipId(transactionId);
+              setMetalType(paymentParams.metalType || "");
+              setMetalName(paymentParams.metalName || "");
+              setGrams(paymentParams.grams?.toString() || "");
+              
+              console.log("✅ Quick buy detected from paymentParameters");
+              console.log("Set values:", {
+                amount: paymentParams.amount,
+                sipId: transactionId,
+                sipType: paymentParams.sipType,
+                metalType: paymentParams.metalType,
+                metalName: paymentParams.metalName,
+                grams: paymentParams.grams
+              });
+            }
+          } catch (e) {
+            console.error("Error parsing paymentParameters:", e);
           }
         }
         
         // Also check offlinePaymentData
         if (offlinePaymentDataStr) {
-          const offlineData = JSON.parse(offlinePaymentDataStr);
-          console.log("📋 Offline payment data found:", offlineData);
-          
-          if (offlineData.transaction_type === 'OFFLINE') {
-            setIsQuickBuy(true);
+          try {
+            const offlineData = JSON.parse(offlinePaymentDataStr);
+            console.log("📋 Parsed offlinePaymentData:", offlineData);
             
-            // Set all fields from offline payment data
-            setAmount(offlineData.amount?.toString() || "");
-            setSipType("QUICK_BUY");
-            setSipId(offlineData.sipId || "");
-            setMetalType(offlineData.metalType || "");
-            setMetalName(offlineData.metalName || "");
-            setGrams(offlineData.grams?.toString() || "");
-            
-            console.log("✅ Quick buy detected from offline payment data");
-            return;
+            // Check if this is offline transaction
+            if (offlineData.transaction_type === 'OFFLINE' || offlineData.method === 'Offline') {
+              setIsQuickBuy(true);
+              
+              // Set all fields from offline payment data
+              setAmount(offlineData.amount?.toString() || "");
+              setSipType(offlineData.sipType || "QUICK_BUY");
+              
+              // Try to find transaction ID
+              let transactionId = "";
+              if (offlineData.transactionId) transactionId = offlineData.transactionId;
+              else if (offlineData.sipId) transactionId = offlineData.sipId;
+              else if (offlineData.id) transactionId = offlineData.id;
+              else if (offlineData.tr_id) transactionId = offlineData.tr_id;
+              else if (offlineData.sip_id) transactionId = offlineData.sip_id;
+              
+              setSipId(transactionId);
+              setMetalType(offlineData.metalType || "");
+              setMetalName(offlineData.metalName || "");
+              setGrams(offlineData.grams?.toString() || "");
+              
+              console.log("✅ Quick buy detected from offlinePaymentData");
+              console.log("Set values:", {
+                amount: offlineData.amount,
+                sipId: transactionId,
+                sipType: offlineData.sipType,
+                metalType: offlineData.metalType,
+                metalName: offlineData.metalName,
+                grams: offlineData.grams
+              });
+            }
+          } catch (e) {
+            console.error("Error parsing offlinePaymentData:", e);
           }
         }
 
         // If not quick buy, proceed with original logic for SIP payments
-        setIsQuickBuy(false);
-        console.log("ℹ️ Not a quick buy, using original SIP payment logic");
+        if (!isQuickBuy) {
+          console.log("ℹ️ Not a quick buy, using original SIP payment logic");
 
-        const amountPayingValuesStr = sessionStorage.getItem("amountPayingValues");
-        if (amountPayingValuesStr) {
-          const amountPayingValues = JSON.parse(amountPayingValuesStr);
-          
-          // Get both planId and currentSIPId
-          const planId = sessionStorage.getItem("planId");
-          const currentSIPId = sessionStorage.getItem("currentSIPId");
-          
-          // Use currentSIPId if available, otherwise use planId
-          const sipIdToUse = currentSIPId || planId;
-          
-          if (sipIdToUse && amountPayingValues[sipIdToUse]) {
-            const amountStr = amountPayingValues[sipIdToUse].replace(/[^0-9.]/g, "");
-            setAmount(amountStr);
-            setSipId(sipIdToUse);
+          const amountPayingValuesStr = sessionStorage.getItem("amountPayingValues");
+          if (amountPayingValuesStr) {
+            try {
+              const amountPayingValues = JSON.parse(amountPayingValuesStr);
+              
+              // Get both planId and currentSIPId
+              const planId = sessionStorage.getItem("planId");
+              const currentSIPId = sessionStorage.getItem("currentSIPId");
+              
+              // Use currentSIPId if available, otherwise use planId
+              const sipIdToUse = currentSIPId || planId;
+              
+              if (sipIdToUse && amountPayingValues[sipIdToUse]) {
+                const amountStr = amountPayingValues[sipIdToUse].replace(/[^0-9.]/g, "");
+                setAmount(amountStr);
+                setSipId(sipIdToUse);
+                console.log("✅ Set from SIP payment logic:", { amount: amountStr, sipId: sipIdToUse });
+              }
+            } catch (e) {
+              console.error("Error parsing amountPayingValues:", e);
+            }
           }
-        }
 
-        const storedSipType = sessionStorage.getItem("sipType");
-        if (storedSipType) {
-          setSipType(storedSipType.toUpperCase().trim());
+          const storedSipType = sessionStorage.getItem("sipType");
+          if (storedSipType) {
+            setSipType(storedSipType.toUpperCase().trim());
+          }
         }
       } catch (error) {
         console.error("Session storage error:", error);
-        setIsQuickBuy(false);
       }
     };
 
@@ -115,6 +168,14 @@ export default function PayofflinePage() {
       return;
     }
 
+    // Generate transaction ID if not found (fallback)
+    let finalSipId = sipId;
+    if (!finalSipId && isQuickBuy) {
+      finalSipId = `QB_FALLBACK_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+      setSipId(finalSipId);
+      console.log("⚠️ Generated fallback transaction ID:", finalSipId);
+    }
+
     setLoading(true);
     setMessage("");
     setApiResponse("");
@@ -123,7 +184,7 @@ export default function PayofflinePage() {
       const transactionData = {
         amount: numericAmount,
         sip_type: sipType,
-        sip_id: sipId,
+        sip_id: finalSipId,
         utr_no: utrNo.trim() || null,
         transaction_type: "OFFLINE",
         category: "CREDIT",
@@ -275,11 +336,15 @@ export default function PayofflinePage() {
   };
 
   const debugSessionStorage = () => {
-    console.log("=== SESSION STORAGE ===");
+    console.log("=== SESSION STORAGE DEBUG ===");
     console.log("Is Quick Buy:", isQuickBuy);
+    console.log("Current sipId state:", sipId);
+    console.log("Current sipType state:", sipType);
+    
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i);
-      console.log(key, sessionStorage.getItem(key));
+      const value = sessionStorage.getItem(key);
+      console.log(`${i}. ${key} =>`, value);
     }
   };
 
