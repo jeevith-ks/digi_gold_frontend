@@ -87,7 +87,7 @@ export default function SipHoldings() {
 
             if (verificationResult.success) {
               setPaymentStatus('Payment Success ✅');
-               await fetch("http://localhost:8089/payment/save", {
+               await fetch("http://35.154.85.104:8089/payment/save", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -143,7 +143,7 @@ export default function SipHoldings() {
     setUserName(storedUserName);
 
     if (storedUserId) {
-      fetch('http://localhost:8089/create_sip/getByUserId', {
+      fetch('http://35.154.85.104:8089/create_sip/getByUserId', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: parseInt(storedUserId) }),

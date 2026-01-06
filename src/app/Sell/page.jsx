@@ -53,7 +53,7 @@ const SellPage = () => {
       
       console.log('📊 Fetching admin prices with token...');
 
-      const response = await fetch('http://172.31.11.246:5000/api/price/', {
+      const response = await fetch('http://35.154.85.104:5000/api/price/', {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
@@ -101,7 +101,7 @@ const SellPage = () => {
       
       console.log('🔐 Fetching holdings with token:', token.substring(0, 20) + '...');
 
-      const response = await fetch('http://172.31.11.246:5000/api/holdings', {
+      const response = await fetch('http://35.154.85.104:5000/api/holdings', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -338,7 +338,7 @@ const SellPage = () => {
       console.log('📤 Sending sell request:', requestBody);
       console.log('🔑 Using authToken:', token.substring(0, 20) + '...');
 
-      const response = await fetch('http://172.31.11.246:5000/api/transactions/sell', {
+      const response = await fetch('http://35.154.85.104:5000/api/transactions/sell', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

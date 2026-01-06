@@ -161,7 +161,7 @@ export default function SipPlan() {
     };
 
     try {
-      const response = await fetch("http://localhost:8089/sip/save", {
+      const response = await fetch("http://35.154.85.104:8089/sip/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(planData),

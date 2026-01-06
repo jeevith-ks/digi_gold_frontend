@@ -337,7 +337,7 @@ const SIPForm = () => {
       }
 
       try {
-        const response = await fetch("http://localhost:8089/create_sip/save", {
+        const response = await fetch("http://35.154.85.104:8089/create_sip/save", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

@@ -342,7 +342,7 @@ useEffect(() => {
       }
 
       try {
-        const response = await fetch("http://localhost:5000/api/sip/fixed/create", {
+        const response = await fetch("http://35.154.85.104:5000/api/sip/fixed/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

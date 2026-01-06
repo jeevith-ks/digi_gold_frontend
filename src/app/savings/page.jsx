@@ -73,7 +73,7 @@ export default function SecureVault() {
 
       console.log('📊 Fetching admin prices...');
 
-      const response = await fetch('http://172.31.11.246:5000/api/price/', {
+      const response = await fetch('http://35.154.85.104:5000/api/price/', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -242,7 +242,7 @@ export default function SecureVault() {
       const prices = await fetchAdminPrices();
       
       // Then fetch holdings
-      const response = await fetch('http://172.31.11.246:5000/api/holdings', {
+      const response = await fetch('http://35.154.85.104:5000/api/holdings', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
