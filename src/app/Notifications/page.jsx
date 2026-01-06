@@ -178,7 +178,7 @@ const NotificationCard = ({ notification, onMarkAsRead }) => {
         
         console.log('Marking notification as read:', notification.id);
         
-        const response = await fetch(`http://172.31.11.246:5000/api/notifications/${notification.id}/read`, {
+        const response = await fetch(`http://35.154.85.104:5000/api/notifications/${notification.id}/read`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -380,7 +380,7 @@ export default function NotificationsPage() {
       
       console.log('Fetching notifications with token:', token.substring(0, 20) + '...');
       
-      const response = await fetch('http://172.31.11.246:5000/api/notifications/', {
+      const response = await fetch('http://35.154.85.104:5000/api/notifications/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -440,7 +440,7 @@ export default function NotificationsPage() {
         throw new Error('No authentication token found. Please login first.');
       }
       
-      const response = await fetch('http://172.31.11.246:5000/api/notifications/read-all', {
+      const response = await fetch('http://35.154.85.104:5000/api/notifications/read-all', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

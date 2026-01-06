@@ -53,7 +53,7 @@ export default function KYCApprovalPage() {
 
       console.log('📋 Fetching KYC data...');
       
-      const response = await fetch('http://172.31.11.246:5000/api/kyc/me', {
+      const response = await fetch('http://35.154.85.104:5000/api/kyc/me', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -114,7 +114,7 @@ export default function KYCApprovalPage() {
 
       console.log('📤 Submitting KYC approval:', approvalData);
 
-      const response = await fetch('http://172.31.11.246:5000/api/kyc/approve', {
+      const response = await fetch('http://35.154.85.104:5000/api/kyc/approve', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
