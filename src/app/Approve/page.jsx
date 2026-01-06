@@ -317,7 +317,7 @@ export default function AdminApprovalPage() {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/admin/approve', {
+      const response = await fetch('http://172.31.11.246:5000/api/admin/approve', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -374,7 +374,7 @@ export default function AdminApprovalPage() {
       }
 
       // Send the fixedSip.id in the request body as sip_id
-      const response = await fetch('http://localhost:5000/api/admin/approved', {
+      const response = await fetch('http://172.31.11.246:5000/api/admin/approved', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

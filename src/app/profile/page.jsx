@@ -72,7 +72,7 @@ export default function ProfilePage() {
   const fetchUserData = async () => {
     try {
       console.log('Fetching user data from API...');
-      const response = await fetch('http://localhost:5000/api/user/details', {
+      const response = await fetch('http://172.31.11.246:5000/api/user/details', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -141,7 +141,7 @@ export default function ProfilePage() {
   // Fetch KYC data from backend
   const fetchKYCData = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/kyc/me', {
+      const response = await fetch('http://172.31.11.246:5000/api/kyc/me', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -195,7 +195,7 @@ export default function ProfilePage() {
   // Fetch verification status and history
   const fetchVerificationStatus = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/kyc/verification/status', {
+      const response = await fetch('http://172.31.11.246:5000/api/kyc/verification/status', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -354,7 +354,7 @@ export default function ProfilePage() {
         payload.dob = userData.dateOfBirth;
       }
 
-      const response = await fetch('http://localhost:5000/api/user/', {
+      const response = await fetch('http://172.31.11.246:5000/api/user/', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -403,7 +403,7 @@ export default function ProfilePage() {
         payload.photo = base64Data;
       }
 
-      const response = await fetch('http://localhost:5000/api/kyc/pan', {
+      const response = await fetch('http://172.31.11.246:5000/api/kyc/pan', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -438,7 +438,7 @@ export default function ProfilePage() {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/kyc/bank', {
+      const response = await fetch('http://172.31.11.246:5000/api/kyc/bank', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -479,7 +479,7 @@ const verifyPAN = async () => {
     
     setIsVerifying(true);
     
-    const response = await fetch('http://localhost:5000/api/kyc/verify/pan', {
+    const response = await fetch('http://172.31.11.246:5000/api/kyc/verify/pan', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${authToken}`,
@@ -535,7 +535,7 @@ const verifyPAN = async () => {
     if (error.name === 'SyntaxError') {
       alert('Server returned invalid JSON. Please check if backend is running correctly.');
     } else if (error.message.includes('Failed to fetch')) {
-      alert('Cannot connect to server. Make sure backend is running on http://localhost:5000');
+      alert('Cannot connect to server. Make sure backend is running on http://172.31.11.246:5000');
     } else {
       alert('Failed to verify PAN. Please try again.');
     }
@@ -562,7 +562,7 @@ const requestAadhaarOTP = async () => {
     
     const consentText = `I authorize FinTech App to verify my Aadhaar details for KYC purpose.`;
     
-    const response = await fetch('http://localhost:5000/api/kyc/verify/aadhaar', {
+    const response = await fetch('http://172.31.11.246:5000/api/kyc/verify/aadhaar', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${authToken}`,
@@ -620,7 +620,7 @@ const requestAadhaarOTP = async () => {
       
       const consentText = `I authorize FinTech App to verify my Aadhaar details for KYC purpose.`;
       
-      const response = await fetch('http://localhost:5000/api/kyc/verify/aadhaar/otp', {
+      const response = await fetch('http://172.31.11.246:5000/api/kyc/verify/aadhaar/otp', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -670,7 +670,7 @@ const requestAadhaarOTP = async () => {
       
       const consentText = `I authorize FinTech App to verify my KYC details including PAN and Aadhaar for account verification purpose.`;
       
-      const response = await fetch('http://localhost:5000/api/kyc/verify/kyc', {
+      const response = await fetch('http://172.31.11.246:5000/api/kyc/verify/kyc', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,

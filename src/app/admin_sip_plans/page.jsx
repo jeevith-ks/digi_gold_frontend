@@ -107,11 +107,11 @@ const AdminSIPForm = () => {
       };
 
       console.log('📤 Creating Fixed SIP Plan:', fixedSipData);
-      console.log('🚀 Sending request to: http://localhost:5000/api/sip/fixed/create');
+      console.log('🚀 Sending request to: http://172.31.11.246:5000/api/sip/fixed/create');
       console.log('🔑 Authorization Header:', `Bearer ${authToken}`);
       
       // Make API call to create Fixed SIP
-      const response = await fetch('http://localhost:5000/api/sip/fixed/create', {
+      const response = await fetch('http://172.31.11.246:5000/api/sip/fixed/create', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
