@@ -501,43 +501,43 @@ const PreciousMetalsApp = () => {
       console.log('✅ Payment verified successfully:', verifyData);
 
       // Add transaction to database
-      const transactionResponse = await fetch('http://localhost:5000/api/transactions/add-transaction', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          amount: parseFloat(amount),
-          utr_no: `QRP-${paymentResponse.razorpay_payment_id}`,
-          transaction_type: 'ONLINE',
-          category: 'DEBIT',
-          metal_type: selectedMetalData?.metalType,
-          transaction_status: 'COMPLETED',
-          grams: parseFloat(grams),
-          sip_id: sipId // Include SIP ID in transaction
-        })
+      // const transactionResponse = await fetch('http://localhost:5000/api/transactions/add-transaction', {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //     'Authorization': `Bearer ${token}`
+      //   },
+      //   body: JSON.stringify({
+      //     amount: parseFloat(amount),
+      //     utr_no: `QRP-${paymentResponse.razorpay_payment_id}`,
+      //     transaction_type: 'ONLINE',
+      //     category: 'DEBIT',
+      //     metal_type: selectedMetalData?.metalType,
+      //     transaction_status: 'COMPLETED',
+      //     grams: parseFloat(grams),
+      //     sip_id: sipId // Include SIP ID in transaction
+      //   })
+      // });
+
+      // if (transactionResponse.ok) {
+      //   alert('Payment successful! Transaction has been recorded.');
+
+      // Refresh holdings
+      await fetchHoldings(token);
+
+      addNotification({
+        title: 'Payment Successful',
+        message: `Successfully purchased ${grams}g of ${selectedMetalData?.name}`,
+        type: 'success'
       });
 
-      if (transactionResponse.ok) {
-        alert('Payment successful! Transaction has been recorded.');
-
-        // Refresh holdings
-        await fetchHoldings(token);
-
-        addNotification({
-          title: 'Payment Successful',
-          message: `Successfully purchased ${grams}g of ${selectedMetalData?.name}`,
-          type: 'success'
-        });
-
-        // Reset form
-        setGrams('');
-        setAmount('');
-      } else {
-        console.error('Failed to record transaction');
-        alert('Payment successful but failed to record transaction. Please contact support.');
-      }
+      // Reset form
+      setGrams('');
+      setAmount('');
+      // } else {
+      //   console.error('Failed to record transaction');
+      //   alert('Payment successful but failed to record transaction. Please contact support.');
+      // }
 
       return { success: true, data: verifyData };
     } catch (error) {
