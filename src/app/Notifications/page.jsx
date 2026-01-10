@@ -55,7 +55,7 @@ const NotificationsPage = () => {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/notifications', {
+      const response = await fetch('http://35.154.85.104:5000/api/notifications', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -82,7 +82,7 @@ const NotificationsPage = () => {
       const token = sessionStorage.getItem('authToken');
       if (!token) return;
 
-      const response = await fetch(`http://localhost:5000/api/notifications/${id}/read`, {
+      const response = await fetch(`http://35.154.85.104:5000/api/notifications/${id}/read`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -107,7 +107,7 @@ const NotificationsPage = () => {
       const token = sessionStorage.getItem('authToken');
       if (!token) return;
 
-      const response = await fetch('http://localhost:5000/api/notifications/read-all', {
+      const response = await fetch('http://35.154.85.104:5000/api/notifications/read-all', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
