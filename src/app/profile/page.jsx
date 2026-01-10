@@ -4,6 +4,34 @@ import { Edit2, LogOut, Save, Home, Bell, CreditCard, PiggyBank, User, X, BadgeC
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+// Component defined OUTSIDE to prevent focus loss issues
+const RenderInput = ({ label, name, type = 'text', disabled = false, placeholder, icon, userData, onChange, editMode, loading }) => {
+  const value = userData[name] ?? '';
+  return (
+    <div className="group space-y-2">
+      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-focus-within:text-[#50C2C9] transition-colors flex items-center gap-1">
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          type={type}
+          name={name}
+          value={value}
+          onChange={onChange}
+          disabled={disabled || !editMode || loading}
+          placeholder={placeholder}
+          className={`w-full bg-slate-50 rounded-2xl px-4 py-4 font-bold text-slate-700 outline-none focus:bg-white focus:ring-2 ring-[#50C2C9]/20 focus:shadow-sm transition-all text-sm placeholder:text-slate-300 ${(!editMode || disabled) ? 'text-slate-500 bg-slate-100/50 cursor-not-allowed border border-slate-100' : 'border border-transparent'}`}
+        />
+        {icon && (
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300">
+            {icon}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export default function ProfilePage() {
   // ---------------------------------------------------------------------------
   // STATE MANAGEMENT
@@ -240,33 +268,6 @@ export default function ProfilePage() {
   // ---------------------------------------------------------------------------
   // COMPONENTS
   // ---------------------------------------------------------------------------
-  const RenderInput = ({ label, name, type = 'text', disabled = false, placeholder, icon }) => {
-    const value = userData[name] ?? '';
-    return (
-      <div className="group space-y-2">
-        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-focus-within:text-[#50C2C9] transition-colors flex items-center gap-1">
-          {label}
-        </label>
-        <div className="relative">
-          <input
-            type={type}
-            name={name}
-            value={value}
-            onChange={handleInputChange}
-            disabled={disabled || !editMode || loading}
-            placeholder={placeholder}
-            className={`w-full bg-slate-50 rounded-2xl px-4 py-4 font-bold text-slate-700 outline-none focus:bg-white focus:ring-2 ring-[#50C2C9]/20 focus:shadow-sm transition-all text-sm placeholder:text-slate-300 ${(!editMode || disabled) ? 'text-slate-500 bg-slate-100/50 cursor-not-allowed border border-slate-100' : 'border border-transparent'}`}
-          />
-          {icon && (
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300">
-              {icon}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   const menuItems = [
     { icon: <User size={18} />, label: 'Personal', active: activeTab === 'Personal' },
     { icon: <BadgeCheck size={18} />, label: 'KYC', active: activeTab === 'KYC' },
@@ -283,6 +284,9 @@ export default function ProfilePage() {
       </div>
     );
   }
+
+  // Common Props for Inputs
+  const inputProps = { userData, onChange: handleInputChange, editMode, loading };
 
   return (
     <div className="w-full max-w-md mx-auto bg-[#F8FAFC] min-h-screen pb-28 font-sans relative">
@@ -350,8 +354,8 @@ export default function ProfilePage() {
               key={item.label}
               onClick={() => setActiveTab(item.label)}
               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl transition-all duration-300 text-[10px] font-black uppercase tracking-wider ${item.active
-                  ? 'bg-white text-[#50C2C9] shadow-sm'
-                  : 'text-slate-400 hover:text-slate-600'
+                ? 'bg-white text-[#50C2C9] shadow-sm'
+                : 'text-slate-400 hover:text-slate-600'
                 }`}
             >
               {item.icon}
@@ -375,12 +379,12 @@ export default function ProfilePage() {
               </div>
 
               <div className="space-y-4">
-                <RenderInput label="Full Name" name="fullName" placeholder="John Doe" />
-                <RenderInput label="Email" name="email" type="email" disabled icon={<Lock size={14} />} />
-                <RenderInput label="Phone" name="phoneNumber" type="tel" />
+                <RenderInput {...inputProps} label="Full Name" name="fullName" placeholder="John Doe" />
+                <RenderInput {...inputProps} label="Email" name="email" type="email" disabled icon={<Lock size={14} />} />
+                <RenderInput {...inputProps} label="Phone" name="phoneNumber" type="tel" />
                 <div className="grid grid-cols-2 gap-3">
-                  <RenderInput label="Gender" name="gender" />
-                  <RenderInput label="DOB" name="dateOfBirth" type="date" />
+                  <RenderInput {...inputProps} label="Gender" name="gender" />
+                  <RenderInput {...inputProps} label="DOB" name="dateOfBirth" type="date" />
                 </div>
               </div>
             </div>
@@ -394,13 +398,13 @@ export default function ProfilePage() {
               </div>
 
               <div className="space-y-4">
-                <RenderInput label="Flat / House No" name="houseOrFlatOrApartmentNo" />
-                <RenderInput label="Area / Colony" name="area" />
+                <RenderInput {...inputProps} label="Flat / House No" name="houseOrFlatOrApartmentNo" />
+                <RenderInput {...inputProps} label="Area / Colony" name="area" />
                 <div className="grid grid-cols-2 gap-3">
-                  <RenderInput label="City" name="city" />
-                  <RenderInput label="Pincode" name="pincode" type="number" />
+                  <RenderInput {...inputProps} label="City" name="city" />
+                  <RenderInput {...inputProps} label="Pincode" name="pincode" type="number" />
                 </div>
-                <RenderInput label="State" name="state" />
+                <RenderInput {...inputProps} label="State" name="state" />
               </div>
             </div>
           </div>
@@ -412,8 +416,8 @@ export default function ProfilePage() {
 
             {/* PAN Card Status */}
             <div className={`rounded-[2rem] p-6 border transition-all relative overflow-hidden ${verificationStatus.pan.verified
-                ? 'bg-emerald-50/50 border-emerald-100'
-                : 'bg-white border-slate-100 shadow-sm'
+              ? 'bg-emerald-50/50 border-emerald-100'
+              : 'bg-white border-slate-100 shadow-sm'
               }`}>
               {verificationStatus.pan.verified && (
                 <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-100 rounded-full blur-2xl opacity-50"></div>
@@ -430,16 +434,16 @@ export default function ProfilePage() {
                   </div>
                 </div>
                 <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${verificationStatus.pan.verified
-                    ? 'bg-emerald-100 text-emerald-600'
-                    : 'bg-amber-50 text-amber-600'
+                  ? 'bg-emerald-100 text-emerald-600'
+                  : 'bg-amber-50 text-amber-600'
                   }`}>
                   {verificationStatus.pan.verified ? 'Verified' : 'Pending'}
                 </span>
               </div>
 
               <div className="space-y-4 relative z-10">
-                <RenderInput label="PAN Number" name="panNumber" placeholder="ABCDE1234F" disabled={verificationStatus.pan.verified} />
-                <RenderInput label="Full Name (As per PAN)" name="panFullName" disabled={verificationStatus.pan.verified} />
+                <RenderInput {...inputProps} label="PAN Number" name="panNumber" placeholder="ABCDE1234F" disabled={verificationStatus.pan.verified} />
+                <RenderInput {...inputProps} label="Full Name (As per PAN)" name="panFullName" disabled={verificationStatus.pan.verified} />
 
                 {!verificationStatus.pan.verified && (
                   <button
@@ -495,13 +499,13 @@ export default function ProfilePage() {
               </div>
 
               <div className="space-y-4">
-                <RenderInput label="Account Number" name="accountNumber" type="password" />
-                <RenderInput label="Re-enter Account" name="accountNumber" placeholder="Confirm Account Number" />
+                <RenderInput {...inputProps} label="Account Number" name="accountNumber" type="password" />
+                <RenderInput {...inputProps} label="Re-enter Account" name="accountNumber" placeholder="Confirm Account Number" />
                 <div className="grid grid-cols-2 gap-3">
-                  <RenderInput label="IFSC Code" name="ifscCode" />
-                  <RenderInput label="Bank Name" name="bankName" />
+                  <RenderInput {...inputProps} label="IFSC Code" name="ifscCode" />
+                  <RenderInput {...inputProps} label="Bank Name" name="bankName" />
                 </div>
-                <RenderInput label="Account Holder" name="bankFullName" />
+                <RenderInput {...inputProps} label="Account Holder" name="bankFullName" />
               </div>
             </div>
           </div>
@@ -534,7 +538,8 @@ export default function ProfilePage() {
             <Link key={i} href={item.href} className="group flex flex-col items-center gap-1.5 min-w-[3.5rem] cursor-pointer" onClick={(e) => { if (item.active) e.preventDefault(); }}>
               <div className={`p-2.5 rounded-2xl transition-all duration-300 ${item.active
                 ? 'bg-[#50C2C9] text-white shadow-lg shadow-[#50C2C9]/30 -translate-y-2'
-                : 'bg-transparent text-slate-300 group-hover:text-slate-500'}`}>
+                : 'bg-transparent text-slate-300 group-hover:text-slate-500'
+                }`}>
                 {item.icon}
               </div>
               {item.active && (
