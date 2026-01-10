@@ -1265,7 +1265,9 @@ const PreciousMetalsApp = () => {
                 <span className="px-2 py-0.5 bg-slate-100 rounded-md text-[9px] font-black text-slate-500 uppercase tracking-wider">Admin</span>
               )}
             </div>
-            <h1 className="text-2xl font-black text-slate-800 tracking-tight">Hi, {username}</h1>
+            <h1 className="text-2xl font-black text-slate-800 tracking-tight">
+              Hi, {username} {userType === 'admin' ? '(Admin)' : ''}
+            </h1>
           </div>
           <div className="flex gap-2">
             <button
