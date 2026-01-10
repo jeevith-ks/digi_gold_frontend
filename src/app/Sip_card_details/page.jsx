@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, X, Calendar, Clock, DollarSign, Edit, Users, Plus, Check, AlertCircle, Lock } from 'lucide-react';
+import {
+  ChevronLeft, X, Calendar, Clock, DollarSign, Edit, Users, Plus, Check, AlertCircle, Lock,
+  Home, PiggyBank, History, User, ArrowRight, Shield, Coins, RefreshCw // New icons
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const SIPPage = () => {
@@ -24,21 +27,21 @@ const SIPPage = () => {
   const [manualAmount, setManualAmount] = useState('');
   const [showAmountInput, setShowAmountInput] = useState(false);
   const [amountPayingValues, setAmountPayingValues] = useState({});
-  
+
   // New states for fixed SIP plan
   const [availableFixedSIPs, setAvailableFixedSIPs] = useState([]);
   const [showFixedSIPsList, setShowFixedSIPsList] = useState(false);
   const [loadingFixedSIPs, setLoadingFixedSIPs] = useState(false);
   const [choosingSIP, setChoosingSIP] = useState(false);
   const [selectedFixedSIPId, setSelectedFixedSIPId] = useState(null);
-  
+
   // Time restriction states
   const [isWithinAllowedTime, setIsWithinAllowedTime] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
-  
+
   // Market status state
   const [marketStatus, setMarketStatus] = useState('open'); // 'open' or 'closed'
-  
+
   // Payment processing state
   const [processingPayment, setProcessingPayment] = useState(false);
 
@@ -46,18 +49,18 @@ const SIPPage = () => {
   const sendTransactionData = async (transactionData) => {
     try {
       console.log('📤 Sending transaction data:', transactionData);
-      
+
       const token = sessionStorage.getItem('authToken');
-      
+
       // Prepare data - send null for null values
       const dataToSend = {};
       Object.keys(transactionData).forEach(key => {
         dataToSend[key] = transactionData[key] === null ? null : transactionData[key];
       });
-      
+
       console.log('📤 Data being sent to API:', dataToSend);
-      
-      const response = await fetch('http://35.154.85.104:5000/api/transactions/', {
+
+      const response = await fetch('http://localhost:5000/api/transactions/', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -73,7 +76,7 @@ const SIPPage = () => {
       } else {
         const errorText = await response.text();
         console.error('❌ Failed to send transaction data. Status:', response.status, 'Response:', errorText);
-        
+
         try {
           const errorData = JSON.parse(errorText);
           return { success: false, error: errorData.message || 'Failed to send transaction data' };
@@ -91,17 +94,17 @@ const SIPPage = () => {
   const verifyPayment = async (paymentResponse, isOffline = false, offlineData = null) => {
     try {
       setProcessingPayment(true);
-      
+
       // Get token from sessionStorage
       const token = sessionStorage.getItem('authToken');
-      
+
       if (!token) {
         throw new Error('Authentication token not found. Please login again.');
       }
-      
+
       // IMPORTANT: Get the amount that was used to create the order
       let amount;
-      
+
       if (showAmountInput && manualAmount) {
         amount = parseAmount(manualAmount);
       } else if (selectedPlan) {
@@ -111,7 +114,7 @@ const SIPPage = () => {
         const paymentData = JSON.parse(sessionStorage.getItem('currentPaymentData') || '{}');
         amount = parseAmount(paymentData.amount || '0');
       }
-      
+
       console.log('🔐 Verifying payment with details:', {
         orderId: paymentResponse.razorpay_order_id,
         paymentId: paymentResponse.razorpay_payment_id,
@@ -120,9 +123,9 @@ const SIPPage = () => {
         sipId: selectedSIPId,
         isOffline: isOffline
       });
-      
+
       // For both online and offline payments
-      const verifyResponse = await fetch('http://35.154.85.104:5000/api/razorpay/verify-payment', {
+      const verifyResponse = await fetch('http://localhost:5000/api/razorpay/verify-payment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -139,29 +142,29 @@ const SIPPage = () => {
       });
 
       const verifyData = await verifyResponse.json();
-      
+
       if (verifyResponse.ok) {
         console.log('✅ Payment verified successfully:', verifyData);
-        
+
         // Clear session storage after successful payment
         clearPaymentDataFromSession();
-        
+
         // Clear the stored amount for this SIP
         const newAmountPayingValues = { ...amountPayingValues };
         delete newAmountPayingValues[selectedSIPId];
         setAmountPayingValues(newAmountPayingValues);
         sessionStorage.setItem('amountPayingValues', JSON.stringify(newAmountPayingValues));
-        
+
         // Show success message
         alert('Payment successful! Your SIP has been updated.');
-        
+
         // Refresh the SIP data
         if (userType === 'admin') {
           await fetchAllSIPs();
         } else {
           await fetchUserSIPs();
         }
-        
+
         return { success: true, data: verifyData };
       } else {
         console.error('❌ Payment verification failed:', verifyData);
@@ -181,7 +184,7 @@ const SIPPage = () => {
   const handleOfflinePaymentSubmission = async (offlinePaymentData) => {
     try {
       console.log('📤 Submitting offline payment:', offlinePaymentData);
-      
+
       // For offline payment, we need to create a mock payment response
       const mockPaymentResponse = {
         razorpay_order_id: offlinePaymentData.orderId || `offline_${Date.now()}`,
@@ -189,10 +192,10 @@ const SIPPage = () => {
         razorpay_signature: `offline_signature_${Date.now()}`,
         offline: true
       };
-      
+
       // First verify the offline payment
       const verificationResult = await verifyPayment(mockPaymentResponse, true, offlinePaymentData);
-      
+
       if (verificationResult.success) {
         // Clear offline payment data from sessionStorage
         sessionStorage.removeItem('offlinePaymentData');
@@ -212,13 +215,13 @@ const SIPPage = () => {
       const storedUserType = sessionStorage.getItem('userType');
       const storedUsername = sessionStorage.getItem('username');
       const storedToken = sessionStorage.getItem('authToken');
-      
+
       console.log('Session Storage Data:', {
         userType: storedUserType,
         username: storedUsername,
         hasToken: !!storedToken
       });
-      
+
       if (storedUserType) {
         setUserType(storedUserType);
       }
@@ -252,10 +255,10 @@ const SIPPage = () => {
       }
 
       const storedSipType = sessionStorage.getItem('sipType');
-      
+
       setUserType(storedUserType || '');
       setAuthToken(storedToken || '');
-      
+
       if (storedSipType) {
         setActiveTab(storedSipType === 'fixed' ? 'All' : 'New SIP');
       }
@@ -281,7 +284,7 @@ const SIPPage = () => {
 
       // Check time restriction immediately
       checkTimeRestriction();
-      
+
       // Set up interval to check time every minute
       const timeCheckInterval = setInterval(() => {
         const now = new Date();
@@ -300,16 +303,16 @@ const SIPPage = () => {
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
     const currentTimeInMinutes = currentHour * 60 + currentMinute;
-    
+
     // Define allowed time range: 10:00 AM (600 minutes) to 6:00 PM (1080 minutes)
     const startTimeInMinutes = 10 * 60; // 10:00 AM = 600 minutes
     const endTimeInMinutes = 18 * 60;   // 6:00 PM = 1080 minutes
-    
-    const isWithinTime = currentTimeInMinutes >= startTimeInMinutes && 
-                         currentTimeInMinutes <= endTimeInMinutes;
-    
+
+    const isWithinTime = currentTimeInMinutes >= startTimeInMinutes &&
+      currentTimeInMinutes <= endTimeInMinutes;
+
     setIsWithinAllowedTime(isWithinTime);
-    
+
     console.log('⏰ Time check:', {
       currentTime: `${currentHour}:${currentMinute < 10 ? '0' + currentMinute : currentMinute}`,
       currentTimeInMinutes,
@@ -317,7 +320,7 @@ const SIPPage = () => {
       endTime: '6:00 PM (1080 minutes)',
       isWithinAllowedTime: isWithinTime
     });
-    
+
     return isWithinTime;
   };
 
@@ -357,13 +360,13 @@ const SIPPage = () => {
     try {
       setLoading(true);
       const token = sessionStorage.getItem('authToken');
-      
+
       if (!token) {
         setError('Authentication required');
         return;
       }
 
-      const response = await fetch('http://35.154.85.104:5000/api/sip/all', {
+      const response = await fetch('http://localhost:5000/api/sip/all', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -373,14 +376,14 @@ const SIPPage = () => {
       if (response.ok) {
         const data = await response.json();
         console.log('All SIP Data fetched (Admin):', data);
-        
+
         // For admin, separate fixed and flexible SIPs
         const transformedFixedSips = transformFixedSIPsData(data.sipsFixed || [], true);
         const transformedFlexibleSips = transformFlexibleSIPData(data.sipsFlexible || [], true);
-        
+
         setAllFixedSips(transformedFixedSips);
         setSipPlans(transformedFlexibleSips);
-        
+
         // Load saved amounts
         const savedAmounts = sessionStorage.getItem('amountPayingValues');
         if (savedAmounts) {
@@ -409,13 +412,13 @@ const SIPPage = () => {
     try {
       setLoading(true);
       const token = sessionStorage.getItem('authToken');
-      
+
       if (!token) {
         setError('Authentication required');
         return;
       }
 
-      const response = await fetch('http://35.154.85.104:5000/api/sip/', {
+      const response = await fetch('http://localhost:5000/api/sip/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -432,16 +435,16 @@ const SIPPage = () => {
             status: sip.status
           }))
         });
-        
+
         // Transform and set data
         const transformedPlans = transformSIPData(data);
         setSipPlans(transformedPlans);
-        
+
         // For customers in Fixed tab, we need to fetch opted fixed SIPs separately
         if (activeTab === 'All') {
           fetchOptedFixedSIPs();
         }
-        
+
         // Load saved amounts
         const savedAmounts = sessionStorage.getItem('amountPayingValues');
         if (savedAmounts) {
@@ -470,7 +473,7 @@ const SIPPage = () => {
     try {
       console.log('💰 Fetching latest prices...');
 
-      const response = await fetch('http://35.154.85.104:5000/api/price/', {
+      const response = await fetch('http://localhost:5000/api/price/', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -483,7 +486,7 @@ const SIPPage = () => {
       if (response.ok) {
         const data = await response.json();
         console.log('✅ Latest prices received:', data);
-        
+
         if (data.latestPrice) {
           console.log('🔄 Metal rates updated with latest prices');
         }
@@ -500,7 +503,7 @@ const SIPPage = () => {
     try {
       console.log('🔐 Fetching holdings for customer...');
 
-      const response = await fetch('http://35.154.85.104:5000/api/holdings', {
+      const response = await fetch('http://localhost:5000/api/holdings', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -538,14 +541,14 @@ const SIPPage = () => {
 
       setLoadingFixedSIPs(true);
       setError('');
-      
+
       const token = sessionStorage.getItem('authToken');
       if (!token) {
         setError('Authentication required');
         return;
       }
 
-      const response = await fetch('http://35.154.85.104:5000/api/sip/fixed', {
+      const response = await fetch('http://localhost:5000/api/sip/fixed', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -555,7 +558,7 @@ const SIPPage = () => {
       if (response.ok) {
         const data = await response.json();
         console.log('Available Fixed SIPs fetched:', data);
-        
+
         // Transform the data for display
         const transformedPlans = data.map((plan, index) => ({
           id: plan._id || plan.id,
@@ -569,7 +572,7 @@ const SIPPage = () => {
           isActive: plan.isActive !== false,
           createdAt: plan.created_at || new Date().toISOString()
         }));
-        
+
         setAvailableFixedSIPs(transformedPlans);
         setShowFixedSIPsList(true);
       } else {
@@ -601,7 +604,7 @@ const SIPPage = () => {
 
       setChoosingSIP(true);
       setError('');
-      
+
       const token = sessionStorage.getItem('authToken');
       if (!token) {
         setError('Authentication required');
@@ -614,7 +617,7 @@ const SIPPage = () => {
         return;
       }
 
-      const response = await fetch('http://35.154.85.104:5000/api/sip/fixed/opt', {
+      const response = await fetch('http://localhost:5000/api/sip/fixed/opt', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -629,26 +632,26 @@ const SIPPage = () => {
       if (response.ok) {
         const data = await response.json();
         console.log('Fixed SIP chosen successfully:', data);
-        
+
         // Mark this SIP as selected temporarily
         setSelectedFixedSIPId(planId);
-        
+
         // Save to session storage
         sessionStorage.setItem('selectedFixedSIP', JSON.stringify({
           planId,
           timestamp: new Date().toISOString(),
           status: 'chosen'
         }));
-        
+
         // Show success message
         setTimeout(() => {
           setShowFixedSIPsList(false);
           setSelectedFixedSIPId(null);
           alert('Fixed SIP chosen successfully!');
-          
+
           // Clear from session storage after success
           sessionStorage.removeItem('selectedFixedSIP');
-          
+
           // Refresh the user's SIP data
           fetchUserSIPs();
         }, 1500);
@@ -669,13 +672,13 @@ const SIPPage = () => {
   const fetchOptedFixedSIPs = async () => {
     try {
       const token = sessionStorage.getItem('authToken');
-      
+
       if (!token) {
         return;
       }
 
       console.log('Opted fixed SIPs are included in the main fetch');
-      
+
     } catch (err) {
       console.error('Error fetching opted fixed SIPs:', err);
     }
@@ -689,13 +692,13 @@ const SIPPage = () => {
       fixedSips.forEach((fixedSip, index) => {
         const totalAmount = fixedSip.total_amount_paid ? parseFloat(fixedSip.total_amount_paid) : 0;
         const monthlyAmount = fixedSip.sipPlanAdmin?.range_amount || 0;
-        
+
         fixedPlans.push({
           id: fixedSip.id,
           name: fixedSip.sipPlanAdmin?.Yojna_name || `Fixed SIP Plan ${index + 1}`,
           type: 'Fixed SIP',
           dueDate: formatDate(fixedSip.next_due_date),
-          createdDate: formatDate(fixedSip.created_at),  
+          createdDate: formatDate(fixedSip.created_at),
           investMin: `₹${formatCurrency(monthlyAmount)}`,
           totalAmount: `₹${formatCurrency(totalAmount)}`,
           monthlyAmount: monthlyAmount,
@@ -725,14 +728,14 @@ const SIPPage = () => {
       flexibleSips.forEach((flexibleSip, index) => {
         const totalAmount = flexibleSip.total_amount_paid ? parseFloat(flexibleSip.total_amount_paid) : 0;
         const displayMetalType = getDisplayMetalType(flexibleSip.metal_type);
-        
+
         console.log(`🔍 Admin Flexible SIP ${index + 1}:`, {
           id: flexibleSip.id,
           backendMetalType: flexibleSip.metal_type,
           displayMetalType: displayMetalType,
           name: `Flexible SIP - ${displayMetalType}`
         });
-        
+
         flexiblePlans.push({
           id: flexibleSip.id,
           name: `Flexible SIP - ${displayMetalType}`,
@@ -776,13 +779,13 @@ const SIPPage = () => {
       apiData.sipsFixed.forEach((fixedSip, index) => {
         const totalAmount = fixedSip.total_amount_paid ? parseFloat(fixedSip.total_amount_paid) : 0;
         const monthlyAmount = fixedSip.sipPlanAdmin?.range_amount || 0;
-        
+
         plans.push({
           id: fixedSip.id,
           name: fixedSip.sipPlanAdmin?.Yojna_name || `Fixed SIP Plan ${index + 1}`,
           type: 'Fixed SIP',
           dueDate: formatDate(fixedSip.next_due_date),
-          createdDate: formatDate(fixedSip.created_at), 
+          createdDate: formatDate(fixedSip.created_at),
           investMin: `₹${formatCurrency(monthlyAmount)}`,
           totalAmount: `₹${formatCurrency(totalAmount)}`,
           monthlyAmount: monthlyAmount,
@@ -805,14 +808,14 @@ const SIPPage = () => {
         const totalAmount = flexibleSip.total_amount_paid ? parseFloat(flexibleSip.total_amount_paid) : 0;
         // CRITICAL FIX: Get the metal type from the flexible SIP record
         const displayMetalType = getDisplayMetalType(flexibleSip.metal_type);
-        
+
         console.log(`✅ Customer Flexible SIP ${index + 1} - FIXED:`, {
           id: flexibleSip.id,
           backendMetalType: flexibleSip.metal_type,
           displayMetalType: displayMetalType,
           name: `Flexible SIP - ${displayMetalType}`
         });
-        
+
         plans.push({
           id: flexibleSip.id,
           name: `Flexible SIP - ${displayMetalType}`, // Now shows correct metal type
@@ -841,7 +844,7 @@ const SIPPage = () => {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    
+
     try {
       const date = new Date(dateString);
       return date.toLocaleDateString('en-IN', {
@@ -858,9 +861,9 @@ const SIPPage = () => {
   // UPDATED: Improved getDisplayMetalType function
   const getDisplayMetalType = (metalType) => {
     if (!metalType) return 'Unknown Metal';
-    
+
     const metalTypeStr = String(metalType).toLowerCase().trim();
-    
+
     switch (metalTypeStr) {
       case 'gold22k':
       case '22kt':
@@ -903,15 +906,15 @@ const SIPPage = () => {
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    
+
     const sipType = tab === 'All' ? 'fixed' : 'flexible';
     sessionStorage.setItem('sipType', sipType);
-    
+
     console.log('SIP type stored:', sipType);
-    
+
     // Save tab change to session storage
     sessionStorage.setItem('activeSIPTab', tab);
-    
+
     // Fetch appropriate data based on user type and tab
     if (userType === 'admin') {
       // Admin: Always show all SIPs
@@ -925,9 +928,9 @@ const SIPPage = () => {
   // Handle amount paying input change and save to sessionStorage
   const handleAmountPayingChange = (planId, value) => {
     const numericValue = value.replace(/[^0-9]/g, '');
-    
+
     console.log('💾 Amount paying change:', { planId, value, numericValue });
-    
+
     let newValue = '';
     if (numericValue !== '') {
       newValue = `₹${formatCurrency(parseInt(numericValue))}`;
@@ -939,10 +942,10 @@ const SIPPage = () => {
     };
 
     setAmountPayingValues(newAmountPayingValues);
-    
+
     // Immediately save to sessionStorage
     sessionStorage.setItem('amountPayingValues', JSON.stringify(newAmountPayingValues));
-    
+
     console.log('💾 Saved amount to sessionStorage:', {
       planId,
       value: newValue,
@@ -954,7 +957,7 @@ const SIPPage = () => {
   // Save payment data to session storage
   const savePaymentDataToSession = () => {
     if (!selectedPlan) return;
-    
+
     const paymentData = {
       selectedPlanId: selectedSIPId,
       planName: selectedPlan.name,
@@ -968,7 +971,7 @@ const SIPPage = () => {
       userId: sessionStorage.getItem('userId'),
       userType: userType
     };
-    
+
     sessionStorage.setItem('currentPaymentData', JSON.stringify(paymentData));
     console.log('💾 Current payment data saved:', paymentData);
   };
@@ -984,50 +987,50 @@ const SIPPage = () => {
     sessionStorage.removeItem('razorpaySIPId');
     sessionStorage.removeItem('razorpayPlanType');
     sessionStorage.removeItem('razorpayMetalType');
-    
+
     console.log('🧹 Cleared payment data from sessionStorage');
   };
 
   const handlePay = (id, plan, e) => {
     e.stopPropagation();
-    
+
     // Check if SIP is completed
     if (plan.status === 'COMPLETED') {
       alert('This SIP plan has been completed. Please check your holdings for details.');
       return;
     }
-    
+
     // FIXED: Check time restriction only for Fixed SIP, not for Flexible SIP
     const isFixedSIP = plan.isFixed || plan.type === 'Fixed SIP';
     if (isFixedSIP && !isWithinAllowedTime) {
       alert(`Cannot make payment for Fixed SIP. Fixed SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
       return;
     }
-    
+
     // Check market status before opening payment dialog
     if (marketStatus === 'closed') {
       alert(`Market is currently closed. Trading operations, including SIP payments, are temporarily disabled.`);
       return;
     }
-    
+
     setSelectedSIPId(id);
     setSelectedPlan(plan);
     setShowPaymentDialog(true);
-    
+
     // Save plan selection to session storage
     sessionStorage.setItem('selectedPlanId', id);
     sessionStorage.setItem('selectedPlan', JSON.stringify(plan));
-    
+
     // Pre-fill the manual amount with the amount paying value if available
     const amountPayingValue = amountPayingValues[id];
     if (amountPayingValue && amountPayingValue !== '') {
       setManualAmount(amountPayingValue);
       setShowAmountInput(true);
-      
+
       // Also store in sessionStorage for Razorpay to access
       sessionStorage.setItem('currentPaymentAmount', amountPayingValue);
       sessionStorage.setItem('currentSIPId', id);
-      
+
       // Save initial payment summary
       const initialPaymentData = {
         planId: id,
@@ -1066,13 +1069,13 @@ const SIPPage = () => {
         alert(`Cannot create Fixed SIP plan. Fixed SIP plans can only be chosen between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
         return;
       }
-      
+
       // Check market status before proceeding
       if (marketStatus === 'closed') {
         alert(`Market is currently closed. Trading operations, including SIP creation, are temporarily disabled.`);
         return;
       }
-      
+
       // Save to session storage
       sessionStorage.setItem('sipCreationType', 'fixed');
       sessionStorage.setItem('sipCreationUserType', userType);
@@ -1084,21 +1087,21 @@ const SIPPage = () => {
   // Enhanced amount parsing function
   const parseAmount = (amountString) => {
     if (!amountString) return 0;
-    
+
     console.log('🔍 Parsing amount:', amountString);
-    
+
     // Remove ₹ symbol, commas, and any whitespace
     const cleanedAmount = amountString.replace(/[₹,]/g, '').trim();
-    
+
     // Parse as float
     const amount = parseFloat(cleanedAmount);
-    
+
     console.log('🔍 Parsed amount result:', {
       original: amountString,
       cleaned: cleanedAmount,
       parsed: amount
     });
-    
+
     // Return 0 if invalid, otherwise return the amount
     return isNaN(amount) ? 0 : amount;
   };
@@ -1127,19 +1130,19 @@ const SIPPage = () => {
       setShowPaymentDialog(false);
       return;
     }
-    
+
     // Check market status before proceeding with payment
     if (marketStatus === 'closed') {
       alert(`Market is currently closed. Trading operations, including SIP payments, are temporarily disabled.`);
       setShowPaymentDialog(false);
       return;
     }
-    
+
     // Save payment data to session storage
     savePaymentDataToSession();
-    
+
     setShowPaymentDialog(false);
-    
+
     if (!selectedPlan) {
       alert('No plan selected. Please try again.');
       return;
@@ -1148,7 +1151,7 @@ const SIPPage = () => {
     if (method === 'Online') {
       try {
         let amount;
-        
+
         // Determine the amount to use
         if (showAmountInput && manualAmount) {
           amount = parseAmount(manualAmount);
@@ -1196,7 +1199,7 @@ const SIPPage = () => {
         sessionStorage.setItem('razorpayIsFixed', selectedPlan.isFixed ? 'true' : 'false');
 
         const razorpayAmount = Math.round(amount * 100); // Convert to paise for Razorpay
-        
+
         console.log('💰 Razorpay amount in paise:', razorpayAmount);
 
         // Get auth token from session storage
@@ -1206,7 +1209,7 @@ const SIPPage = () => {
         }
 
         console.log('📞 Calling Razorpay API...');
-        console.log('Request URL:', 'http://35.154.85.104:5000/api/razorpay/create-order');
+        console.log('Request URL:', 'http://localhost:5000/api/razorpay/create-order');
         console.log('Request payload:', {
           amount: razorpayAmount,
           metalType: selectedPlan.metalType || '22KT Gold',
@@ -1215,7 +1218,7 @@ const SIPPage = () => {
           sipId: selectedSIPId
         });
 
-        const response = await fetch('http://35.154.85.104:5000/api/razorpay/create-order', {
+        const response = await fetch('http://localhost:5000/api/razorpay/create-order', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1264,10 +1267,10 @@ const SIPPage = () => {
           order_id: orderData.id,
           handler: async function (paymentResponse) {
             console.log('✅ Payment successful:', paymentResponse);
-            
+
             // Call verifyPayment with the payment response
             const result = await verifyPayment(paymentResponse);
-            
+
             if (result.success) {
               console.log('✅ Payment verification and processing completed successfully');
             } else {
@@ -1290,7 +1293,7 @@ const SIPPage = () => {
             color: '#50C2C9'
           },
           modal: {
-            ondismiss: function() {
+            ondismiss: function () {
               console.log('Payment modal closed');
               alert('Payment was cancelled. You can try again.');
             }
@@ -1307,9 +1310,9 @@ const SIPPage = () => {
         });
 
         razorpay.open();
-        
+
       } catch (error) {
-        console.error('❌ Payment initialization error:',{
+        console.error('❌ Payment initialization error:', {
           message: error.message,
           stack: error.stack,
           name: error.name
@@ -1322,7 +1325,7 @@ const SIPPage = () => {
         } else if (error.message.includes('Invalid amount')) {
           errorMessage = 'Please enter a valid payment amount (minimum ₹1)';
         }
-        
+
         alert(`Payment failed: ${errorMessage}`);
       }
     } else if (method === 'Offline') {
@@ -1332,13 +1335,13 @@ const SIPPage = () => {
         alert(`Cannot process payment for Fixed SIP. Fixed SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
         return;
       }
-      
+
       // Check market status for offline payment
       if (marketStatus === 'closed') {
         alert(`Market is currently closed. Trading operations, including offline SIP payments, are temporarily disabled.`);
         return;
       }
-      
+
       // Determine the amount for offline payment
       let amount;
       if (showAmountInput && manualAmount) {
@@ -1346,7 +1349,7 @@ const SIPPage = () => {
       } else {
         amount = selectedPlan.monthlyAmount || parseAmount(selectedPlan.investMin);
       }
-      
+
       // Save offline payment data to session storage
       const offlineData = {
         planId: selectedSIPId,
@@ -1360,10 +1363,10 @@ const SIPPage = () => {
         isFixed: selectedPlan.isFixed,
         isFlexible: !selectedPlan.isFixed
       };
-      
+
       console.log('💾 Storing offline payment data in session storage:', offlineData);
       sessionStorage.setItem('offlinePaymentData', JSON.stringify(offlineData));
-      
+
       // Navigate to offline payment page
       router.push('/payoffline');
     }
@@ -1378,13 +1381,13 @@ const SIPPage = () => {
   const handleManualAmountChange = (e) => {
     const value = e.target.value.replace(/[^0-9]/g, '');
     const numericValue = value ? parseInt(value) : 0;
-    
+
     console.log('⌨️ Manual amount input:', { value, numericValue });
-    
+
     if (numericValue > 0) {
       const formattedAmount = `₹${formatCurrency(numericValue)}`;
       setManualAmount(formattedAmount);
-      
+
       // Also update the amount paying value for this plan
       if (selectedSIPId) {
         handleAmountPayingChange(selectedSIPId, value);
@@ -1398,7 +1401,7 @@ const SIPPage = () => {
   const handleUseDefaultAmount = () => {
     setShowAmountInput(false);
     setManualAmount('');
-    
+
     // Also clear from sessionStorage
     if (selectedSIPId) {
       const newAmountPayingValues = { ...amountPayingValues };
@@ -1421,7 +1424,7 @@ const SIPPage = () => {
 
       setCreateSIPLoading(true);
       const token = sessionStorage.getItem('authToken');
-      
+
       if (!token) {
         alert('Please login again');
         return;
@@ -1451,7 +1454,7 @@ const SIPPage = () => {
       };
       sessionStorage.setItem('flexibleSIPCreation', JSON.stringify(sipCreationData));
 
-      const response = await fetch('http://35.154.85.104:5000/api/sip/flexible/create', {
+      const response = await fetch('http://localhost:5000/api/sip/flexible/create', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1465,12 +1468,12 @@ const SIPPage = () => {
       });
 
       const responseData = await response.json();
-      
+
       if (response.ok) {
         console.log('✅ SIP created successfully:', responseData);
         // Clear creation data from session storage
         sessionStorage.removeItem('flexibleSIPCreation');
-        
+
         // Refresh data based on user type
         if (userType === 'admin') {
           await fetchAllSIPs();
@@ -1521,7 +1524,7 @@ const SIPPage = () => {
   const handleRefresh = () => {
     // Save refresh timestamp to session storage
     sessionStorage.setItem('lastSIPRefresh', new Date().toISOString());
-    
+
     if (userType === 'admin') {
       fetchAllSIPs();
     } else {
@@ -1534,174 +1537,130 @@ const SIPPage = () => {
     if (!showFixedSIPsList) return null;
 
     return (
-      <div className="fixed inset-0 flex items-center justify-center z-50 px-4">
-        <div 
-          className="absolute inset-0 bg-black bg-opacity-50"
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-4">
+        <div
+          className="absolute inset-0"
           onClick={() => !loadingFixedSIPs && !choosingSIP && setShowFixedSIPsList(false)}
         ></div>
 
-        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm max-h-[80vh] flex flex-col animate-scale-in">
-          <div className="p-4 border-b border-gray-200 flex-shrink-0">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">Choose Fixed SIP Plan</h2>
-              <button
-                onClick={() => setShowFixedSIPsList(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-                disabled={loadingFixedSIPs || choosingSIP}
-              >
-                <X className="w-6 h-6" />
-              </button>
+        <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] p-8 flex flex-col max-h-[85vh] animate-in slide-in-from-bottom duration-300">
+          <div className="flex justify-between items-center mb-6 flex-shrink-0">
+            <div>
+              <h2 className="text-xl font-black text-slate-800">Fixed Plans</h2>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">Select a plan to invest</p>
             </div>
-            <p className="text-sm text-gray-500 mt-1">
-              Select a fixed SIP plan to invest in
-            </p>
-            
-            {/* Time Restriction Banner - Only for Fixed SIP */}
-            {!isWithinAllowedTime && (
-              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <AlertCircle className="w-4 h-4 text-red-500" />
-                  <span className="text-xs font-medium text-red-700">
-                    Fixed SIP selection is only available between 10:00 AM and 6:00 PM
-                  </span>
-                </div>
-                <p className="text-xs text-red-600 mt-1">
-                  Current time: {formatTime(currentTime)}. Please try again during allowed hours.
-                </p>
-              </div>
-            )}
-            
-            {/* Market Status Banner */}
-            {marketStatus === 'closed' && (
-              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <Lock className="w-4 h-4 text-red-500" />
-                  <span className="text-xs font-medium text-red-700">
-                    Market is currently closed
-                  </span>
-                </div>
-                <p className="text-xs text-red-600 mt-1">
-                  SIP operations are temporarily disabled. Please try again when the market opens.
-                </p>
-              </div>
-            )}
+            <button
+              onClick={() => setShowFixedSIPsList(false)}
+              className="p-2 bg-slate-50 rounded-full hover:bg-slate-100 transition-colors"
+              disabled={loadingFixedSIPs || choosingSIP}
+            >
+              <X className="w-5 h-5 text-slate-400" />
+            </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto pb-4 space-y-4 pr-1">
+            {/* Alerts */}
+            {!isWithinAllowedTime && (
+              <div className="p-4 bg-rose-50 border border-rose-100 rounded-[1.5rem] flex items-start gap-3">
+                <div className="p-2 bg-rose-100 rounded-full">
+                  <AlertCircle className="w-4 h-4 text-rose-500" />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-rose-700 uppercase tracking-wide">Restricted Hours</p>
+                  <p className="text-[10px] text-rose-600 mt-1 leading-relaxed font-medium">
+                    Fixed SIP selection available 10:00 AM - 6:00 PM.<br />Current: {formatTime(currentTime)}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {marketStatus === 'closed' && (
+              <div className="p-4 bg-rose-50 border border-rose-100 rounded-[1.5rem] flex items-start gap-3">
+                <div className="p-2 bg-rose-100 rounded-full">
+                  <Lock className="w-4 h-4 text-rose-500" />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-rose-700 uppercase tracking-wide">Market Closed</p>
+                  <p className="text-[10px] text-rose-600 mt-1 leading-relaxed font-medium">
+                    Operations temporarily disabled.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {loadingFixedSIPs ? (
-              <div className="text-center py-8">
-                <div className="w-12 h-12 border-4 border-[#50C2C9] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading available SIP plans...</p>
+              <div className="flex flex-col items-center justify-center py-10">
+                <RefreshCw className="w-8 h-8 text-[#50C2C9] animate-spin mb-4" />
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading Plans...</p>
               </div>
             ) : error ? (
-              <div className="text-center py-8">
-                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <X className="w-6 h-6 text-red-500" />
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <div className="w-12 h-12 bg-rose-50 rounded-full flex items-center justify-center mb-3">
+                  <X className="w-6 h-6 text-rose-500" />
                 </div>
-                <p className="text-red-600 mb-4">{error}</p>
+                <p className="text-rose-500 font-bold text-xs mb-3">{error}</p>
                 <button
                   onClick={fetchAvailableFixedSIPs}
-                  className="bg-[#50C2C9] text-white px-4 py-2 rounded-lg hover:bg-[#45b1b9] transition-colors"
+                  className="px-4 py-2 bg-[#50C2C9] text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-[#50C2C9]/20"
                 >
                   Retry
                 </button>
               </div>
             ) : availableFixedSIPs.length > 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {availableFixedSIPs.map((plan) => (
                   <div
                     key={plan.id}
-                    className={`border rounded-lg p-4 transition-all ${
-                      selectedFixedSIPId === plan.id
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-gray-200 hover:border-[#50C2C9]'
-                    } ${(!isWithinAllowedTime || marketStatus === 'closed') ? 'opacity-60' : ''}`}
+                    onClick={() => isWithinAllowedTime && marketStatus === 'open' && plan.isActive && handleChooseFixedSIP(plan.id)}
+                    className={`relative overflow-hidden rounded-[1.5rem] p-5 border-2 transition-all cursor-pointer group ${selectedFixedSIPId === plan.id
+                      ? 'border-[#50C2C9] bg-slate-50'
+                      : 'border-slate-100 bg-white hover:border-slate-200'
+                      } ${(!isWithinAllowedTime || marketStatus === 'closed' || !plan.isActive) ? 'opacity-60 cursor-not-allowed' : ''}`}
                   >
+                    {selectedFixedSIPId === plan.id && (
+                      <div className="absolute top-0 right-0 bg-[#50C2C9] p-1.5 rounded-bl-xl z-10">
+                        <Check className="w-3 h-3 text-white" />
+                      </div>
+                    )}
+
                     <div className="flex justify-between items-start mb-3">
                       <div>
-                        <h3 className="font-semibold text-gray-900">{plan.name}</h3>
-                        <p className="text-sm text-gray-600 mt-1">{plan.description}</p>
-                      </div>
-                      <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
-                        {plan.metalType}
-                      </span>
-                    </div>
-                    
-                    <div className="space-y-2 mb-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Monthly Amount:</span>
-                        <span className="font-medium text-gray-900">₹{formatCurrency(plan.monthlyAmount)}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Duration:</span>
-                        <span className="font-medium text-gray-900">{plan.totalMonths} Months</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Status:</span>
-                        <span className={`font-medium ${plan.isActive ? 'text-green-600' : 'text-red-600'}`}>
-                          {plan.isActive ? 'Active' : 'Inactive'}
+                        <span className="px-2 py-1 bg-slate-100 rounded-md text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                          {plan.metalType}
                         </span>
+                        <h3 className="font-black text-slate-800 text-lg mt-2 leading-none">{plan.name}</h3>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Invest</p>
+                        <p className="text-base font-black text-[#50C2C9]">₹{formatCurrency(plan.monthlyAmount)}</p>
+                        <p className="text-[9px] text-slate-400 font-bold">/ month</p>
                       </div>
                     </div>
-                    
-                    {selectedFixedSIPId === plan.id ? (
-                      <div className="w-full py-2 rounded-lg bg-green-100 flex items-center justify-center space-x-2">
-                        <Check className="w-5 h-5 text-green-600" />
-                        <span className="font-medium text-green-700">Plan Selected Successfully!</span>
+
+                    <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-slate-100">
+                      <div className="bg-slate-50 rounded-xl p-2 text-center">
+                        <p className="text-[9px] text-slate-400 font-bold uppercase">Duration</p>
+                        <p className="text-xs font-black text-slate-700">{plan.totalMonths} Mo.</p>
                       </div>
-                    ) : (
-                      <button
-                        onClick={() => isWithinAllowedTime && marketStatus === 'open' && handleChooseFixedSIP(plan.id)}
-                        disabled={!plan.isActive || choosingSIP || (!isWithinAllowedTime || marketStatus === 'closed')}
-                        className={`w-full py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2 ${
-                          plan.isActive && isWithinAllowedTime && marketStatus === 'open'
-                            ? 'bg-green-600 text-white hover:bg-green-700' 
-                            : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                        }`}
-                      >
-                        {choosingSIP ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            <span>Processing...</span>
-                          </>
-                        ) : (
-                          <span>
-                            {marketStatus === 'closed'
-                              ? 'Market Closed'
-                              : !isWithinAllowedTime 
-                              ? 'Available 10:00 AM - 6:00 PM' 
-                              : plan.isActive ? 'Choose Plan' : 'Not Available'
-                            }
-                          </span>
-                        )}
-                      </button>
-                    )}
+                      <div className={`rounded-xl p-2 text-center ${plan.isActive ? 'bg-emerald-50' : 'bg-rose-50'}`}>
+                        <p className="text-[9px] font-bold uppercase opacity-60">Status</p>
+                        <p className={`text-xs font-black ${plan.isActive ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {plan.isActive ? 'Active' : 'Inactive'}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Calendar className="w-8 h-8 text-gray-400" />
-                </div>
-                <p className="text-gray-600 mb-2">No fixed SIP plans available</p>
-                <p className="text-sm text-gray-500">
-                  Contact administrator for available plans
-                </p>
+              <div className="flex flex-col items-center justify-center py-10 bg-slate-50 rounded-[2rem]">
+                <Calendar className="w-8 h-8 text-slate-300 mb-2" />
+                <p className="text-xs font-bold text-slate-400 text-center">No Fixed Plans Available</p>
               </div>
             )}
           </div>
-
-          <div className="p-4 border-t border-gray-200 flex-shrink-0">
-            <button
-              onClick={() => setShowFixedSIPsList(false)}
-              className="w-full bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition-colors"
-            >
-              Close
-            </button>
-          </div>
         </div>
-      </div>
+      </div >
     );
   };
 
@@ -1709,35 +1668,41 @@ const SIPPage = () => {
   const displaySavedPaymentData = () => {
     const paymentData = JSON.parse(sessionStorage.getItem('currentPaymentData') || 'null');
     const summaryData = JSON.parse(sessionStorage.getItem('paymentSummaryData') || 'null');
-    
+
     if (!paymentData && !summaryData) return null;
-    
+
     return (
-      <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-        <h3 className="text-sm font-medium text-blue-800 mb-2">Last Payment Session Data:</h3>
-        <div className="text-xs space-y-1">
+      <div className="mt-6 p-5 bg-indigo-50/50 border border-indigo-100 rounded-[2rem] backdrop-blur-sm">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="p-1.5 bg-indigo-100 rounded-full">
+            <History className="w-3.5 h-3.5 text-indigo-600" />
+          </div>
+          <h3 className="text-xs font-black text-indigo-900 uppercase tracking-widest">Last Session</h3>
+        </div>
+
+        <div className="space-y-3 pl-2 border-l-2 border-indigo-100 ml-2">
           {paymentData && (
             <>
-              <div className="flex justify-between">
-                <span className="text-blue-700">Plan:</span>
-                <span className="text-black font-medium">{paymentData.planName}</span>
+              <div className="pl-3">
+                <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">Plan</p>
+                <p className="text-sm font-black text-slate-700">{paymentData.planName}</p>
               </div>
-              <div className="flex justify-between">
-                <span className="text-blue-700">Amount:</span>
-                <span className="text-black font-medium">{paymentData.amount}</span>
+              <div className="pl-3">
+                <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">Amount</p>
+                <p className="text-sm font-black text-slate-700">₹{paymentData.amount}</p>
               </div>
-              <div className="flex justify-between">
-                <span className="text-blue-700">Time:</span>
-                <span className="text-black text-xs">
+              <div className="pl-3">
+                <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">Time</p>
+                <p className="text-[10px] font-bold text-slate-500">
                   {new Date(paymentData.paymentTime).toLocaleString()}
-                </span>
+                </p>
               </div>
             </>
           )}
           {summaryData && (
-            <div className="flex justify-between">
-              <span className="text-blue-700">Status:</span>
-              <span className={`font-medium ${paymentData?.status === 'pending' ? 'text-yellow-600' : 'text-green-600'}`}>
+            <div className="pl-3">
+              <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">Status</p>
+              <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${paymentData?.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
                 {paymentData?.status || 'Saved'}
               </span>
             </div>
@@ -1753,851 +1718,412 @@ const SIPPage = () => {
       console.log('🔍 Current SIP plans:', sipPlans);
       console.log('🔍 Amount paying values:', amountPayingValues);
     }, [sipPlans]);
-    
+
     return null;
   };
 
   return (
-    <div className="w-full max-w-sm mx-auto bg-white min-h-screen flex flex-col relative">
+    <div className="w-full max-w-md mx-auto bg-[#F8FAFC] min-h-screen pb-24 font-sans relative">
       <DebugInfo />
-      
+
       {/* Header */}
-      <div className="flex items-center px-4 py-4 border-b border-gray-100">
-        <button className="mr-4" onClick={() => router.push('/savings_plan')}>
-          <ChevronLeft className="w-6 h-6 text-gray-700" />
-        </button>
-        <h1 className="text-lg font-semibold text-gray-900 flex-1 text-center mr-10">
-          SIP Holdings
-        </h1>
-        
-        {/* Current Time Display */}
-        <div className="absolute right-4 top-4">
-          <div className="flex items-center space-x-1 bg-gray-100 px-2 py-1 rounded-lg">
-            <Clock className="w-3 h-3 text-gray-600" />
-            <span className="text-xs font-medium text-gray-700">
-              {formatTime(currentTime)}
-            </span>
+      <header className="bg-white px-6 pt-8 pb-6 rounded-b-[2.5rem] shadow-sm sticky top-0 z-20">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => router.push('/savings_plan')}
+            className="p-2 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors"
+          >
+            <ChevronLeft className="text-slate-600" size={20} />
+          </button>
+          <div className="text-center">
+            <span className="text-[10px] font-black text-[#50C2C9] uppercase tracking-widest block">Portfolio</span>
+            <h1 className="text-xl font-black text-slate-800 tracking-tight">SIP Holdings</h1>
+          </div>
+          <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-full">
+            <Clock className="w-3 h-3 text-slate-400" />
+            <span className="text-[10px] font-bold text-slate-600">{formatTime(currentTime)}</span>
           </div>
         </div>
-      </div>
 
-      {/* Time Restriction Banner - Updated for Fixed SIP only */}
-      {!isWithinAllowedTime && userType === 'customer' && activeTab === 'All' && (
-        <div className="px-4 py-3 bg-red-50 border-b border-red-200">
-          <div className="flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 text-red-500" />
-            <div>
-              <p className="text-sm font-medium text-red-700">
-                ⏰ Fixed SIP Payment Restricted
-              </p>
-              <p className="text-xs text-red-600 mt-1">
-                Fixed SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: {formatTime(currentTime)}
-                <br />
-                <span className="font-semibold">Note:</span> Flexible SIP payments are available 24/7.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Market Status Banner */}
-      {marketStatus === 'closed' && userType === 'customer' && (
-        <div className="px-4 py-3 bg-red-50 border-b border-red-200">
-          <div className="flex items-center space-x-2">
-            <Lock className="w-4 h-4 text-red-500" />
-            <div>
-              <p className="text-sm font-medium text-red-700">
-                ⚠️ Market Closed
-              </p>
-              <p className="text-xs text-red-600 mt-1">
-                Trading operations, including SIP creation and payments, are temporarily disabled.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Admin Info Banner */}
-      {userType === 'admin' && activeTab === 'All' && (
-        <div className="px-4 py-3 bg-purple-50 border-b border-purple-200">
-          <div className="flex items-center justify-center space-x-2">
-            <Users className="w-4 h-4 text-purple-600" />
-            <p className="text-sm text-purple-700 font-medium">
-              Admin View: All Users' Fixed SIPs
-            </p>
-          </div>
-          <p className="text-xs text-purple-600 text-center mt-1">
-            Showing all fixed SIPs from all users
-          </p>
-        </div>
-      )}
-
-      {/* Tab Navigation */}
-      <div className="px-4 py-4">
-        <div className="flex">
+        {/* Tab Switcher */}
+        <div className="mt-6 bg-slate-100 p-1 rounded-2xl flex">
           <button
             onClick={() => handleTabChange('All')}
-            className={`flex-1 text-center py-2 text-sm font-medium ${
-              activeTab === 'All'
-                ? 'text-gray-800 border-b-2 border-gray-400'
-                : 'text-gray-500'
-            }`}
+            className={`flex-1 py-3 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all duration-300 ${activeTab === 'All'
+              ? 'bg-white text-[#50C2C9] shadow-sm'
+              : 'text-slate-400 hover:text-slate-600'
+              }`}
           >
-            Fixed
+            Fixed Plans
           </button>
           <button
             onClick={() => handleTabChange('New SIP')}
-            className={`flex-1 text-center py-2 text-sm font-medium ${
-              activeTab === 'New SIP'
-                ? 'text-[#50C2C9] border-b-2 border-[#50C2C9]'
-                : 'text-gray-500'
-            }`}
+            className={`flex-1 py-3 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all duration-300 ${activeTab === 'New SIP'
+              ? 'bg-white text-[#50C2C9] shadow-sm'
+              : 'text-slate-400 hover:text-slate-600'
+              }`}
           >
-            Flexible
+            Flexible Plans
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Fixed SIPs List Modal */}
-      {renderFixedSIPsList()}
+      {/* Main Content */}
+      <main className="px-6 py-6 space-y-5">
 
-      {/* Loading State */}
-      {loading && (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-12 h-12 border-4 border-[#50C2C9] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading SIP plans...</p>
-          </div>
-        </div>
-      )}
-
-      {/* Error State */}
-      {error && !loading && (
-        <div className="flex-1 flex items-center justify-center px-4">
-          <div className="text-center">
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <X className="w-6 h-6 text-red-500" />
+        {/* Alerts & Banners */}
+        {!isWithinAllowedTime && userType === 'customer' && activeTab === 'All' && (
+          <div className="p-4 bg-rose-50 border border-rose-100 rounded-[1.5rem] flex items-start gap-3">
+            <div className="p-2 bg-rose-100 rounded-full">
+              <AlertCircle className="w-4 h-4 text-rose-500" />
             </div>
-            <p className="text-red-600 mb-4">{error}</p>
-            <button
-              onClick={handleRefresh}
-              className="bg-[#50C2C9] text-white px-4 py-2 rounded-lg hover:bg-[#45b1b9] transition-colors"
-            >
+            <div>
+              <p className="text-xs font-black text-rose-700 uppercase tracking-wide">Time Restricted</p>
+              <p className="text-[10px] text-rose-600 mt-1 leading-relaxed font-medium">
+                Fixed SIP payments allowable 10:00 AM - 6:00 PM.<br />
+                Current: {formatTime(currentTime)}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {marketStatus === 'closed' && userType === 'customer' && (
+          <div className="p-4 bg-rose-50 border border-rose-100 rounded-[1.5rem] flex items-start gap-3">
+            <div className="p-2 bg-rose-100 rounded-full">
+              <Lock className="w-4 h-4 text-rose-500" />
+            </div>
+            <div>
+              <p className="text-xs font-black text-rose-700 uppercase tracking-wide">Market Closed</p>
+              <p className="text-[10px] text-rose-600 mt-1 leading-relaxed font-medium">
+                Trading operations are temporarily disabled.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* SIP Plans List */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <RefreshCw className="w-8 h-8 text-[#50C2C9] animate-spin mb-4" />
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading Holdings...</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-10 px-6 text-center">
+            <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mb-4">
+              <X className="w-8 h-8 text-rose-500" />
+            </div>
+            <p className="text-rose-500 font-bold mb-4">{error}</p>
+            <button onClick={handleRefresh} className="px-6 py-3 bg-[#50C2C9] text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-[#50C2C9]/20">
               Retry
             </button>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="space-y-4">
+            {displayPlans.length > 0 ? (
+              displayPlans.map((plan) => {
+                const isFixedSIP = plan.isFixed || plan.type === 'Fixed SIP';
+                const shouldDisable = (isFixedSIP && !isWithinAllowedTime) || marketStatus === 'closed';
 
-      {/* SIP Plans */}
-      {!loading && !error && (
-        <div className={`flex-1 px-4 space-y-4 transition-all duration-300 ${showPaymentDialog || showCreateFlexibleSIPDialog ? 'blur-md filter' : ''}`}>
-          {displayPlans.length > 0 ? (
-            displayPlans.map((plan) => {
-              const isFixedSIP = plan.isFixed || plan.type === 'Fixed SIP';
-              const shouldDisable = (isFixedSIP && !isWithinAllowedTime) || marketStatus === 'closed';
-              
-              return (
-                <div
-                  key={plan.id}
-                  className={`${plan.color} rounded-lg p-4 cursor-pointer hover:opacity-90 transition-opacity`}
-                >
-                  {/* Plan Title - White Text */}
-                  <div className="mb-4">
-                    <h3 className="text-lg font-bold mb-1 text-white">{plan.name}</h3>
-                    <div className="flex items-center gap-2">
-                      <div className="inline-block bg-white bg-opacity-20 px-2 py-1 rounded text-xs text-white">
-                        {plan.type}
-                      </div>
-                      {plan.status && (
-                        <div className={`inline-block px-2 py-1 rounded text-xs text-white ${
-                          plan.status === 'ACTIVE' ? 'bg-green-500' : 
-                          plan.status === 'PAUSED' ? 'bg-yellow-500' : 
-                          plan.status === 'COMPLETED' ? 'bg-gray-500' : 'bg-gray-500'
-                        }`}>
-                          {plan.status}
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* User Info for Admin View */}
-                    {userType === 'admin' && plan.userName && (
-                      <div className="mt-2 flex items-center space-x-1">
-                        <Users className="w-3 h-3 text-white opacity-80" />
-                        <span className="text-xs text-white opacity-80">{plan.userName}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Plan Details Section - BLACK TEXT for data fields */}
-                  <div className="border-t border-white border-opacity-30 pt-3 space-y-3">
-                    {/* Row 1: Due Date and Months */}
-                    <div className="grid grid-cols-2 gap-4">
-                      {/* Due Date */}
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="w-4 h-4 flex-shrink-0 text-white" />
-                        <span className="text-sm whitespace-nowrap text-white">{getDateLabel()}</span>
-                        <div className="bg-white bg-opacity-20 px-2 py-1 rounded-full min-w-[80px] text-center">
-                          <span className="text-sm font-medium text-black">
-                            {getDisplayDate(plan)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Months Progress */}
-                      <div className="flex items-center space-x-2">
-                        <Clock className="w-4 h-4 flex-shrink-0 text-white" />
-                        <span className="text-sm whitespace-nowrap text-white">Months:</span>
-                        <div className="bg-white bg-opacity-20 px-2 py-1 rounded-full min-w-[80px] text-center">
-                          <span className="text-sm font-medium text-black">
-                            {plan.monthsPaid}/{plan.totalMonths || 'N/A'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Row 2: Amount Invested */}
-                    <div className="flex items-center space-x-2">
-                      <DollarSign className="w-4 h-4 flex-shrink-0 text-white" />
-                      <span className="text-sm whitespace-nowrap text-white">Amount Invested:</span>
-                      <div className="bg-white bg-opacity-20 px-2 py-1 rounded-full min-w-[80px] text-center">
-                        <span className="text-sm font-medium text-black">
-                          {plan.totalAmount}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Row 3: Monthly Amount - EDITABLE FIELD */}
-                    <div className="flex items-center space-x-2">
-                      <DollarSign className="w-4 h-4 flex-shrink-0 text-white" />
-                      <span className="text-sm whitespace-nowrap text-white">Amount Paying:</span>
-                      <div className="bg-white bg-opacity-20 px-2 py-1 rounded-full min-w-[80px] text-center">
-                        <input
-                          type="text"
-                          value={amountPayingValues[plan.id] || ''}
-                          onChange={(e) => handleAmountPayingChange(plan.id, e.target.value)}
-                          placeholder="₹0"
-                          className="w-full bg-transparent border-none text-sm font-medium text-black text-center focus:outline-none focus:ring-0 focus:bg-white focus:bg-opacity-30 focus:rounded px-1"
-                          style={{ color: 'black' }}
-                          disabled={plan.status === 'COMPLETED'}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Row 4: Metal Type */}
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm whitespace-nowrap text-white">Metal:</span>
-                      <div className="bg-white bg-opacity-20 px-2 py-1 rounded-full text-center">
-                        <span className="text-sm font-medium text-black">
-                          {plan.metalType}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Pay Button - Updated to handle COMPLETED status */}
-                  {userType === 'customer' && (
-                    <div className="flex justify-end pt-3">
-                      {plan.status === 'COMPLETED' ? (
-                        <div className="px-4 py-2 rounded-md font-semibold bg-gray-100 text-gray-700 cursor-not-allowed shadow-md text-sm text-center">
-                          <div className="flex items-center space-x-1">
-                            <Check className="w-4 h-4" />
-                            <span>SIP Completed</span>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-1">Please check holdings</p>
-                        </div>
-                      ) : shouldDisable ? (
-                        <button
-                          onClick={(e) => handlePay(plan.id, plan, e)}
-                          disabled={true}
-                          className="px-6 py-2 rounded-md font-semibold bg-gray-300 text-gray-500 cursor-not-allowed shadow-md"
-                          title={
-                            marketStatus === 'closed'
-                              ? "Market is currently closed"
-                              : isFixedSIP
-                              ? "Fixed SIP payments only allowed between 10:00 AM and 6:00 PM"
-                              : ""
-                          }
-                        >
-                          {marketStatus === 'closed' 
-                            ? 'Market Closed' 
-                            : isFixedSIP 
-                            ? 'Time Restricted' 
-                            : 'Pay'
-                          }
-                        </button>
-                      ) : (
-                        <button
-                          onClick={(e) => handlePay(plan.id, plan, e)}
-                          className="px-6 py-2 rounded-md font-semibold bg-white text-[#50C2C9] hover:bg-opacity-90 transition-colors shadow-md"
-                        >
-                          Pay
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          ) : (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Calendar className="w-8 h-8 text-gray-400" />
-              </div>
-              <p className="text-gray-600 mb-2">No {activeTab === 'All' ? 'Fixed' : 'Flexible'} SIP plans found</p>
-              <p className="text-sm text-gray-500">
-                {userType === 'admin' 
-                  ? activeTab === 'All' 
-                    ? 'No fixed SIPs from any users' 
-                    : 'No flexible SIPs from any users'
-                  : activeTab === 'All' 
-                    ? 'You have not opted for any fixed SIPs' 
-                    : 'You have not created any flexible SIPs'
-                }
-              </p>
-            </div>
-          )}
-
-          {/* Display saved payment data from session storage */}
-          {displaySavedPaymentData()}
-
-          {/* Action Buttons Section */}
-          <div className="flex justify-center mt-6 pb-8 space-x-4">
-            {/* Create Flexible SIP Button - Show for Flexible tab */}
-            {activeTab === 'New SIP' && (
-              <button
-                onClick={() => {
-                  if (userType === 'customer') {
-                    // FIXED: No time restriction for Flexible SIP creation
-                    // Check market status
-                    if (marketStatus === 'closed') {
-                      alert(`Market is currently closed. Trading operations, including SIP creation, are temporarily disabled.`);
-                      return;
-                    }
-                    setShowCreateFlexibleSIPDialog(true);
-                  } else {
-                    // Admin can also create flexible SIPs if needed
-                    setShowCreateFlexibleSIPDialog(true);
-                  }
-                }}
-                disabled={marketStatus === 'closed'}
-                className={`px-6 py-3 rounded-lg font-semibold shadow-md transition-all flex items-center space-x-2 ${
-                  marketStatus === 'closed'
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-[#50C2C9] text-white hover:bg-[#45b1b9]'
-                }`}
-                title={marketStatus === 'closed' ? "Market is currently closed" : ""}
-              >
-                <Plus className="w-4 h-4" />
-                <span>
-                  {marketStatus === 'closed' ? 'Market Closed' : 'Create Flexible SIP'}
-                </span>
-              </button>
-            )}
-
-            {/* Create Fixed SIP Button - Show for Admin in Fixed tab */}
-            {userType === 'admin' && activeTab === 'All' && (
-              <button
-                onClick={handleCreateFixedSIP}
-                className="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold shadow-md hover:bg-green-700 transition-all flex items-center space-x-2"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Create Fixed SIP</span>
-              </button>
-            )}
-            {userType === 'customer' && activeTab === 'All' && (
-              <button
-                onClick={handleCreateFixedSIP_customers}
-                disabled={!isWithinAllowedTime || marketStatus === 'closed'}
-                className={`px-6 py-3 rounded-lg font-semibold shadow-md transition-all flex items-center space-x-2 ${
-                  !isWithinAllowedTime || marketStatus === 'closed'
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-green-600 text-white hover:bg-green-700'
-                }`}
-                title={
-                  marketStatus === 'closed' 
-                    ? "Market is currently closed" 
-                    : !isWithinAllowedTime 
-                    ? "Fixed SIP creation only available 10:00 AM - 6:00 PM" 
-                    : ""
-                }
-              >
-                <Plus className="w-4 h-4" />
-                <span>
-                  {marketStatus === 'closed' 
-                    ? 'Market Closed' 
-                    : !isWithinAllowedTime 
-                    ? 'Available 10:00 AM - 6:00 PM' 
-                    : 'Create Fixed SIP'
-                  }
-                </span>
-              </button>
-            )}
-
-            {/* Refresh Button for Both Tabs */}
-            <button
-              onClick={handleRefresh}
-              className="bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold shadow-md hover:bg-gray-700 transition-all flex items-center space-x-2"
-            >
-              <Users className="w-4 h-4" />
-              <span>Refresh</span>
-            </button>
-          </div>
-
-          {/* Time Restriction Info - Updated for Fixed SIP only */}
-          {userType === 'customer' && (
-            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <div className="flex items-start space-x-2">
-                <Clock className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-xs font-medium text-yellow-800">
-                    ⏰ Payment Hours Information
-                  </p>
-                  <p className="text-xs text-yellow-700 mt-1">
-                    <span className="font-semibold">Fixed SIP:</span> Payments can only be made between <span className="font-semibold">10:00 AM and 6:00 PM</span> every day.
-                  </p>
-                  <p className="text-xs text-yellow-700 mt-1">
-                    <span className="font-semibold">Flexible SIP:</span> Payments are available <span className="font-semibold">24/7</span>.
-                  </p>
-                  <p className="text-xs text-yellow-600 mt-1">
-                    Current time: <span className="font-medium">{formatTime(currentTime)}</span>
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Market Status Info */}
-          {userType === 'customer' && (
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-start space-x-2">
-                <Lock className={`w-4 h-4 ${marketStatus === 'closed' ? 'text-red-600' : 'text-green-600'} mt-0.5 flex-shrink-0`} />
-                <div>
-                  <p className="text-xs font-medium text-blue-800">
-                    📊 Market Status
-                  </p>
-                  <p className="text-xs text-blue-700 mt-1">
-                    Current market status: <span className={`font-semibold ${marketStatus === 'closed' ? 'text-red-600' : 'text-green-600'}`}>
-                      {marketStatus === 'closed' ? 'CLOSED' : 'OPEN'}
-                    </span>
-                  </p>
-                  <p className="text-xs text-blue-600 mt-1">
-                    {marketStatus === 'closed' 
-                      ? 'Trading operations are temporarily disabled. You can view existing SIPs but cannot create new ones or make payments.'
-                      : 'Market is open for trading operations.'
-                    }
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Enhanced Payment Dialog with Manual Amount Input */}
-      {showPaymentDialog && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 px-4">
-          <div 
-            className="absolute inset-0 bg-black bg-opacity-50"
-            onClick={() => setShowPaymentDialog(false)}
-          ></div>
-
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-scale-in">
-            <button
-              onClick={() => setShowPaymentDialog(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-
-            <div className="text-center mb-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">
-                Make Payment
-              </h2>
-              <p className="text-sm text-gray-500">
-                {selectedPlan?.name}
-              </p>
-              <div className="mt-2 inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
-                {selectedPlan?.type}
-              </div>
-              
-              {/* Time Restriction Notice - Only for Fixed SIP */}
-              {selectedPlan?.isFixed && !isWithinAllowedTime && (
-                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="flex items-center space-x-2 justify-center">
-                    <AlertCircle className="w-4 h-4 text-red-500" />
-                    <span className="text-xs font-medium text-red-700">
-                      ⏰ Fixed SIP Payment Time Restricted
-                    </span>
-                  </div>
-                  <p className="text-xs text-red-600 mt-1">
-                    Fixed SIP payments can only be made between 10:00 AM and 6:00 PM
-                  </p>
-                  <p className="text-xs text-red-600">
-                    Current time: {formatTime(currentTime)}
-                  </p>
-                </div>
-              )}
-
-              {/* Market Status Notice */}
-              {marketStatus === 'closed' && (
-                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="flex items-center space-x-2 justify-center">
-                    <Lock className="w-4 h-4 text-red-500" />
-                    <span className="text-xs font-medium text-red-700">
-                      ⚠️ Market Closed
-                    </span>
-                  </div>
-                  <p className="text-xs text-red-600 mt-1">
-                    Trading operations, including SIP payments, are temporarily disabled.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Enhanced Manual Amount Input Section */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Payment Amount {selectedPlan?.type === 'Flexible SIP' && '(You can enter any amount)'}
-              </label>
-              
-              {/* Default Amount Display */}
-              {!showAmountInput && (
-                <div className="space-y-3">
-                  <div 
-                    className={`border-2 ${(selectedPlan?.isFixed && !isWithinAllowedTime) || marketStatus === 'closed' ? 'border-gray-300 bg-gray-50' : 'border-[#50C2C9] bg-blue-50'} rounded-lg p-4 cursor-pointer hover:bg-blue-100 transition-colors`}
-                    onClick={() => !((selectedPlan?.isFixed && !isWithinAllowedTime) || marketStatus === 'closed') && setShowAmountInput(true)}
+                return (
+                  <div
+                    key={plan.id}
+                    className={`relative bg-gradient-to-br ${plan.color === 'bg-[#50C2C9]' ? 'from-[#50C2C9] to-[#45a0a6]' : 'from-slate-800 to-slate-900'} rounded-[2rem] p-6 text-white overflow-hidden shadow-xl shadow-slate-200/50 group`}
                   >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {selectedPlan?.type === 'Flexible SIP' ? 'Suggested Amount' : 'Default Amount'}
-                        </p>
-                        <p className="text-lg font-bold text-[#50C2C9]">{selectedPlan?.investMin}</p>
-                        <p className="text-xs text-gray-500">
-                          {marketStatus === 'closed'
-                            ? 'Market is currently closed'
-                            : selectedPlan?.isFixed && !isWithinAllowedTime 
-                            ? 'Fixed SIP payments disabled outside allowed hours' 
-                            : selectedPlan?.type === 'Flexible SIP' 
-                              ? 'Click to enter custom amount' 
-                              : 'Monthly installment amount'
-                          }
-                        </p>
-                      </div>
-                      {!((selectedPlan?.isFixed && !isWithinAllowedTime) || marketStatus === 'closed') && <Edit className="w-4 h-4 text-[#50C2C9]" />}
-                    </div>
-                  </div>
-                  {selectedPlan?.type === 'Flexible SIP' && (
-                    <p className="text-xs text-green-600 text-center font-medium">
-                      💡 For Flexible SIP, you can pay any amount you want!
-                    </p>
-                  )}
-                </div>
-              )}
+                    {/* Decorative elements */}
+                    <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-16 -mt-16 blur-xl"></div>
+                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full -ml-8 -mb-8"></div>
 
-              {/* Enhanced Manual Amount Input */}
-              {showAmountInput && (
-                <div className="space-y-3">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={manualAmount}
-                      onChange={handleManualAmountChange}
-                      placeholder="Enter amount (e.g., 5000)"
-                      className="w-full p-4 border-2 border-[#50C2C9] rounded-lg focus:ring-2 focus:ring-[#50C2C9] focus:border-transparent text-lg font-medium text-black"
-                      autoFocus
-                      disabled={(selectedPlan?.isFixed && !isWithinAllowedTime) || marketStatus === 'closed'}
-                    />
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex space-x-1">
-                      <button
-                        onClick={handleUseDefaultAmount}
-                        className="text-gray-400 hover:text-gray-600"
-                        title="Use default amount"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+                    <div className="relative z-10">
+                      <div className="flex justify-between items-start mb-6">
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-0.5 bg-white/20 backdrop-blur-md rounded-md text-[9px] font-bold uppercase tracking-wider">
+                              {plan.type}
+                            </span>
+                            {plan.status && (
+                              <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider ${plan.status === 'ACTIVE' ? 'bg-emerald-400 text-emerald-900' :
+                                plan.status === 'PAUSED' ? 'bg-amber-400 text-amber-900' :
+                                  'bg-slate-200 text-slate-800'
+                                }`}>
+                                {plan.status}
+                              </span>
+                            )}
+                          </div>
+                          <h3 className="text-lg font-black leading-tight mb-1">{plan.name}</h3>
+                          <p className="text-[10px] opacity-80 font-medium">ID: #{plan.id.substring(0, 8)}</p>
+                        </div>
+                        <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-md">
+                          {plan.metalType?.toLowerCase().includes('gold') ? <PiggyBank className="text-amber-300" /> : <Coins className="text-slate-300" />}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 bg-black/10 rounded-2xl p-4 backdrop-blur-sm border border-white/5">
+                        <div>
+                          <p className="text-[9px] opacity-70 uppercase font-bold mb-1">Due Date</p>
+                          <div className="flex items-center gap-1.5 font-bold text-sm">
+                            <Calendar size={12} className="opacity-70" />
+                            {getDisplayDate(plan)}
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-[9px] opacity-70 uppercase font-bold mb-1">Progress</p>
+                          <div className="flex items-center gap-1.5 font-bold text-sm">
+                            <Clock size={12} className="opacity-70" />
+                            {plan.monthsPaid}/{plan.totalMonths || 'N/A'}
+                          </div>
+                        </div>
+
+                        <div className="col-span-2 pt-2 border-t border-white/10 flex justify-between items-center">
+                          <div>
+                            <p className="text-[9px] opacity-70 uppercase font-bold mb-1">Total Invested</p>
+                            <p className="font-black text-lg">{plan.totalAmount}</p>
+                          </div>
+                          <div className="bg-white/20 px-3 py-1 rounded-lg">
+                            <p className="text-[9px] opacity-100 uppercase font-bold text-center">Metal</p>
+                            <p className="font-bold text-xs text-center">{plan.metalType}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Payment Input Section */}
+                      <div className="mt-4 pt-4 border-t border-white/10">
+                        <div className="flex justify-between items-center gap-4">
+                          <div className="flex-1">
+                            <label className="text-[9px] opacity-70 uppercase font-bold block mb-1">Paying Amount</label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70 text-xs">₹</span>
+                              <input
+                                type="text"
+                                value={amountPayingValues[plan.id] || ''}
+                                onChange={(e) => handleAmountPayingChange(plan.id, e.target.value)}
+                                placeholder="0"
+                                className="w-full bg-white/10 border border-white/20 rounded-xl py-2 pl-6 pr-3 text-sm font-bold text-white placeholder-white/30 focus:outline-none focus:bg-white/20 transition-all"
+                                disabled={plan.status === 'COMPLETED'}
+                              />
+                            </div>
+                          </div>
+
+                          {userType === 'customer' && (
+                            <div className="mt-4">
+                              {plan.status === 'COMPLETED' ? (
+                                <div className="px-4 py-2 bg-emerald-500/20 border border-emerald-500/50 text-emerald-100 rounded-xl font-bold text-xs flex items-center gap-2">
+                                  <Check size={14} /> Completed
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={(e) => handlePay(plan.id, plan, e)}
+                                  disabled={shouldDisable}
+                                  className={`px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${shouldDisable
+                                    ? 'bg-slate-500/50 text-slate-300 cursor-not-allowed'
+                                    : 'bg-white text-[#50C2C9] hover:bg-slate-50 shadow-black/20'
+                                    }`}
+                                >
+                                  {marketStatus === 'closed' ? 'Closed' : isFixedSIP && !isWithinAllowedTime ? 'Timed Out' : 'Pay Now'}
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-gray-500">
-                      Enter the amount you want to pay
-                    </p>
-                    {manualAmount && (
-                      <p className="text-xs font-medium text-green-600">
-                        Will pay: {manualAmount}
-                      </p>
-                    )}
-                  </div>
-                  {selectedPlan?.type === 'Flexible SIP' && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-2">
-                      <p className="text-xs text-green-700 text-center">
-                        ✅ This amount will be added to your Flexible SIP balance
-                      </p>
-                    </div>
-                  )}
+                );
+              })
+            ) : (
+              <div className="flex flex-col items-center justify-center py-16 bg-white rounded-[2rem] border border-slate-100 shadow-sm">
+                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                  <PiggyBank className="w-10 h-10 text-slate-300" />
                 </div>
-              )}
+                <h3 className="text-lg font-black text-slate-700">No Plans Found</h3>
+                <p className="text-xs text-slate-400 font-medium mt-1 max-w-[200px] text-center">
+                  {userType === 'admin'
+                    ? 'No SIP records found in the database.'
+                    : `You haven't started any ${activeTab === 'All' ? 'Fixed' : 'Flexible'} SIP plans yet.`}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex gap-3 justify-center pt-4">
+          {activeTab === 'New SIP' && (
+            <button
+              onClick={() => {
+                if (userType === 'customer' && marketStatus === 'closed') {
+                  alert('Market closed.'); return;
+                }
+                setShowCreateFlexibleSIPDialog(true);
+              }}
+              disabled={marketStatus === 'closed'}
+              className="flex-1 py-4 bg-[#50C2C9] text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-lg shadow-[#50C2C9]/30 flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              <Plus size={16} /> Create Flexible SIP
+            </button>
+          )}
+
+          {activeTab === 'All' && userType === 'customer' && (
+            <button
+              onClick={handleCreateFixedSIP_customers}
+              disabled={!isWithinAllowedTime || marketStatus === 'closed'}
+              className="flex-1 py-4 bg-emerald-500 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 disabled:bg-slate-300 disabled:shadow-none"
+            >
+              <Plus size={16} /> New Fixed SIP
+            </button>
+          )}
+
+          <button onClick={handleRefresh} className="px-4 py-4 bg-white text-slate-600 border border-slate-100 rounded-[1.5rem] font-bold shadow-sm hover:bg-slate-50 transition-colors">
+            <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+      </main>
+
+      {/* FIXED SIP LIST MODAL */}
+      {renderFixedSIPsList()}
+
+      {/* CREATE FLEXIBLE SIP MODAL */}
+      {showCreateFlexibleSIPDialog && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 animate-in slide-in-from-bottom duration-300">
+            <div className="flex justify-between items-center mb-8">
+              <div>
+                <h3 className="text-xl font-black text-slate-800">New Flexible SIP</h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">Start small, grow big</p>
+              </div>
+              <button onClick={() => setShowCreateFlexibleSIPDialog(false)} className="p-2 bg-slate-50 rounded-full hover:bg-slate-100">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
             </div>
 
-            {/* Payment Method Buttons */}
+            <div className="space-y-6">
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-2 mb-1 block">Metal Type</label>
+                <div className="relative">
+                  <select
+                    value={getDisplayMetalType(metalType)}
+                    onChange={(e) => setMetalType(getEnumMetalType(e.target.value))}
+                    className="w-full bg-slate-50 border-none rounded-2xl py-4 px-5 text-sm font-bold text-slate-800 appearance-none focus:ring-2 focus:ring-[#50C2C9]/20 transition-all outline-none leading-tight"
+                    disabled={marketStatus === 'closed' || createSIPLoading}
+                  >
+                    <option value="22KT Gold">22KT Gold</option>
+                    <option value="24KT Gold">24KT Gold</option>
+                    <option value="Silver">Silver</option>
+                  </select>
+                  <ChevronLeft className="absolute right-4 top-1/2 -translate-y-1/2 rotate-270 text-slate-400 -rotate-90 pointer-events-none" size={16} />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-2 mb-1 block">Duration</label>
+                <div className="flex gap-2">
+                  {[6, 12].map(m => (
+                    <button
+                      key={m}
+                      onClick={() => setTotalMonths(m)}
+                      className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${totalMonths === m ? 'bg-slate-800 text-white shadow-lg shadow-slate-800/20' : 'bg-slate-50 text-slate-400'}`}
+                    >
+                      {m} Months
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={createFlexibleSIP}
+                disabled={createSIPLoading || marketStatus === 'closed'}
+                className="w-full py-4 bg-[#50C2C9] text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-lg shadow-[#50C2C9]/30 disabled:opacity-50 mt-4 flex justify-center items-center gap-2"
+              >
+                {createSIPLoading ? <RefreshCw className="animate-spin" size={16} /> : <Check size={16} />}
+                {createSIPLoading ? 'Creating Plan...' : 'Start Investment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PAYMENT MODAL */}
+      {showPaymentDialog && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 animate-in slide-in-from-bottom duration-300">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-xl font-black text-slate-800">Confirm Payment</h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">{selectedPlan?.name}</p>
+              </div>
+              <button onClick={() => setShowPaymentDialog(false)} className="p-2 bg-slate-50 rounded-full hover:bg-slate-100">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+
+            <div className="bg-slate-50 rounded-2xl p-4 mb-6">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-xs font-medium text-slate-500">Amount to Pay</span>
+                <span className="text-lg font-black text-slate-800">
+                  ₹{showAmountInput ? manualAmount : amountPayingValues[selectedSIPId] || selectedPlan?.monthlyAmount}
+                </span>
+              </div>
+              <div className="w-full h-px bg-slate-200 my-2"></div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-medium text-slate-500">Plan Type</span>
+                <span className="text-xs font-bold text-slate-800 uppercase">{selectedPlan?.type}</span>
+              </div>
+            </div>
+
             <div className="space-y-3">
               <button
-                onClick={() => !((selectedPlan?.isFixed && !isWithinAllowedTime) || marketStatus === 'closed' || processingPayment) && handlePaymentMethod('Online')}
-                disabled={(selectedPlan?.isFixed && !isWithinAllowedTime) || marketStatus === 'closed' || (showAmountInput && !manualAmount) || processingPayment}
-                className={`w-full py-4 rounded-lg font-semibold transition-all shadow-md flex items-center justify-center space-x-2 ${
-                  (selectedPlan?.isFixed && !isWithinAllowedTime) || marketStatus === 'closed' || processingPayment
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : (showAmountInput && !manualAmount)
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-[#50C2C9] text-white hover:bg-[#45b1b9]'
-                }`}
+                onClick={() => handlePaymentMethod('Online')}
+                className="w-full p-4 bg-[#50C2C9] text-white rounded-2xl font-bold shadow-lg shadow-[#50C2C9]/20 flex items-center justify-between group"
               >
-                {processingPayment ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Processing...</span>
-                  </>
-                ) : marketStatus === 'closed' ? (
-                  <>
-                    <Lock className="w-4 h-4" />
-                    <span>Market Closed</span>
-                  </>
-                ) : selectedPlan?.isFixed && selectedPlan?.isFlexible && !isWithinAllowedTime ? (
-                  <>
-                    <Clock className="w-4 h-4" />
-                    <span>Available 10:00 AM - 6:00 PM</span>
-                  </>
-                ) : (
-                  <span>Pay {showAmountInput && manualAmount ? manualAmount : selectedPlan?.investMin} Online</span>
-                )}
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white/20 rounded-xl"><DollarSign className="w-5 h-5 text-white" /></div>
+                  <div className="text-left">
+                    <span className="block text-sm">Pay Online</span>
+                    <span className="text-[9px] opacity-80 font-normal">UPI, Cards, Netbanking</span>
+                  </div>
+                </div>
+                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
               </button>
 
               <button
-                onClick={() => !((selectedPlan?.isFixed && !isWithinAllowedTime) || marketStatus === 'closed' || processingPayment) && handlePaymentMethod('Offline')}
-                disabled={(selectedPlan?.isFixed && !isWithinAllowedTime) || marketStatus === 'closed' || processingPayment}
-                className={`w-full py-4 rounded-lg font-semibold transition-all shadow-md flex items-center justify-center space-x-2 ${
-                  (selectedPlan?.isFixed && !isWithinAllowedTime) || marketStatus === 'closed' || processingPayment
-                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                }`}
+                onClick={() => handlePaymentMethod('Offline')}
+                className="w-full p-4 bg-white border-2 border-slate-100 text-slate-700 rounded-2xl font-bold hover:border-slate-200 transition-colors flex items-center justify-between group"
               >
-                <span>
-                  {processingPayment
-                    ? 'Processing...'
-                    : marketStatus === 'closed' 
-                    ? 'Offline Payment Disabled' 
-                    : selectedPlan?.isFixed && selectedPlan?.isFlexible && !isWithinAllowedTime 
-                    ? 'Available 10:00 AM - 6:00 PM'
-                    : 'Pay Offline'
-                  }
-                </span>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-slate-100 rounded-xl"><DollarSign className="w-5 h-5 text-slate-500" /></div>
+                  <div className="text-left">
+                    <span className="block text-sm">Pay Offline</span>
+                    <span className="text-[9px] text-slate-400 font-normal">Manual Transfer</span>
+                  </div>
+                </div>
+                <ArrowRight size={18} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
               </button>
             </div>
-
-            {/* Enhanced Payment Summary */}
-            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-              <p className="text-xs text-gray-700 font-medium mb-2">
-                Payment Summary
-              </p>
-              <div className="text-xs text-gray-600 space-y-1">
-                <div className="flex justify-between">
-                  <span>SIP Plan:</span>
-                  <span className="text-black font-medium">{selectedPlan?.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Metal Type:</span>
-                  <span className="text-black font-medium">{selectedPlan?.metalType}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Type:</span>
-                  <span className={`font-medium ${
-                    selectedPlan?.type === 'Flexible SIP' ? 'text-green-600' : 'text-blue-600'
-                  }`}>
-                    {selectedPlan?.type}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Amount:</span>
-                  <span className="font-semibold text-black text-sm">
-                    {showAmountInput && manualAmount ? manualAmount : selectedPlan?.investMin}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Market Status:</span>
-                  <span className="font-semibold text-black text-sm">
-                    {marketStatus}
-                  </span>
-                </div>
-                {selectedPlan?.isFixed && (
-                  <div className="flex justify-between">
-                    <span>Payment Hours:</span>
-                    <span className={`font-semibold text-sm ${
-                      isWithinAllowedTime ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {isWithinAllowedTime ? '10:00 AM - 6:00 PM' : 'Outside allowed hours'}
-                    </span>
-                  </div>
-                )}
-                {showAmountInput && manualAmount && selectedPlan?.type === 'Flexible SIP' && (
-                  <div className="flex justify-between">
-                    <span>Payment Type:</span>
-                    <span className="font-medium text-green-600">Custom Amount</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span>Payment Status:</span>
-                  <span className={`font-medium ${
-                    marketStatus === 'closed' 
-                      ? 'text-red-600' 
-                      : selectedPlan?.isFixed && !isWithinAllowedTime 
-                      ? 'text-red-600' 
-                      : 'text-green-600'
-                  }`}>
-                    {marketStatus === 'closed' 
-                      ? 'Market Closed' 
-                      : selectedPlan?.isFixed && !isWithinAllowedTime 
-                      ? 'Time Restricted' 
-                      : 'Allowed'
-                    }
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Transaction Info */}
-            <div className="mt-4 p-2 bg-blue-50 rounded text-xs text-blue-700 text-center">
-              💾 Transaction will be recorded in your investment history
-            </div>
           </div>
         </div>
       )}
 
-      {/* Create Flexible SIP Dialog */}
-      {showCreateFlexibleSIPDialog && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 px-4">
-          <div 
-            className="absolute inset-0 bg-black bg-opacity-50"
-            onClick={() => !createSIPLoading && setShowCreateFlexibleSIPDialog(false)}
-          ></div>
-
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-scale-in">
-            <button
-              onClick={() => !createSIPLoading && setShowCreateFlexibleSIPDialog(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-              disabled={createSIPLoading}
-            >
-              <X className="w-6 h-6" />
-            </button>
-
-            <div className="text-center mb-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">
-                Create Flexible SIP
-              </h2>
-              <p className="text-sm text-gray-500">
-                Start your flexible gold investment plan
-              </p>
-              
-              {/* FIXED: No time restriction notice for Flexible SIP */}
-              {/* Market Status Notice */}
-              {marketStatus === 'closed' && (
-                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="flex items-center space-x-2 justify-center">
-                    <Lock className="w-4 h-4 text-red-500" />
-                    <span className="text-xs font-medium text-red-700">
-                      Market is currently closed
-                    </span>
-                  </div>
-                  <p className="text-xs text-red-600 mt-1">
-                    SIP operations are temporarily disabled. Please try again when the market opens.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* SIP Configuration */}
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Metal Type
-                </label>
-                <select 
-                  value={getDisplayMetalType(metalType)} // <-- Shows the display name
-                  onChange={(e) => setMetalType(getEnumMetalType(e.target.value))} // <-- Sets enum value
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#50C2C9] focus:border-transparent text-black"
-                  disabled={marketStatus === 'closed' || createSIPLoading}
-                >
-                  <option value="22KT Gold">22KT Gold</option>
-                  <option value="24KT Gold">24KT Gold</option>
-                  <option value="Silver">Silver</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tag your plan (months)
-                </label>
-                <select 
-                  value={totalMonths}
-                  onChange={(e) => setTotalMonths(parseInt(e.target.value))}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#50C2C9] focus:border-transparent text-black"
-                  disabled={marketStatus === 'closed' || createSIPLoading}
-                >
-                  <option value={6}>6 Months</option>
-                  <option value={12}>12 Months</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Create Button */}
-            <button
-              onClick={createFlexibleSIP}
-              disabled={createSIPLoading || marketStatus === 'closed'}
-              className={`w-full py-4 rounded-lg font-semibold transition-all shadow-md flex items-center justify-center space-x-2 ${
-                createSIPLoading || marketStatus === 'closed'
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-[#50C2C9] text-white hover:bg-[#45b1b9]'
-              }`}
-            >
-              {createSIPLoading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Creating SIP...</span>
-                </>
-              ) : marketStatus === 'closed' ? (
-                <>
-                  <Lock className="w-4 h-4" />
-                  <span>Market Closed</span>
-                </>
-              ) : (
-                <span>Create Flexible SIP</span>
-              )}
-            </button>
-
-            <p className="text-xs text-gray-500 text-center mt-3">
-              {marketStatus === 'closed'
-                ? 'Market is currently closed. SIP operations are temporarily disabled.'
-                : 'You can add funds to your flexible SIP anytime'
-              }
-            </p>
+      {/* Navigation (Sticky Bottom) */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-100 px-8 py-4 flex justify-between items-center max-w-md mx-auto z-40">
+        {[
+          { icon: <Home />, label: 'Home', path: '/Home' },
+          { icon: <PiggyBank />, label: 'SIP', active: true, path: '/savings_plan' },
+          { icon: <History />, label: 'Passbook', path: '/Passbook' },
+          { icon: <User />, label: 'Profile', path: '/profile' }
+        ].map((item, i) => (
+          <div
+            key={i}
+            onClick={() => router.push(item.path)}
+            className={`flex flex-col items-center gap-1 cursor-pointer transition-colors ${item.active ? 'text-[#50C2C9]' : 'text-slate-300 hover:text-slate-400'}`}
+          >
+            {React.cloneElement(item.icon, { size: 22, strokeWidth: item.active ? 2.5 : 2 })}
+            <span className="text-[9px] font-black uppercase tracking-tighter">{item.label}</span>
           </div>
-        </div>
-      )}
+        ))}
+      </nav>
 
       <style jsx>{`
-        @keyframes scale-in {
-          from {
-            transform: scale(0.9);
-            opacity: 0;
-          }
-          to {
-            transform: scale(1);
-            opacity: 1;
-          }
-        }
-        .animate-scale-in {
-          animation: scale-in 0.2s ease-out;
-        }
+        .animate-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
     </div>
   );

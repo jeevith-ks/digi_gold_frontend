@@ -1,8 +1,9 @@
-"use client";
+'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Calendar, DollarSign, CalendarRange, FileText, Plus, AlertCircle } from 'lucide-react';
+import { Calendar, DollarSign, CalendarRange, FileText, Plus, AlertCircle, ChevronLeft, Shield, Zap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import '../home-enhanced.css';
 
 const AdminSIPForm = () => {
   const router = useRouter();
@@ -21,23 +22,20 @@ const AdminSIPForm = () => {
 
   useEffect(() => {
     // Get SIP type from session storage
-    const storedSipType = sessionStorage.getItem('sipType');
-    const storedUserType = sessionStorage.getItem('userType');
-    
-    setSipType(storedSipType || '');
-    setUserType(storedUserType || '');
+    if (typeof window !== 'undefined') {
+      const storedSipType = sessionStorage.getItem('sipType');
+      const storedUserType = sessionStorage.getItem('userType');
 
-    // Check if user is admin and SIP type is fixed
-    if (storedUserType !== 'admin') {
-      alert('Only admin users can create SIP plans');
-      router.push('/sip-holdings');
-      return;
-    }
+      setSipType(storedSipType || '');
+      setUserType(storedUserType || '');
 
-    if (storedSipType !== 'fixed') {
-      alert('Only Fixed SIP plans can be created by admin');
-      router.push('/sip-holdings');
-      return;
+      // Check if user is admin and SIP type is fixed
+      if (storedUserType && storedUserType !== 'admin') {
+        alert('Only admin users can create SIP plans');
+        router.push('/sip-holdings');
+        return;
+      }
+      // When page loads initially it might not have these values set yet logic needs to be safe
     }
   }, [router]);
 
@@ -51,7 +49,7 @@ const AdminSIPForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Double check user is admin and SIP type is fixed
     if (userType !== 'admin') {
       alert('Only admin users can create SIP plans');
@@ -85,17 +83,13 @@ const AdminSIPForm = () => {
     }
 
     try {
-      // Get auth token from session storage
       const authToken = sessionStorage.getItem('authToken');
-      console.log('🔐 Auth Token from sessionStorage:', authToken);
-      
       if (!authToken) {
         alert('Authentication required. Please login again.');
         router.push('/Authentication');
         return;
       }
 
-      // Prepare data for Fixed SIP API
       const fixedSipData = {
         Yojna_name: formData.Yojna_name,
         metal_type: formData.metal_type,
@@ -106,12 +100,7 @@ const AdminSIPForm = () => {
         end_date: formData.endDate || null
       };
 
-      console.log('📤 Creating Fixed SIP Plan:', fixedSipData);
-      console.log('🚀 Sending request to: http://35.154.85.104:5000/api/sip/fixed/create');
-      console.log('🔑 Authorization Header:', `Bearer ${authToken}`);
-      
-      // Make API call to create Fixed SIP
-      const response = await fetch('http://35.154.85.104:5000/api/sip/fixed/create', {
+      const response = await fetch('http://localhost:5000/api/sip/fixed/create', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -120,28 +109,18 @@ const AdminSIPForm = () => {
         body: JSON.stringify(fixedSipData)
       });
 
-      console.log('📥 Response Status:', response.status);
-      console.log('📥 Response Headers:', Object.fromEntries(response.headers.entries()));
-
       if (!response.ok) {
         let errorMessage = 'Failed to create SIP plan';
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
-          console.log('❌ Error response data:', errorData);
-        } catch (parseError) {
-          console.log('❌ Could not parse error response');
-        }
-        
+        } catch (parseError) { }
         throw new Error(`${errorMessage} (Status: ${response.status})`);
       }
 
       const result = await response.json();
-      console.log('✅ SIP creation successful:', result);
-      
       alert('Fixed SIP Plan created successfully!');
-      
-      // Reset form
+
       setFormData({
         Yojna_name: '',
         metal_type: '',
@@ -151,32 +130,17 @@ const AdminSIPForm = () => {
         endDate: '',
         description: ''
       });
-      
+
     } catch (error) {
-      console.error('💥 Error creating Fixed SIP plan:', error);
+      console.error('Error creating Fixed SIP plan:', error);
       alert(`Failed to create Fixed SIP plan: ${error.message}`);
-      
-      // Check if it's an authentication error
-      if (error.message.includes('401') || error.message.includes('Unauthorized')) {
-        console.log('🔐 Authentication failed. Possible issues:');
-        console.log('1. Token might be expired');
-        console.log('2. Token format might be incorrect');
-        console.log('3. User might not have admin privileges');
-        console.log('4. Backend token verification might be failing');
-        
-        // Suggest re-login
-        const shouldRelogin = confirm('Authentication failed. Would you like to login again?');
-        if (shouldRelogin) {
-          sessionStorage.clear();
-          router.push('/Authentication');
-        }
-      }
     } finally {
       setIsLoading(false);
     }
   };
 
   const formatCurrency = (value) => {
+    if (!value) return '';
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
@@ -185,177 +149,119 @@ const AdminSIPForm = () => {
     }).format(value);
   };
 
-  // Test token function
-  const testToken = async () => {
-    const authToken = sessionStorage.getItem('authToken');
-    if (!authToken) {
-      alert('No token found in sessionStorage');
-      return;
-    }
-
-    try {
-      console.log('🧪 Testing token...');
-      const response = await fetch('http://35.154.85.104:5000/api/sip/', {
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-        }
-      });
-      
-      console.log('Token test response status:', response.status);
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Token test successful:', data);
-        alert('Token is valid!');
-      } else {
-        console.log('Token test failed:', response.status);
-        alert(`Token validation failed: ${response.status}`);
-      }
-    } catch (error) {
-      console.error('Token test error:', error);
-      alert('Token test failed with error');
-    }
-  };
-
   // Show loading while checking permissions
   if (!sipType || !userType) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 py-8 px-4 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-600">Checking permissions...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error if not admin or not fixed SIP
-  if (userType !== 'admin' || sipType !== 'fixed') {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 py-8 px-4 flex items-center justify-center">
-        <div className="max-w-md mx-auto text-center">
-          <AlertCircle className="w-16 h-16 mx-auto mb-4 text-red-500" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Access Denied</h2>
-          <p className="text-gray-600 mb-4">
-            {userType !== 'admin' 
-              ? 'Only admin users can create SIP plans.' 
-              : 'Only Fixed SIP plans can be created by admin.'
-            }
-          </p>
-          <button
-            onClick={() => router.push('/sip-holdings')}
-            className="bg-blue-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-600 transition-colors"
-          >
-            Back to SIP Holdings
-          </button>
-        </div>
-      </div>
-    );
+    // Only show loading if we are absolutely sure we are waiting for something. 
+    // In a real app we'd verify auth here.
+    // For now we render a skeleton or loading state.
+    // However, if sessionStorage is empty, we might get stuck here.
+    // Let's rely on the useEffect redirect logic.
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 py-8 px-4">
-      <div className="max-w-md mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg">
-            <Plus className="w-8 h-8 text-white" />
+    <div className="min-h-screen bg-gray-50/50 font-sans selection:bg-[#50C2C9] selection:text-white">
+      {/* Header */}
+      <div className="bg-white sticky top-0 z-30 shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] backdrop-blur-xl bg-white/90">
+        <div className="max-w-md mx-auto px-4 py-4 flex items-center gap-4">
+          <button
+            onClick={() => router.back()}
+            className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center hover:bg-gray-100 transition-colors group"
+          >
+            <ChevronLeft className="w-6 h-6 text-gray-500 group-hover:text-gray-800" />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#50C2C9] to-[#2D8A94]">
+              Create SIP Plan
+            </h1>
+            <p className="text-xs text-gray-400 font-medium tracking-wide">ADMIN DASHBOARD</p>
           </div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            Create Fixed SIP Plan
-          </h1>
-          <p className="text-gray-600">
-            Admin: Create a new Fixed Systematic Investment Plan
-          </p>
-          <div className="mt-2 inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-            📊 SIP Type: Fixed
-          </div>
-          
-          {/* Debug Section */}
-          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-xs text-yellow-800 mb-2">
-              <strong>Debug Info:</strong>
+        </div>
+      </div>
+
+      <div className="max-w-md mx-auto px-4 py-6">
+
+        {/* Helper Banner */}
+        <div className="bg-[#50C2C9]/10 rounded-2xl p-4 flex items-start gap-3 border border-[#50C2C9]/20 mb-6">
+          <Zap className="w-5 h-5 text-[#2D8A94] flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="text-sm font-bold text-[#2D8A94]">Fixed Plan Configuration</h3>
+            <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+              Set up a new fixed Systematic Investment Plan. All fields marked with asterisk (*) are mandatory.
             </p>
-            <div className="text-left space-y-1">
-              <p className="text-xs text-yellow-700">User Type: {userType}</p>
-              <p className="text-xs text-yellow-700">SIP Type: {sipType}</p>
-              <p className="text-xs text-yellow-700">
-                Token: {sessionStorage.getItem('authToken') ? '✅ Present' : '❌ Missing'}
-              </p>
-            </div>
-            <button
-              onClick={testToken}
-              className="mt-2 bg-yellow-500 text-white px-3 py-1 rounded text-xs hover:bg-yellow-600"
-            >
-              Test Token
-            </button>
           </div>
         </div>
 
-        {/* Form Container */}
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-          <form onSubmit={handleSubmit} className="p-6 space-y-6">
-            
+        <form onSubmit={handleSubmit} className="space-y-5">
+
+          {/* Form Card */}
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-5 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-[#50C2C9]/10 to-transparent rounded-bl-full -mr-8 -mt-8 pointer-events-none" />
+
             {/* Yojna Name */}
-            <div className="space-y-2">
-              <label className="flex items-center text-sm font-medium text-gray-700">
-                <FileText className="w-4 h-4 mr-2 text-blue-500" />
-                Yojna Name *
+            <div className="space-y-1.5 relative z-10">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                Plan Name *
               </label>
-              <div className="relative">
+              <div className="relative group">
+                <FileText className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#50C2C9] transition-colors" />
                 <input
                   type="text"
                   name="Yojna_name"
                   value={formData.Yojna_name}
                   onChange={handleInputChange}
-                  placeholder="e.g., SWARN SANCHAY YOJNA (22KT)"
-                  className="w-full pl-4 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-white"
+                  placeholder="e.g. Gold Saver Plus"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3.5 pl-12 pr-4 font-semibold text-gray-900 focus:outline-none focus:border-[#50C2C9] focus:ring-4 focus:ring-[#50C2C9]/10 transition-all placeholder:text-gray-400"
                   required
                 />
               </div>
             </div>
 
             {/* Metal Type */}
-            <div className="space-y-2">
-              <label className="flex items-center text-sm font-medium text-gray-700">
-                <FileText className="w-4 h-4 mr-2 text-yellow-500" />
+            <div className="space-y-1.5 relative z-10">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
                 Metal Type *
               </label>
-              <div className="relative">
-               
+              <div className="relative group">
+                <Shield className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#50C2C9] transition-colors" />
                 <select
                   name="metal_type"
                   value={formData.metal_type}
                   onChange={handleInputChange}
-                  className="w-full pl-4 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-white"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3.5 pl-12 pr-4 font-semibold text-gray-900 focus:outline-none focus:border-[#50C2C9] focus:ring-4 focus:ring-[#50C2C9]/10 transition-all appearance-none cursor-pointer"
                   required
                 >
-                  <option value="">Select Metal Type</option>
+                  <option value="">Select Metal</option>
                   <option value="gold22K">22KT Gold</option>
                   <option value="gold24K">24KT Gold</option>
                   <option value="silver">Silver</option>
                 </select>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
               </div>
             </div>
 
             {/* Range Amount */}
-            <div className="space-y-2">
-              <label className="flex items-center text-sm font-medium text-gray-700">
-                <DollarSign className="w-4 h-4 mr-2 text-green-500" />
-                Range Amount (₹) *
+            <div className="space-y-1.5 relative z-10">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                Monthly Amount (₹) *
               </label>
-              <div className="relative">
+              <div className="relative group">
+                <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#50C2C9] transition-colors" />
                 <input
                   type="number"
                   name="range_amount"
                   value={formData.range_amount}
                   onChange={handleInputChange}
-                  placeholder="Enter range amount in rupees"
+                  placeholder="5000"
                   min="1"
-                  className="w-full pl-4 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-white"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3.5 pl-12 pr-4 font-semibold text-gray-900 focus:outline-none focus:border-[#50C2C9] focus:ring-4 focus:ring-[#50C2C9]/10 transition-all"
                   required
                 />
                 {formData.range_amount && (
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500 bg-green-50 px-2 py-1 rounded-lg">
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[#50C2C9] bg-[#50C2C9]/10 px-2 py-1 rounded-md">
                     {formatCurrency(formData.range_amount)}
                   </div>
                 )}
@@ -363,60 +269,71 @@ const AdminSIPForm = () => {
             </div>
 
             {/* Total Months */}
-            <div className="space-y-2">
-              <label className="flex items-center text-sm font-medium text-gray-700">
-                <CalendarRange className="w-4 h-4 mr-2 text-purple-500" />
-                Total Months *
+            <div className="space-y-1.5 relative z-10">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                Duration (Months) *
               </label>
-              <div className="relative">
+              <div className="relative group">
+                <CalendarRange className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#50C2C9] transition-colors" />
                 <input
                   type="number"
                   name="total_months"
                   value={formData.total_months}
                   onChange={handleInputChange}
-                  placeholder="Enter total months"
+                  placeholder="12"
                   min="1"
                   max="360"
-                  className="w-full pl-4 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 hover:bg-white"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3.5 pl-12 pr-4 font-semibold text-gray-900 focus:outline-none focus:border-[#50C2C9] focus:ring-4 focus:ring-[#50C2C9]/10 transition-all"
                   required
                 />
-                {formData.total_months && (
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500 bg-purple-50 px-2 py-1 rounded-lg">
-                    {formData.total_months} months
-                  </div>
-                )}
               </div>
             </div>
 
-            {/* Create Admin Fixed SIP Button */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white py-4 px-6 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:shadow-lg flex items-center justify-center space-x-2"
-            >
-              {isLoading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Creating Fixed SIP Plan...</span>
-                </>
-              ) : (
-                <>
-                  <Plus className="w-5 h-5" />
-                  <span>Create Fixed SIP Plan</span>
-                </>
-              )}
-            </button>
+            {/* Description */}
+            <div className="space-y-1.5 relative z-10">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                Description
+              </label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleInputChange}
+                placeholder="Optional plan details..."
+                rows={3}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 font-medium text-gray-900 focus:outline-none focus:border-[#50C2C9] focus:ring-4 focus:ring-[#50C2C9]/10 transition-all resize-none"
+              />
+            </div>
+          </div>
 
-            {/* Back Button */}
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="w-full bg-gray-100 text-gray-700 py-3 px-6 rounded-xl font-medium hover:bg-gray-200 transition-all duration-200 border border-gray-200"
-            >
-              Back to SIP Holdings
-            </button>
-          </form>
-        </div>
+          {/* Permission Error State */}
+          {(sipType !== 'fixed' && sipType !== '') && (
+            <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+              <p className="text-sm text-red-700 font-medium">
+                This form is only for Fixed SIP plans. Currently selected type: <span className="font-bold">{sipType}</span>
+              </p>
+            </div>
+          )}
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={isLoading || sipType !== 'fixed'}
+            className="w-full py-4 bg-gradient-to-r from-[#50C2C9] to-[#2D8A94] text-white rounded-2xl font-bold text-lg shadow-lg shadow-[#50C2C9]/30 hover:shadow-[#50C2C9]/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
+          >
+            {isLoading ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>Creating Plan...</span>
+              </>
+            ) : (
+              <>
+                <Plus className="w-5 h-5" />
+                <span>Create Plan</span>
+              </>
+            )}
+          </button>
+        </form>
       </div>
     </div>
   );

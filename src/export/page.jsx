@@ -1,6 +1,6 @@
 const handleDownload = async () => {
     try {
-      const blob = await await fetch("http://35.154.85.104:8085/api/admin/export-excel");
+      const blob = await await fetch("http://localhost:8085/api/admin/export-excel");
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

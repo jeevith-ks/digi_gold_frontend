@@ -61,7 +61,7 @@ export default function SettlementsPage() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
       
-      const response = await fetch('http://35.154.85.104:5000/api/admin/completed-settled-sips', {
+      const response = await fetch('http://localhost:5000/api/admin/completed-settled-sips', {
         signal: controller.signal,
         headers: {
           'Authorization': `Bearer ${token}`, // Add Bearer prefix if needed
@@ -173,7 +173,7 @@ export default function SettlementsPage() {
         return;
       }
 
-      const response = await fetch('http://35.154.85.104:5000/api/admin/settlements', {
+      const response = await fetch('http://localhost:5000/api/admin/settlements', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -430,7 +430,7 @@ export default function SettlementsPage() {
             <span>Debug Information</span>
           </div>
           <div className="pl-6">
-            <p>Endpoint: http://35.154.85.104:5000/api/admin/completed-settled-sips</p>
+            <p>Endpoint: http://localhost:5000/api/admin/completed-settled-sips</p>
             <p className="mt-1">Error: {apiErrorMessage}</p>
             <p className="mt-1">Token available: {token ? 'Yes' : 'No'}</p>
             <p className="mt-1">Token length: {token ? token.length : 0}</p>
