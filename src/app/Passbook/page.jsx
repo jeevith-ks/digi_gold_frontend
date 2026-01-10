@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Download, Filter, Search, X, ArrowUpRight, ArrowDownLeft, Wallet, Calendar, Clock, CreditCard } from 'lucide-react';
+import BottomNavigation from '../../components/BottomNavigation';
 
 export default function StatementsPage() {
   const router = useRouter();
@@ -415,6 +416,9 @@ export default function StatementsPage() {
           ))
         )}
       </main>
+
+      {/* Bottom Navigation */}
+      <BottomNavigation />
     </div>
   );
 }

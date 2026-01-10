@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Edit2, LogOut, Save, Home, Bell, CreditCard, PiggyBank, User, X, BadgeCheck, Shield, Wallet, AlertCircle, Camera, CheckCircle2, ChevronRight, Lock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import BottomNavigation from '../../components/BottomNavigation';
 
 // Component defined OUTSIDE to prevent focus loss issues
 const RenderInput = ({ label, name, type = 'text', disabled = false, placeholder, icon, userData, onChange, editMode, loading }) => {
@@ -527,30 +528,8 @@ export default function ProfilePage() {
       </main>
 
       {/* Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-6 py-4 pb-6 z-40 rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
-        <div className="max-w-md mx-auto w-full flex justify-between items-center px-2">
-          {[
-            { icon: <Home className="w-6 h-6" />, label: 'Home', href: '/Home', active: false },
-            { icon: <PiggyBank className="w-6 h-6" />, label: 'SIP', href: '/savings_plan', active: false },
-            { icon: <CreditCard className="w-6 h-6" />, label: 'Passbook', href: '/Passbook', active: false },
-            { icon: <User className="w-6 h-6" />, label: 'Profile', href: '/profile', active: true }
-          ].map((item, i) => (
-            <Link key={i} href={item.href} className="group flex flex-col items-center gap-1.5 min-w-[3.5rem] cursor-pointer" onClick={(e) => { if (item.active) e.preventDefault(); }}>
-              <div className={`p-2.5 rounded-2xl transition-all duration-300 ${item.active
-                ? 'bg-[#50C2C9] text-white shadow-lg shadow-[#50C2C9]/30 -translate-y-2'
-                : 'bg-transparent text-slate-300 group-hover:text-slate-500'
-                }`}>
-                {item.icon}
-              </div>
-              {item.active && (
-                <span className="text-[10px] font-black text-[#50C2C9] uppercase tracking-widest animate-in fade-in slide-in-from-bottom-2 absolute bottom-2">
-                  {item.label}
-                </span>
-              )}
-            </Link>
-          ))}
-        </div>
-      </nav>
+      {/* Navigation Bar */}
+      <BottomNavigation />
 
     </div>
   );

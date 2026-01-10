@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { ChevronLeft, Wallet, Shield, Award, ArrowRight, Clock, Info } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import BottomNavigation from '../../components/BottomNavigation';
 import '../home-enhanced.css';
 
 const SIPPage = () => {
@@ -172,6 +173,7 @@ const SIPPage = () => {
 
         <div className="h-20"></div>
       </div>
+      <BottomNavigation />
     </div>
   );
 };

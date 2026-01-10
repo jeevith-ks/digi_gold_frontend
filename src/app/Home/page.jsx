@@ -4,6 +4,7 @@ import { Home, Bell, Shield, User, Gift, ShoppingCart, ArrowLeftRight, Scale, Cr
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import BottomNavigation from '../../components/BottomNavigation';
 
 import gold_24k from '../images/24k_gold.png';
 import gold_22k from '../images/22k_gold_v.jpg';
@@ -1041,6 +1042,17 @@ const PreciousMetalsApp = () => {
     }
   };
 
+  // Handle metal selection
+  const handleMetalSelection = (metalId) => {
+    setSelectedMetal(metalId);
+
+    // Recalculate amount based on existing grams and new metal rate
+    const rate = metalRates[metalId];
+    if (grams && rate) {
+      setAmount((parseFloat(grams) * rate).toFixed(0));
+    }
+  };
+
   // Handle rate change
   const handleRateChange = (metalId, newRate) => {
     setMetalRates(prev => ({
@@ -1108,6 +1120,8 @@ const PreciousMetalsApp = () => {
 
   // Handle grams change
   const handleGramsChange = (value) => {
+    if (value.includes('-') || parseFloat(value) < 0) return;
+
     setGrams(value);
     const selectedMetalData = metals.find(m => m.id === selectedMetal);
     if (selectedMetalData && value) {
@@ -1119,6 +1133,8 @@ const PreciousMetalsApp = () => {
 
   // Handle amount change
   const handleAmountChange = (value) => {
+    if (value.includes('-') || parseFloat(value) < 0) return;
+
     setAmount(value);
     const selectedMetalData = metals.find(m => m.id === selectedMetal);
     if (selectedMetalData && value) {
@@ -1193,7 +1209,7 @@ const PreciousMetalsApp = () => {
   const metals = [
     {
       id: '24k-995',
-      name: 'Gold',
+      name: 'Gold 24K',
       purity: '24k-995',
       rate: metalRates['24k-995'],
       balance: metalBalances['24k-995'],
@@ -1202,7 +1218,7 @@ const PreciousMetalsApp = () => {
     },
     {
       id: '22k-916',
-      name: 'Gold',
+      name: 'Gold 22K',
       purity: '22k-916',
       rate: metalRates['22k-916'],
       balance: metalBalances['22k-916'],
@@ -1234,14 +1250,7 @@ const PreciousMetalsApp = () => {
     { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs">💰</div>, label: 'LookBook', href: '/Lookbook' }
   ];
 
-  // Navigation items
-  const navItems = [
-    { icon: <Home className="w-6 h-6" />, label: 'Home', active: true, href: '/Home' },
-    { icon: <Bell className="w-6 h-6" />, label: 'Notification', href: '/Notifications' },
-    { icon: <PiggyBank className="w-6 h-6" />, label: 'Savings', href: '/savings' },
-    { icon: <CreditCard className="w-6 h-6" />, label: 'Passbook', href: '/Passbook' },
-    { icon: <User className="w-6 h-6" />, label: 'Profile', href: '/profile' }
-  ];
+
 
   return (
     <div className="w-full max-w-md mx-auto bg-[#F8FAFC] min-h-screen pb-24 font-sans relative">
@@ -1426,7 +1435,7 @@ const PreciousMetalsApp = () => {
             {metals.map(m => (
               <button
                 key={m.id}
-                onClick={() => setSelectedMetal(m.id)}
+                onClick={() => handleMetalSelection(m.id)}
                 className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-300 ${selectedMetal === m.id ? 'bg-white text-[#50C2C9] shadow-sm' : 'text-slate-400 hover:text-slate-600'
                   }`}
               >
@@ -1661,32 +1670,8 @@ const PreciousMetalsApp = () => {
       )}
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-slate-100 px-6 py-4 flex justify-between items-center max-w-md mx-auto z-50 pb-safe">
-        {navItems.map((item, index) => (
-          <div
-            key={index}
-            className={`flex flex-col items-center gap-1 cursor-pointer transition-colors relative group ${item.active
-              ? 'text-[#50C2C9]'
-              : 'text-slate-300 hover:text-slate-500'
-              }`}
-            onClick={() => {
-              if (item.action) item.action();
-              else if (item.href) router.push(item.href);
-            }}
-          >
-            {React.cloneElement(item.icon, { size: 22, strokeWidth: item.active ? 2.5 : 2 })}
-            <span className="text-[9px] font-black uppercase tracking-tighter">{item.label}</span>
-
-            {item.label === 'Notification' && notifications.filter(n => !n.is_read).length > 0 && (
-              <span className="absolute top-0 right-1/4 w-2 h-2 bg-rose-500 rounded-full border border-white"></span>
-            )}
-
-            {item.active && (
-              <div className="absolute -bottom-4 w-8 h-1 bg-[#50C2C9] rounded-t-full"></div>
-            )}
-          </div>
-        ))}
-      </nav>
+      {/* Bottom Navigation */}
+      <BottomNavigation unreadCount={notifications.filter(n => !n.is_read).length} />
     </div>
   );
 };
