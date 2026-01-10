@@ -306,7 +306,7 @@ const SIPPage = () => {
 
     // Define allowed time range: 10:00 AM (600 minutes) to 6:00 PM (1080 minutes)
     const startTimeInMinutes = 10 * 60; // 10:00 AM = 600 minutes
-    const endTimeInMinutes = 18 * 60;   // 6:00 PM = 1080 minutes
+    const endTimeInMinutes = 24 * 60;   // 6:00 PM = 1080 minutes
 
     const isWithinTime = currentTimeInMinutes >= startTimeInMinutes &&
       currentTimeInMinutes <= endTimeInMinutes;
@@ -1225,7 +1225,7 @@ const SIPPage = () => {
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            amount: razorpayAmount,
+            amount: amount, // Sending in Rupees, backend likely handles * conversion
             metalType: selectedPlan.metalType || '22KT Gold',
             sipMonths: selectedPlan.totalMonths || 12,
             sipType: selectedPlan.isFixed ? 'fixed' : 'flexible',
@@ -1730,7 +1730,7 @@ const SIPPage = () => {
       <header className="bg-white px-6 pt-8 pb-6 rounded-b-[2.5rem] shadow-sm sticky top-0 z-20">
         <div className="flex items-center justify-between">
           <button
-            onClick={() => router.push('/savings_plan')}
+            onClick={() => router.push('/Home')}
             className="p-2 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors"
           >
             <ChevronLeft className="text-slate-600" size={20} />
@@ -1905,7 +1905,7 @@ const SIPPage = () => {
 
                           {userType === 'customer' && (
                             <div className="mt-4">
-                              {plan.status === 'COMPLETED' ? (
+                              {(plan.status === 'COMPLETED' || (plan.monthsPaid >= plan.totalMonths && plan.totalMonths > 0)) ? (
                                 <div className="px-4 py-2 bg-emerald-500/20 border border-emerald-500/50 text-emerald-100 rounded-xl font-bold text-xs flex items-center gap-2">
                                   <Check size={14} /> Completed
                                 </div>
