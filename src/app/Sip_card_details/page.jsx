@@ -1947,7 +1947,7 @@ const SIPPage = () => {
 
         {/* Action Buttons */}
         <div className="flex gap-3 justify-center pt-4">
-          {activeTab === 'New SIP' && (
+          {activeTab === 'New SIP' && userType !== 'admin' && (
             <button
               onClick={() => {
                 if (userType === 'customer' && marketStatus === 'closed') {
@@ -1969,6 +1969,15 @@ const SIPPage = () => {
               className="flex-1 py-4 bg-emerald-500 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 disabled:bg-slate-300 disabled:shadow-none"
             >
               <Plus size={16} /> New Fixed SIP
+            </button>
+          )}
+
+          {activeTab === 'All' && userType === 'admin' && (
+            <button
+              onClick={handleCreateFixedSIP}
+              className="flex-1 py-4 bg-[#50C2C9] text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-lg shadow-[#50C2C9]/30 flex items-center justify-center gap-2"
+            >
+              <Plus size={16} /> Create Fixed Plan
             </button>
           )}
 
