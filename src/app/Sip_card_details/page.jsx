@@ -306,7 +306,7 @@ const SIPPage = () => {
 
     // Define allowed time range: 10:00 AM (600 minutes) to 6:00 PM (1080 minutes)
     const startTimeInMinutes = 10 * 60; // 10:00 AM = 600 minutes
-    const endTimeInMinutes = 24 * 60;   // 6:00 PM = 1080 minutes
+    const endTimeInMinutes = 18 * 60;   // 6:00 PM = 1080 minutes
 
     const isWithinTime = currentTimeInMinutes >= startTimeInMinutes &&
       currentTimeInMinutes <= endTimeInMinutes;
@@ -647,7 +647,7 @@ const SIPPage = () => {
         setTimeout(() => {
           setShowFixedSIPsList(false);
           setSelectedFixedSIPId(null);
-          alert('Fixed SIP chosen successfully!');
+          alert(data.message || 'Fixed SIP chosen successfully!');
 
           // Clear from session storage after success
           sessionStorage.removeItem('selectedFixedSIP');
@@ -1649,6 +1649,29 @@ const SIPPage = () => {
                         </p>
                       </div>
                     </div>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        console.log('Select Plan clicked:', {
+                          planId: plan.id,
+                          isWithinAllowedTime,
+                          marketStatus,
+                          isActive: plan.isActive
+                        });
+                        handleChooseFixedSIP(plan.id);
+                      }}
+                      disabled={!isWithinAllowedTime || marketStatus === 'closed' || !plan.isActive}
+                      className="w-full mt-4 py-3 bg-[#50C2C9] text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-[#50C2C9]/20 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none hover:bg-[#45aeb5] transition-all flex items-center justify-center gap-2"
+                    >
+                      {choosingSIP && selectedFixedSIPId === plan.id ? (
+                        <>
+                          <RefreshCw className="w-3 h-3 animate-spin" /> Processing...
+                        </>
+                      ) : (
+                        'Select Plan'
+                      )}
+                    </button>
                   </div>
                 ))}
               </div>

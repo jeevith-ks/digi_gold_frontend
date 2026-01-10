@@ -24,7 +24,7 @@ const PreciousMetalsApp = () => {
   const [marketStatus, setMarketStatus] = useState('CLOSED');
   const [isMarketOpen, setIsMarketOpen] = useState(false);
   const [isUpdatingMarket, setIsUpdatingMarket] = useState(false);
-  const [tradingHours, setTradingHours] = useState({ open: '10:00', close: '24:00' });
+  const [tradingHours, setTradingHours] = useState({ open: '10:00', close: '18:00' });
   const [currentTime, setCurrentTime] = useState('');
   const [marketHistory, setMarketHistory] = useState([]);
   const [showMarketHistory, setShowMarketHistory] = useState(false);
