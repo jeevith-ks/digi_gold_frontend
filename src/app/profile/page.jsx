@@ -1,9 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { Edit2, LogOut, Save, Home, Bell, CreditCard, PiggyBank, User, X, BadgeCheck, Shield, Wallet, AlertCircle, Camera, CheckCircle2, ChevronRight, Lock } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import BottomNavigation from '../../components/BottomNavigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 // Component defined OUTSIDE to prevent focus loss issues
 const RenderInput = ({ label, name, type = 'text', disabled = false, placeholder, icon, userData, onChange, editMode, loading }) => {
@@ -95,7 +93,7 @@ export default function ProfilePage() {
   // ---------------------------------------------------------------------------
   const fetchUserData = async () => {
     try {
-      const response = await fetch('http://35.154.85.104:5000/api/user/details', {
+      const response = await fetch('http://localhost:5000/api/user/details', {
         headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' }
       });
       if (response.ok) {
@@ -124,7 +122,7 @@ export default function ProfilePage() {
 
   const fetchKYCData = async () => {
     try {
-      const response = await fetch('http://35.154.85.104:5000/api/kyc/me', {
+      const response = await fetch('http://localhost:5000/api/kyc/me', {
         headers: { 'Authorization': `Bearer ${authToken}` }
       });
       if (response.ok) {
@@ -149,7 +147,7 @@ export default function ProfilePage() {
 
   const fetchVerificationStatus = async () => {
     try {
-      const response = await fetch('http://35.154.85.104:5000/api/kyc/verification/status', {
+      const response = await fetch('http://localhost:5000/api/kyc/verification/status', {
         headers: { 'Authorization': `Bearer ${authToken}` }
       });
       if (response.ok) {
@@ -203,7 +201,7 @@ export default function ProfilePage() {
         ...(userData.dateOfBirth && { dob: userData.dateOfBirth })
       };
 
-      const response = await fetch('http://35.154.85.104:5000/api/user/', {
+      const response = await fetch('http://localhost:5000/api/user/', {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -223,7 +221,7 @@ export default function ProfilePage() {
     if (!userData.panNumber || !userData.panFullName) return alert('Enter PAN details first');
     setIsVerifying(true);
     try {
-      const response = await fetch('http://35.154.85.104:5000/api/kyc/verify/pan', {
+      const response = await fetch('http://localhost:5000/api/kyc/verify/pan', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ pan_number: userData.panNumber.toUpperCase(), full_name: userData.panFullName, dob: userData.dateOfBirth })
@@ -241,7 +239,7 @@ export default function ProfilePage() {
   const updatePanDetails = async () => {
     try {
       const payload = { full_name: userData.panFullName, pan_number: userData.panNumber };
-      const res = await fetch('http://35.154.85.104:5000/api/kyc/pan', {
+      const res = await fetch('http://localhost:5000/api/kyc/pan', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -253,7 +251,7 @@ export default function ProfilePage() {
 
   const updateBankDetails = async () => {
     try {
-      const res = await fetch('http://35.154.85.104:5000/api/kyc/bank', {
+      const res = await fetch('http://localhost:5000/api/kyc/bank', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -528,8 +526,61 @@ export default function ProfilePage() {
       </main>
 
       {/* Navigation Bar */}
-      {/* Navigation Bar */}
-      <BottomNavigation />
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-slate-100 px-6 py-4 flex justify-between items-center max-w-md mx-auto z-50 pb-safe">
+        {[
+          {
+            icon: <Home className="w-6 h-6" />,
+            label: 'Home',
+            href: '/Home',
+            isActive: (path) => path === '/Home'
+          },
+          {
+            icon: <Bell className="w-6 h-6" />,
+            label: 'Notification',
+            href: '/Notifications',
+            isActive: (path) => path === '/Notifications'
+          },
+          {
+            icon: <PiggyBank className="w-6 h-6" />,
+            label: 'Savings',
+            href: '/savings',
+            isActive: (path) => path === '/savings' || path.startsWith('/savings/') || path === '/savings_plan'
+          },
+          {
+            icon: <CreditCard className="w-6 h-6" />,
+            label: 'Passbook',
+            href: '/Passbook',
+            isActive: (path) => path === '/Passbook'
+          },
+          {
+            icon: <User className="w-6 h-6" />,
+            label: 'Profile',
+            href: '/profile',
+            isActive: (path) => path === '/profile'
+          }
+        ].map((item, index) => {
+          const pathname = usePathname();
+          const active = item.isActive(pathname);
+
+          return (
+            <div
+              key={index}
+              className={`flex flex-col items-center gap-1 cursor-pointer transition-colors relative group ${active
+                  ? 'text-[#50C2C9]'
+                  : 'text-slate-600 hover:text-slate-700'
+                }`}
+              onClick={() => router.push(item.href)}
+            >
+              {React.cloneElement(item.icon, { size: 22, strokeWidth: active ? 2.5 : 2 })}
+              <span className="text-[9px] font-black uppercase tracking-tighter">{item.label}</span>
+
+              {active && (
+                <div className="absolute -bottom-4 w-8 h-1 bg-[#50C2C9] rounded-t-full"></div>
+              )}
+            </div>
+          );
+        })}
+      </nav>
 
     </div>
   );

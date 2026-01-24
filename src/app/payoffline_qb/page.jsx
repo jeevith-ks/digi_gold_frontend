@@ -132,7 +132,7 @@ export default function PayofflinePage() {
       console.log("Sending transaction data:", transactionData);
 
       const response = await fetch(
-        "http://35.154.85.104:5000/api/transactions/",
+        "http://localhost:5000/api/transactions/",
         {
           method: "POST",
           headers: {
@@ -190,7 +190,7 @@ export default function PayofflinePage() {
 
     try {
       const response = await fetch(
-        "http://35.154.85.104:5000/api/transactions/verify-offline",
+        "http://localhost:5000/api/transactions/verify-offline",
         {
           method: "POST",
           headers: {

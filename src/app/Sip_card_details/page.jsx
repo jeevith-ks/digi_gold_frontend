@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   ChevronLeft, X, Calendar, Clock, DollarSign, Edit, Users, Plus, Check, AlertCircle, Lock,
-  Home, PiggyBank, History, User, ArrowRight, Shield, Coins, RefreshCw // New icons
+  Home, PiggyBank, History, User, ArrowRight, Shield, Coins, RefreshCw, CheckCircle // New icons
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -45,6 +45,29 @@ const SIPPage = () => {
   // Payment processing state
   const [processingPayment, setProcessingPayment] = useState(false);
 
+  // Notification states
+  const [notifications, setNotifications] = useState([]);
+  const [notificationId, setNotificationId] = useState(0);
+
+  // Notification function
+  const showNotification = (message, type = 'success') => {
+    const id = notificationId;
+    setNotificationId(prev => prev + 1);
+
+    const newNotification = {
+      id,
+      message,
+      type // 'success' or 'error'
+    };
+
+    setNotifications(prev => [...prev, newNotification]);
+
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 5000);
+  };
+
   // Function to send transaction data to API
   const sendTransactionData = async (transactionData) => {
     try {
@@ -60,7 +83,7 @@ const SIPPage = () => {
 
       console.log('📤 Data being sent to API:', dataToSend);
 
-      const response = await fetch('http://35.154.85.104:5000/api/transactions/', {
+      const response = await fetch('http://localhost:5000/api/transactions/', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -125,7 +148,7 @@ const SIPPage = () => {
       });
 
       // For both online and offline payments
-      const verifyResponse = await fetch('http://35.154.85.104:5000/api/razorpay/verify-payment', {
+      const verifyResponse = await fetch('http://localhost:5000/api/razorpay/verify-payment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -156,7 +179,7 @@ const SIPPage = () => {
         sessionStorage.setItem('amountPayingValues', JSON.stringify(newAmountPayingValues));
 
         // Show success message
-        alert('Payment successful! Your SIP has been updated.');
+        showNotification('Payment successful! Your SIP has been updated.', 'success');
 
         // Refresh the SIP data
         if (userType === 'admin') {
@@ -168,12 +191,12 @@ const SIPPage = () => {
         return { success: true, data: verifyData };
       } else {
         console.error('❌ Payment verification failed:', verifyData);
-        alert(`Payment verification failed: ${verifyData.error || verifyData.message}`);
+        showNotification(`Payment verification failed: ${verifyData.error || verifyData.message}`, 'error');
         return { success: false, error: verifyData.error || verifyData.message };
       }
     } catch (error) {
       console.error('❌ Payment verification error:', error);
-      alert('Payment verification failed. Please contact support.');
+      showNotification('Payment verification failed. Please contact support.', 'error');
       return { success: false, error: error.message };
     } finally {
       setProcessingPayment(false);
@@ -366,7 +389,7 @@ const SIPPage = () => {
         return;
       }
 
-      const response = await fetch('http://35.154.85.104:5000/api/sip/all', {
+      const response = await fetch('http://localhost:5000/api/sip/all', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -418,7 +441,7 @@ const SIPPage = () => {
         return;
       }
 
-      const response = await fetch('http://35.154.85.104:5000/api/sip/', {
+      const response = await fetch('http://localhost:5000/api/sip/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -473,7 +496,7 @@ const SIPPage = () => {
     try {
       console.log('💰 Fetching latest prices...');
 
-      const response = await fetch('http://35.154.85.104:5000/api/price/', {
+      const response = await fetch('http://localhost:5000/api/price/', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -503,7 +526,7 @@ const SIPPage = () => {
     try {
       console.log('🔐 Fetching holdings for customer...');
 
-      const response = await fetch('http://35.154.85.104:5000/api/holdings', {
+      const response = await fetch('http://localhost:5000/api/holdings', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -529,13 +552,17 @@ const SIPPage = () => {
     try {
       // Check time restriction before fetching (only for Fixed SIP)
       if (!isWithinAllowedTime) {
-        setError(`Fixed SIP plans can only be chosen between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+        const errorMsg = `Fixed SIP plans can only be chosen between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`;
+        setError(errorMsg);
+        showNotification(errorMsg, 'error');
         return;
       }
 
       // Check market status before fetching
       if (marketStatus === 'closed') {
-        setError(`Market is currently closed. SIP operations are temporarily disabled.`);
+        const errorMsg = `Market is currently closed. SIP operations are temporarily disabled.`;
+        setError(errorMsg);
+        showNotification(errorMsg, 'error');
         return;
       }
 
@@ -548,7 +575,7 @@ const SIPPage = () => {
         return;
       }
 
-      const response = await fetch('http://35.154.85.104:5000/api/sip/fixed', {
+      const response = await fetch('http://localhost:5000/api/sip/fixed', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -592,13 +619,13 @@ const SIPPage = () => {
     try {
       // Check time restriction before proceeding (only for Fixed SIP)
       if (!isWithinAllowedTime) {
-        alert(`Cannot choose Fixed SIP plan. Fixed SIP plans can only be chosen between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+        showNotification(`Cannot choose Fixed SIP plan. Fixed SIP plans can only be chosen between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`, 'error');
         return;
       }
 
       // Check market status before proceeding
       if (marketStatus === 'closed') {
-        alert(`Market is currently closed. SIP operations are temporarily disabled.`);
+        showNotification(`Market is currently closed. SIP operations are temporarily disabled.`, 'error');
         return;
       }
 
@@ -617,7 +644,7 @@ const SIPPage = () => {
         return;
       }
 
-      const response = await fetch('http://35.154.85.104:5000/api/sip/fixed/opt', {
+      const response = await fetch('http://localhost:5000/api/sip/fixed/opt', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -647,7 +674,7 @@ const SIPPage = () => {
         setTimeout(() => {
           setShowFixedSIPsList(false);
           setSelectedFixedSIPId(null);
-          alert(data.message || 'Fixed SIP chosen successfully!');
+          showNotification(data.message || 'Fixed SIP chosen successfully!', 'success');
 
           // Clear from session storage after success
           sessionStorage.removeItem('selectedFixedSIP');
@@ -996,20 +1023,20 @@ const SIPPage = () => {
 
     // Check if SIP is completed
     if (plan.status === 'COMPLETED') {
-      alert('This SIP plan has been completed. Please check your holdings for details.');
+      showNotification('This SIP plan has been completed. Please check your holdings for details.', 'error');
       return;
     }
 
     // FIXED: Check time restriction only for Fixed SIP, not for Flexible SIP
     const isFixedSIP = plan.isFixed || plan.type === 'Fixed SIP';
     if (isFixedSIP && !isWithinAllowedTime) {
-      alert(`Cannot make payment for Fixed SIP. Fixed SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+      showNotification(`Cannot make payment for Fixed SIP. Fixed SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`, 'error');
       return;
     }
 
     // Check market status before opening payment dialog
     if (marketStatus === 'closed') {
-      alert(`Market is currently closed. Trading operations, including SIP payments, are temporarily disabled.`);
+      showNotification(`Market is currently closed. Trading operations, including SIP payments, are temporarily disabled.`, 'error');
       return;
     }
 
@@ -1066,13 +1093,13 @@ const SIPPage = () => {
     if (userType === 'customer' && activeTab === 'All') {
       // Check time restriction before proceeding (only for Fixed SIP)
       if (!isWithinAllowedTime) {
-        alert(`Cannot create Fixed SIP plan. Fixed SIP plans can only be chosen between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+        showNotification(`Cannot create Fixed SIP plan. Fixed SIP plans can only be chosen between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`, 'error');
         return;
       }
 
       // Check market status before proceeding
       if (marketStatus === 'closed') {
-        alert(`Market is currently closed. Trading operations, including SIP creation, are temporarily disabled.`);
+        showNotification(`Market is currently closed. Trading operations, including SIP creation, are temporarily disabled.`, 'error');
         return;
       }
 
@@ -1126,14 +1153,14 @@ const SIPPage = () => {
     // FIXED: Check time restriction only for Fixed SIP, not for Flexible SIP
     const isFixedSIP = selectedPlan?.isFixed || selectedPlan?.type === 'Fixed SIP';
     if (isFixedSIP && !isWithinAllowedTime) {
-      alert(`Cannot process payment for Fixed SIP. Fixed SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+      showNotification(`Cannot process payment for Fixed SIP. Fixed SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`, 'error');
       setShowPaymentDialog(false);
       return;
     }
 
     // Check market status before proceeding with payment
     if (marketStatus === 'closed') {
-      alert(`Market is currently closed. Trading operations, including SIP payments, are temporarily disabled.`);
+      showNotification(`Market is currently closed. Trading operations, including SIP payments, are temporarily disabled.`, 'error');
       setShowPaymentDialog(false);
       return;
     }
@@ -1144,7 +1171,7 @@ const SIPPage = () => {
     setShowPaymentDialog(false);
 
     if (!selectedPlan) {
-      alert('No plan selected. Please try again.');
+      showNotification('No plan selected. Please try again.', 'error');
       return;
     }
 
@@ -1209,7 +1236,7 @@ const SIPPage = () => {
         }
 
         console.log('📞 Calling Razorpay API...');
-        console.log('Request URL:', 'http://35.154.85.104:5000/api/razorpay/create-order');
+        console.log('Request URL:', 'http://localhost:5000/api/razorpay/create-order');
         console.log('Request payload:', {
           amount: razorpayAmount,
           metalType: selectedPlan.metalType || '22KT Gold',
@@ -1218,7 +1245,7 @@ const SIPPage = () => {
           sipId: selectedSIPId
         });
 
-        const response = await fetch('http://35.154.85.104:5000/api/razorpay/create-order', {
+        const response = await fetch('http://localhost:5000/api/razorpay/create-order', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1295,7 +1322,7 @@ const SIPPage = () => {
           modal: {
             ondismiss: function () {
               console.log('Payment modal closed');
-              alert('Payment was cancelled. You can try again.');
+              showNotification('Payment was cancelled. You can try again.', 'error');
             }
           }
         };
@@ -1306,7 +1333,7 @@ const SIPPage = () => {
 
         razorpay.on('payment.failed', function (response) {
           console.error('❌ Payment failed:', response.error);
-          alert(`Payment failed: ${response.error.description}. Please try again.`);
+          showNotification(`Payment failed: ${response.error.description}. Please try again.`, 'error');
         });
 
         razorpay.open();
@@ -1326,19 +1353,19 @@ const SIPPage = () => {
           errorMessage = 'Please enter a valid payment amount (minimum ₹1)';
         }
 
-        alert(`Payment failed: ${errorMessage}`);
+        showNotification(`Payment failed: ${errorMessage}`, 'error');
       }
     } else if (method === 'Offline') {
       // FIXED: Check time restriction only for Fixed SIP, not for Flexible SIP
       const isFixedSIP = selectedPlan?.isFixed || selectedPlan?.type === 'Fixed SIP';
       if (isFixedSIP && !isWithinAllowedTime) {
-        alert(`Cannot process payment for Fixed SIP. Fixed SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`);
+        showNotification(`Cannot process payment for Fixed SIP. Fixed SIP payments can only be made between 10:00 AM and 6:00 PM. Current time: ${formatTime(currentTime)}`, 'error');
         return;
       }
 
       // Check market status for offline payment
       if (marketStatus === 'closed') {
-        alert(`Market is currently closed. Trading operations, including offline SIP payments, are temporarily disabled.`);
+        showNotification(`Market is currently closed. Trading operations, including offline SIP payments, are temporarily disabled.`, 'error');
         return;
       }
 
@@ -1418,7 +1445,7 @@ const SIPPage = () => {
       // FIXED: No time restriction for Flexible SIP creation
       // Check market status before creating SIP
       if (marketStatus === 'closed') {
-        alert(`Market is currently closed. Trading operations, including SIP creation, are temporarily disabled.`);
+        showNotification(`Market is currently closed. Trading operations, including SIP creation, are temporarily disabled.`, 'error');
         return;
       }
 
@@ -1426,7 +1453,7 @@ const SIPPage = () => {
       const token = sessionStorage.getItem('authToken');
 
       if (!token) {
-        alert('Please login again');
+        showNotification('Please login again', 'error');
         return;
       }
 
@@ -1454,7 +1481,7 @@ const SIPPage = () => {
       };
       sessionStorage.setItem('flexibleSIPCreation', JSON.stringify(sipCreationData));
 
-      const response = await fetch('http://35.154.85.104:5000/api/sip/flexible/create', {
+      const response = await fetch('http://localhost:5000/api/sip/flexible/create', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1484,12 +1511,12 @@ const SIPPage = () => {
         setMetalType('gold22K'); // Reset to default
         setTotalMonths(12);
         setInvestmentAmount(100000);
-        alert('Flexible SIP created successfully!');
+        showNotification('Flexible SIP created successfully!', 'success');
       } else {
-        alert(`Error: ${responseData.message || 'Failed to create flexible SIP'}`);
+        showNotification(`Error: ${responseData.message || 'Failed to create flexible SIP'}`, 'error');
       }
     } catch (err) {
-      alert('Network error while creating flexible SIP');
+      showNotification('Network error while creating flexible SIP', 'error');
     } finally {
       setCreateSIPLoading(false);
     }
@@ -1749,6 +1776,45 @@ const SIPPage = () => {
     <div className="w-full max-w-md mx-auto bg-[#F8FAFC] min-h-screen pb-24 font-sans relative">
       <DebugInfo />
 
+      {/* Notification Toast Container */}
+      <div className="fixed top-4 right-4 z-[200] space-y-3 max-w-sm">
+        {notifications.map((notification) => (
+          <div
+            key={notification.id}
+            className={`transform transition-all duration-500 ease-out animate-in slide-in-from-right-full ${notification.type === 'success'
+              ? 'bg-gradient-to-r from-emerald-500 to-emerald-600'
+              : 'bg-gradient-to-r from-rose-500 to-rose-600'
+              } text-white rounded-2xl shadow-2xl p-4 flex items-start gap-3 min-w-[300px] backdrop-blur-lg border border-white/20`}
+            style={{
+              animation: 'slideInRight 0.5s ease-out, fadeOut 0.5s ease-in 4.5s'
+            }}
+          >
+            <div className={`p-2 rounded-full ${notification.type === 'success' ? 'bg-emerald-400/30' : 'bg-rose-400/30'
+              }`}>
+              {notification.type === 'success' ? (
+                <CheckCircle className="w-5 h-5 text-white" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-white" />
+              )}
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-black uppercase tracking-wider mb-1">
+                {notification.type === 'success' ? 'Success' : 'Error'}
+              </p>
+              <p className="text-sm font-medium leading-relaxed">
+                {notification.message}
+              </p>
+            </div>
+            <button
+              onClick={() => setNotifications(prev => prev.filter(n => n.id !== notification.id))}
+              className="p-1 hover:bg-white/20 rounded-full transition-colors"
+            >
+              <X className="w-4 h-4 text-white" />
+            </button>
+          </div>
+        ))}
+      </div>
+
       {/* Header */}
       <header className="bg-white px-6 pt-8 pb-6 rounded-b-[2.5rem] shadow-sm sticky top-0 z-20">
         <div className="flex items-center justify-between">
@@ -1974,7 +2040,7 @@ const SIPPage = () => {
             <button
               onClick={() => {
                 if (userType === 'customer' && marketStatus === 'closed') {
-                  alert('Market closed.'); return;
+                  showNotification('Market is currently closed', 'error'); return;
                 }
                 setShowCreateFlexibleSIPDialog(true);
               }}
@@ -2156,6 +2222,24 @@ const SIPPage = () => {
       <style jsx>{`
         .animate-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideInRight {
+          from {
+            opacity: 0;
+            transform: translateX(100%);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        @keyframes fadeOut {
+          from {
+            opacity: 1;
+          }
+          to {
+            opacity: 0;
+          }
+        }
       `}</style>
     </div>
   );

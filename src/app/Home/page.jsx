@@ -1,10 +1,9 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Home, Bell, Shield, User, Gift, ShoppingCart, ArrowLeftRight, Scale, CreditCard, PiggyBank, Edit2, Save, RefreshCw, Clock, Lock, Unlock, FolderInput, Settings2, Signature, AlertCircle, CheckCircle, XCircle, History, Calendar, TrendingUp } from 'lucide-react';
+import { Home, Bell, Gem, Shield, User, Gift, ShoppingCart, ArrowLeftRight, Scale, CreditCard, PiggyBank, Edit2, Save, RefreshCw, Clock, Lock, Unlock, FolderInput, Settings2, Signature, AlertCircle, CheckCircle, XCircle, History, Calendar, TrendingUp } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import BottomNavigation from '../../components/BottomNavigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 import gold_24k from '../images/24k_gold.png';
 import gold_22k from '../images/22k_gold_v.jpg';
@@ -30,6 +29,12 @@ const PreciousMetalsApp = () => {
   const [showMarketHistory, setShowMarketHistory] = useState(false);
 
   const [metalRates, setMetalRates] = useState({
+    '24k-995': 10170,
+    '22k-916': 9560,
+    '24k-999': 118
+  });
+
+  const [originalMetalRates, setOriginalMetalRates] = useState({
     '24k-995': 10170,
     '22k-916': 9560,
     '24k-999': 118
@@ -185,7 +190,7 @@ const PreciousMetalsApp = () => {
 
       // Always use the admin endpoint to get market status
       // This endpoint should be accessible to both admin and customers
-      const response = await fetch('http://35.154.85.104:5000/api/admin/market-status', {
+      const response = await fetch('http://localhost:5000/api/admin/market-status', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -281,7 +286,7 @@ const PreciousMetalsApp = () => {
   // Fetch market history (admin only)
   const fetchMarketHistory = async (token) => {
     try {
-      const response = await fetch('http://35.154.85.104:5000/api/admin/market-status/history', {
+      const response = await fetch('http://localhost:5000/api/admin/market-status/history', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -302,7 +307,7 @@ const PreciousMetalsApp = () => {
   const fetchLatestPrices = async (token) => {
     try {
       setIsLoadingPrices(true);
-      const response = await fetch('http://35.154.85.104:5000/api/price/', {
+      const response = await fetch('http://localhost:5000/api/price/', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -314,11 +319,14 @@ const PreciousMetalsApp = () => {
         const data = await response.json();
 
         if (data.latestPrice) {
-          setMetalRates({
+          const newRates = {
             '24k-995': data.latestPrice.gold24K,
             '22k-916': data.latestPrice.gold22K,
             '24k-999': data.latestPrice.silver
-          });
+          };
+
+          setMetalRates(newRates);
+          setOriginalMetalRates(newRates); // Store as original for cancel functionality
 
           setLastPriceUpdate(new Date().toLocaleTimeString());
 
@@ -340,7 +348,7 @@ const PreciousMetalsApp = () => {
   const fetchHoldings = async (token) => {
     try {
       setIsLoading(true);
-      const response = await fetch('http://35.154.85.104:5000/api/holdings', {
+      const response = await fetch('http://localhost:5000/api/holdings', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -363,7 +371,7 @@ const PreciousMetalsApp = () => {
   // Fetch notifications
   const fetchNotifications = async (token) => {
     try {
-      const response = await fetch('http://35.154.85.104:5000/api/notifications', {
+      const response = await fetch('http://localhost:5000/api/notifications', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -459,7 +467,7 @@ const PreciousMetalsApp = () => {
       });
 
       // For online payment verification
-      const verifyResponse = await fetch('http://35.154.85.104:5000/api/razorpay/verify-payment', {
+      const verifyResponse = await fetch('http://localhost:5000/api/razorpay/verify-payment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -501,7 +509,7 @@ const PreciousMetalsApp = () => {
       console.log('✅ Payment verified successfully:', verifyData);
 
       // Add transaction to database
-      // const transactionResponse = await fetch('http://35.154.85.104:5000/api/transactions/add-transaction', {
+      // const transactionResponse = await fetch('http://localhost:5000/api/transactions/add-transaction', {
       //   method: 'POST',
       //   headers: {
       //     'Content-Type': 'application/json',
@@ -625,7 +633,7 @@ const PreciousMetalsApp = () => {
       console.log('📤 Sending to backend:', requestBody);
 
       // Create Razorpay order
-      const response = await fetch('http://35.154.85.104:5000/api/razorpay/create-order', {
+      const response = await fetch('http://localhost:5000/api/razorpay/create-order', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -826,7 +834,7 @@ const PreciousMetalsApp = () => {
         return;
       }
 
-      const response = await fetch('http://35.154.85.104:5000/api/admin/market-status', {
+      const response = await fetch('http://localhost:5000/api/admin/market-status', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -891,7 +899,7 @@ const PreciousMetalsApp = () => {
         return;
       }
 
-      const response = await fetch('http://35.154.85.104:5000/api/admin/market-status', {
+      const response = await fetch('http://localhost:5000/api/admin/market-status', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1055,10 +1063,32 @@ const PreciousMetalsApp = () => {
 
   // Handle rate change
   const handleRateChange = (metalId, newRate) => {
-    setMetalRates(prev => ({
-      ...prev,
-      [metalId]: parseFloat(newRate) || 0
-    }));
+    // Allow empty string while editing, only convert to number if there's a value
+    // This prevents the field from defaulting to 0 when user clears it
+    if (newRate === '' || newRate === null || newRate === undefined) {
+      setMetalRates(prev => ({
+        ...prev,
+        [metalId]: ''
+      }));
+    } else {
+      const numValue = parseFloat(newRate);
+      setMetalRates(prev => ({
+        ...prev,
+        [metalId]: isNaN(numValue) ? '' : numValue
+      }));
+    }
+  };
+
+  // Handle start edit - store current rates as original
+  const handleStartEdit = () => {
+    setOriginalMetalRates({ ...metalRates });
+    setEditMode(true);
+  };
+
+  // Handle cancel edit - restore original rates
+  const handleCancelEdit = () => {
+    setMetalRates({ ...originalMetalRates });
+    setEditMode(false);
   };
 
   // Handle save rates
@@ -1082,13 +1112,36 @@ const PreciousMetalsApp = () => {
         return;
       }
 
+      // Validate that all rates are filled and valid
+      const gold24K = parseFloat(metalRates['24k-995']);
+      const gold22K = parseFloat(metalRates['22k-916']);
+      const silver = parseFloat(metalRates['24k-999']);
+
+      if (!gold24K || isNaN(gold24K) || gold24K <= 0) {
+        alert('Please enter a valid rate for Gold 24K');
+        setIsSaving(false);
+        return;
+      }
+
+      if (!gold22K || isNaN(gold22K) || gold22K <= 0) {
+        alert('Please enter a valid rate for Gold 22K');
+        setIsSaving(false);
+        return;
+      }
+
+      if (!silver || isNaN(silver) || silver <= 0) {
+        alert('Please enter a valid rate for Silver');
+        setIsSaving(false);
+        return;
+      }
+
       const priceData = {
-        gold24K: metalRates['24k-995'],
-        gold22K: metalRates['22k-916'],
-        silver: metalRates['24k-999']
+        gold24K: gold24K,
+        gold22K: gold22K,
+        silver: silver
       };
 
-      const response = await fetch('http://35.154.85.104:5000/api/price/add', {
+      const response = await fetch('http://localhost:5000/api/price/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1100,6 +1153,13 @@ const PreciousMetalsApp = () => {
       if (response.ok) {
         alert('Rates updated successfully for all users!');
         setEditMode(false);
+
+        // Update the metalRates state with the validated numbers
+        setMetalRates({
+          '24k-995': gold24K,
+          '22k-916': gold22K,
+          '24k-999': silver
+        });
 
         addNotification({
           title: 'Prices Updated',
@@ -1154,7 +1214,7 @@ const PreciousMetalsApp = () => {
         return;
       }
 
-      const response = await fetch("http://35.154.85.104:5000/api/admin/export-excel", {
+      const response = await fetch("http://localhost:5000/api/admin/export-excel", {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -1242,12 +1302,12 @@ const PreciousMetalsApp = () => {
     { icon: <Settings2 className="w-6 h-6" />, label: 'Settlements', href: '/settlements' },
     { icon: <Signature className="w-6 h-6" />, label: 'Approve', href: '/Approve' },
     { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs font-bold">₹</div>, label: 'SIP', href: '/Sip_card_details' },
-    { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs">💰</div>, label: 'LookBook', href: '/Lookbook' }
+    // { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs">💰</div>, label: 'LookBook', href: '/Lookbook' }
   ];
 
   const customerActionButtons = [
     { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs font-bold">₹</div>, label: 'SIP', href: '/Sip_card_details' },
-    { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs">💰</div>, label: 'LookBook', href: '/Lookbook' }
+    // { icon: <div className="w-6 h-6 bg-[#50C2C9] rounded-full flex items-center justify-center text-white text-xs">💰</div>, label: 'LookBook', href: '/Lookbook' }
   ];
 
 
@@ -1271,13 +1331,10 @@ const PreciousMetalsApp = () => {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => setShowNotifications(!showNotifications)}
+              onClick={() => router.push('/Lookbook')}
               className="p-3 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors relative"
             >
-              <Bell size={20} className="text-slate-600" />
-              {notifications.filter(n => !n.is_read).length > 0 && (
-                <span className="absolute top-3 right-3 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
-              )}
+              <Gem size={20} className="text-slate-600" />
             </button>
           </div>
         </div>
@@ -1392,13 +1449,24 @@ const PreciousMetalsApp = () => {
                 {lastPriceUpdate && <span className="text-[9px] font-bold text-emerald-500 bg-emerald-50 px-1.5 py-0.5 rounded">Updated</span>}
               </div>
               {userType === 'admin' && (
-                <button
-                  onClick={editMode ? handleSaveRates : () => setEditMode(true)}
-                  className="text-[10px] font-black text-[#50C2C9] uppercase tracking-wider hover:text-slate-700 transition-colors flex items-center gap-1"
-                >
-                  {editMode ? <Save size={12} /> : <Edit2 size={12} />}
-                  {editMode ? (isSaving ? 'Saving...' : 'Save') : 'Edit'}
-                </button>
+                <div className="flex gap-2">
+                  {editMode && (
+                    <button
+                      onClick={handleCancelEdit}
+                      className="text-[10px] font-black text-rose-500 uppercase tracking-wider hover:text-rose-700 transition-colors flex items-center gap-1"
+                    >
+                      <XCircle size={12} />
+                      Cancel
+                    </button>
+                  )}
+                  <button
+                    onClick={editMode ? handleSaveRates : handleStartEdit}
+                    className="text-[10px] font-black text-[#50C2C9] uppercase tracking-wider hover:text-slate-700 transition-colors flex items-center gap-1"
+                  >
+                    {editMode ? <Save size={12} /> : <Edit2 size={12} />}
+                    {editMode ? (isSaving ? 'Saving...' : 'Save') : 'Edit'}
+                  </button>
+                </div>
               )}
             </div>
 
@@ -1408,9 +1476,12 @@ const PreciousMetalsApp = () => {
                   {editMode ? (
                     <input
                       type="number"
-                      className="w-full text-center bg-white rounded-lg text-xs font-bold py-1 text-slate-800 border-none focus:ring-2 ring-[#50C2C9]/20"
-                      value={metalRates[m.id]}
+                      className="w-full text-center bg-white rounded-lg text-xs font-bold py-1 text-slate-800 border-2 border-[#50C2C9]/20 focus:ring-2 ring-[#50C2C9]/40 focus:border-[#50C2C9] outline-none transition-all"
+                      value={metalRates[m.id] === '' ? '' : metalRates[m.id]}
                       onChange={(e) => handleRateChange(m.id, e.target.value)}
+                      placeholder="Enter rate"
+                      min="0"
+                      step="0.01"
                     />
                   ) : (
                     <p className="text-xs font-black text-slate-800">₹{isLoadingPrices ? '...' : m.rate.toLocaleString()}</p>
@@ -1672,8 +1743,65 @@ const PreciousMetalsApp = () => {
       )}
 
       {/* Bottom Navigation */}
-      {/* Bottom Navigation */}
-      <BottomNavigation unreadCount={notifications.filter(n => !n.is_read).length} />
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-slate-100 px-6 py-4 flex justify-between items-center max-w-md mx-auto z-50 pb-safe">
+        {[
+          {
+            icon: <Home className="w-6 h-6" />,
+            label: 'Home',
+            href: '/Home',
+            isActive: (path) => path === '/Home'
+          },
+          {
+            icon: <Bell className="w-6 h-6" />,
+            label: 'Notification',
+            href: '/Notifications',
+            isActive: (path) => path === '/Notifications'
+          },
+          {
+            icon: <PiggyBank className="w-6 h-6" />,
+            label: 'Savings',
+            href: '/savings',
+            isActive: (path) => path === '/savings' || path.startsWith('/savings/') || path === '/savings_plan'
+          },
+          {
+            icon: <CreditCard className="w-6 h-6" />,
+            label: 'Passbook',
+            href: '/Passbook',
+            isActive: (path) => path === '/Passbook'
+          },
+          {
+            icon: <User className="w-6 h-6" />,
+            label: 'Profile',
+            href: '/profile',
+            isActive: (path) => path === '/profile'
+          }
+        ].map((item, index) => {
+          const pathname = usePathname();
+          const active = item.isActive(pathname);
+
+          return (
+            <div
+              key={index}
+              className={`flex flex-col items-center gap-1 cursor-pointer transition-colors relative group ${active
+                ? 'text-[#50C2C9]'
+                : 'text-slate-600 hover:text-slate-700'
+                }`}
+              onClick={() => router.push(item.href)}
+            >
+              {React.cloneElement(item.icon, { size: 22, strokeWidth: active ? 2.5 : 2 })}
+              <span className="text-[9px] font-black uppercase tracking-tighter">{item.label}</span>
+
+              {item.label === 'Notification' && notifications.filter(n => !n.is_read).length > 0 && (
+                <span className="absolute top-0 right-1/4 w-2 h-2 bg-rose-500 rounded-full border border-white"></span>
+              )}
+
+              {active && (
+                <div className="absolute -bottom-4 w-8 h-1 bg-[#50C2C9] rounded-t-full"></div>
+              )}
+            </div>
+          );
+        })}
+      </nav>
     </div>
   );
 };
