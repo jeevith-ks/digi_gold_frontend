@@ -51,7 +51,7 @@ const BottomNavigation = ({ unreadCount = 0 }) => {
                         key={index}
                         className={`flex flex-col items-center gap-1 cursor-pointer transition-colors relative group ${active
                             ? 'text-[#50C2C9]'
-                            : 'text-slate-300 hover:text-slate-500'
+                            : 'text-slate-600 hover:text-slate-700'
                             }`}
                         onClick={() => router.push(item.href)}
                     >

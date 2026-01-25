@@ -14,6 +14,7 @@ export default function SecureVault() {
   const [adminPrices, setAdminPrices] = useState(null);
   const [loadingPrices, setLoadingPrices] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
 
   // Set client-side flag
   useEffect(() => {
@@ -79,6 +80,9 @@ export default function SecureVault() {
 
   // Calculate amount based on quantity and current price
   const calculateAmount = (holding, prices = adminPrices) => {
+    // If API returns 'amount' (value), use it directly
+    if (holding.amount) return parseFloat(holding.amount) || 0;
+
     if (!holding || !holding.qty) return parseFloat(holding.amt) || 0;
 
     const quantity = parseFloat(holding.qty) || 0;
@@ -122,10 +126,31 @@ export default function SecureVault() {
     const processedHoldings = holdingsArray.map(holding => {
       const calculatedAmount = calculateAmount(holding, prices);
       const originalAmount = parseFloat(holding.amt) || 0;
-      const displayAmount = calculatedAmount > 0 ? calculatedAmount : originalAmount;
+      const apiAmount = parseFloat(holding.amount) || 0;
+
+      // Use API amount if available, else calculated
+      const displayAmount = apiAmount > 0 ? apiAmount : (calculatedAmount > 0 ? calculatedAmount : originalAmount);
+
+      // Back-calculate qty if missing (for display)
+      let qty = parseFloat(holding.qty) || 0;
+      if (qty === 0 && displayAmount > 0) {
+        if (holding.metal_type?.toUpperCase().includes('MONEY')) {
+          qty = displayAmount;
+        } else {
+          // Find price to divide
+          let price = 0;
+          const metalType = holding.metal_type || '';
+          if (prices) {
+            if (prices.gold24K && metalType.includes('24')) price = parseFloat(prices.gold24K);
+            else if (prices.gold22K && metalType.includes('22')) price = parseFloat(prices.gold22K);
+            else if (prices.silver && metalType.toLowerCase().includes('silver')) price = parseFloat(prices.silver);
+          }
+          if (price > 0) qty = displayAmount / price;
+        }
+      }
 
       total += displayAmount;
-      return { ...holding, calculatedAmount, originalAmount, displayAmount };
+      return { ...holding, calculatedAmount, originalAmount, displayAmount, qty };
     });
 
     return { processedHoldings, total };
@@ -157,7 +182,7 @@ export default function SecureVault() {
 
       const prices = await fetchAdminPrices();
 
-      const response = await fetch('http://localhost:5000/api/holdings', {
+      const response = await fetch('http://localhost:5000/api/user/holdings', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -176,11 +201,19 @@ export default function SecureVault() {
       if (!response.ok) throw new Error(`Failed to fetch holdings: ${response.status}`);
 
       const data = await response.json();
+      console.log("Holdings API response:", data);
       let holdingsArray = [];
 
-      if (Array.isArray(data)) holdingsArray = data;
-      else if (data.holdings && Array.isArray(data.holdings)) holdingsArray = data.holdings;
-      else if (data.data && Array.isArray(data.data)) holdingsArray = data.data;
+      // Handle various response structures - Prioritize data.data based on user logs
+      if (data.data && Array.isArray(data.data)) {
+        holdingsArray = data.data;
+      } else if (Array.isArray(data)) {
+        holdingsArray = data;
+      } else if (data.holdings && Array.isArray(data.holdings)) {
+        holdingsArray = data.holdings;
+      }
+
+      console.log("Parsed holdings array:", holdingsArray);
 
       const { processedHoldings, total } = processHoldingsWithPrices(holdingsArray, prices);
 
@@ -190,6 +223,9 @@ export default function SecureVault() {
       // Manual fallback if total is 0
       if (total === 0 && holdingsArray.length > 0) {
         const manualTotal = holdingsArray.reduce((sum, holding) => {
+          // Use 'amount' from API if available (as value), otherwise calculate from qty
+          if (holding.amount) return sum + parseFloat(holding.amount);
+
           const qty = parseFloat(holding.qty) || 0;
           let price = 0;
           if (holding.metal_type.toUpperCase().includes('GOLD24K')) price = 13000;
@@ -390,7 +426,7 @@ export default function SecureVault() {
                     <div className="pt-3 border-t border-slate-50 flex justify-between items-center px-1">
                       <div>
                         <p className="text-[9px] font-black text-slate-300 uppercase tracking-wider mb-0.5">Quantity</p>
-                        <p className="text-xs font-bold text-slate-600">{formatQuantity(holding.qty, holding.metal_type)}</p>
+                        <p className="text-xs font-bold text-slate-600">{formatQuantity(holding.qty)}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-[9px] font-black text-slate-300 uppercase tracking-wider mb-0.5">Current Rate</p>
@@ -453,7 +489,6 @@ export default function SecureVault() {
             isActive: (path) => path === '/profile'
           }
         ].map((item, index) => {
-          const pathname = usePathname();
           const active = item.isActive(pathname);
 
           return (

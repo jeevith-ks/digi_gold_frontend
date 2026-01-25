@@ -2217,7 +2217,7 @@ const SIPPage = () => {
                     <div
                         key={i}
                         onClick={() => router.push(item.path)}
-                        className={`flex flex-col items-center gap-1 cursor-pointer transition-colors ${item.active ? 'text-[#50C2C9]' : 'text-slate-300 hover:text-slate-400'}`}
+                        className={`flex flex-col items-center gap-1 cursor-pointer transition-colors ${item.active ? 'text-[#50C2C9]' : 'text-slate-600 hover:text-slate-700'}`}
                     >
                         {React.cloneElement(item.icon, { size: 22, strokeWidth: item.active ? 2.5 : 2 })}
                         <span className="text-[9px] font-black uppercase tracking-tighter">{item.label}</span>

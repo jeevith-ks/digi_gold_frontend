@@ -5,6 +5,7 @@ import { ChevronLeft, Download, Filter, Search, X, ArrowUpRight, ArrowDownLeft, 
 
 export default function StatementsPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -450,7 +451,6 @@ export default function StatementsPage() {
             isActive: (path) => path === '/profile'
           }
         ].map((item, index) => {
-          const pathname = usePathname();
           const active = item.isActive(pathname);
 
           return (
