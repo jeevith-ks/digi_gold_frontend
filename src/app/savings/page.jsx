@@ -49,7 +49,7 @@ export default function SecureVault() {
 
       if (!token) return null;
 
-      const response = await fetch('http://localhost:5000/api/price/', {
+      const response = await fetch('http://35.154.85.104:5000/api/price/', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -182,7 +182,7 @@ export default function SecureVault() {
 
       const prices = await fetchAdminPrices();
 
-      const response = await fetch('http://localhost:5000/api/user/holdings', {
+      const response = await fetch('http://35.154.85.104:5000/api/user/holdings', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

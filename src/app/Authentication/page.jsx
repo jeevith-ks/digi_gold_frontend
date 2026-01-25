@@ -1,4 +1,4 @@
-'use client'; 
+'use client';
 import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, User, Mail, Lock, ArrowRight, Phone } from 'lucide-react';
 import { useRouter } from "next/navigation";
@@ -34,7 +34,7 @@ export default function AuthPage() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
+
     setFormData(prevData => {
       const updatedData = {
         ...prevData,
@@ -64,7 +64,7 @@ export default function AuthPage() {
     if (isLogin) {
       // Login logic
       try {
-        const response = await fetch("http://localhost:5000/api/auth/login", {
+        const response = await fetch("http://35.154.85.104:5000/api/auth/login", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
@@ -130,7 +130,7 @@ export default function AuthPage() {
           user_type: finalUserType // Use dynamically determined user type
         });
 
-        const response = await fetch("http://localhost:5000/api/auth/register", {
+        const response = await fetch("http://35.154.85.104:5000/api/auth/register", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
@@ -147,10 +147,10 @@ export default function AuthPage() {
         });
 
         const responseData = await response.json();
-        
+
         if (response.ok) {
           console.log("✅ Registration successful:", responseData);
-          
+
           // Store user info in session storage
           sessionStorage.setItem("authToken", responseData.token);
           sessionStorage.setItem("userEmail", responseData.user?.email || formData.email);
@@ -165,12 +165,12 @@ export default function AuthPage() {
           } else {
             alert("Account created successfully!");
           }
-          
+
           router.push("/Home");
           resetForm();
         } else {
           console.error("❌ Registration failed:", responseData);
-          
+
           // Handle specific error cases
           if (responseData.message?.includes('already exists')) {
             alert("User with this email or username already exists!");
@@ -183,7 +183,7 @@ export default function AuthPage() {
         alert("Something went wrong during registration!");
       }
     }
-    
+
     setIsLoading(false);
   };
 
@@ -236,7 +236,7 @@ export default function AuthPage() {
             WebkitBackdropFilter: 'blur(20px)',
             boxShadow: '0 25px 45px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
           }}>
-            
+
             {/* Header */}
             <div className="text-center mb-8">
               <div className="w-20 h-20 mx-auto mb-4 rounded-2xl flex items-center justify-center" style={{
@@ -253,7 +253,7 @@ export default function AuthPage() {
               <p className="text-white text-opacity-80">
                 {isLogin ? 'Sign in to your account' : 'Join us today'}
               </p>
-              
+
               {/* Show admin indicator during registration */}
               {!isLogin && formData.email.toLowerCase() === 'admin@example.com' && (
                 <div className="mt-2 px-3 py-1 bg-yellow-500 bg-opacity-20 border border-yellow-400 border-opacity-50 rounded-full inline-block">
@@ -266,7 +266,7 @@ export default function AuthPage() {
 
             {/* Authentication Form */}
             <form onSubmit={handleSubmit} className="space-y-6">
-              
+
               {/* Username field (only for register) */}
               {!isLogin && (
                 <div className="relative group">

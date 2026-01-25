@@ -1,12 +1,12 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  FileText, 
-  Banknote, 
-  User, 
+import {
+  CheckCircle,
+  XCircle,
+  Clock,
+  FileText,
+  Banknote,
+  User,
   Home,
   ChevronLeft,
   Check,
@@ -44,7 +44,7 @@ export default function KYCApprovalPage() {
     try {
       setLoading(true);
       const authToken = getAuthToken();
-      
+
       if (!authToken) {
         setError('Please login to view KYC data');
         router.push('/Authentication');
@@ -52,8 +52,8 @@ export default function KYCApprovalPage() {
       }
 
       console.log('📋 Fetching KYC data...');
-      
-      const response = await fetch('http://localhost:5000/api/kyc/me', {
+
+      const response = await fetch('http://35.154.85.104:5000/api/kyc/me', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -98,7 +98,7 @@ export default function KYCApprovalPage() {
     try {
       setApproving(true);
       const authToken = getAuthToken();
-      
+
       if (!authToken) {
         setError('Session expired. Please login again.');
         return;
@@ -114,7 +114,7 @@ export default function KYCApprovalPage() {
 
       console.log('📤 Submitting KYC approval:', approvalData);
 
-      const response = await fetch('http://localhost:5000/api/kyc/approve', {
+      const response = await fetch('http://35.154.85.104:5000/api/kyc/approve', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -138,7 +138,7 @@ export default function KYCApprovalPage() {
 
       // Show success message
       setError({ type: 'success', message: 'KYC approved successfully!' });
-      
+
       // Refresh KYC data
       setTimeout(() => fetchKYCData(), 2000);
 
@@ -160,28 +160,28 @@ export default function KYCApprovalPage() {
 
   // Get status badge color and icon
   const getStatusInfo = (status) => {
-    switch(status?.toUpperCase()) {
+    switch (status?.toUpperCase()) {
       case 'VERIFIED':
       case 'APPROVED':
-        return { 
+        return {
           color: 'bg-green-100 text-green-800 border-green-200',
           icon: <CheckCircle className="w-4 h-4" />,
           text: 'Verified'
         };
       case 'PENDING':
-        return { 
+        return {
           color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
           icon: <Clock className="w-4 h-4" />,
           text: 'Pending'
         };
       case 'REJECTED':
-        return { 
+        return {
           color: 'bg-red-100 text-red-800 border-red-200',
           icon: <XCircle className="w-4 h-4" />,
           text: 'Rejected'
         };
       default:
-        return { 
+        return {
           color: 'bg-gray-100 text-gray-800 border-gray-200',
           icon: <AlertCircle className="w-4 h-4" />,
           text: 'Not Submitted'
@@ -220,7 +220,7 @@ export default function KYCApprovalPage() {
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="flex items-center px-4 py-4">
-          <button 
+          <button
             onClick={() => router.back()}
             className="mr-4"
           >
@@ -238,11 +238,10 @@ export default function KYCApprovalPage() {
 
       {/* Error/Success Message */}
       {error && (
-        <div className={`mx-4 mt-4 p-4 rounded-lg ${
-          error.type === 'success' 
+        <div className={`mx-4 mt-4 p-4 rounded-lg ${error.type === 'success'
             ? 'bg-green-100 border border-green-400 text-green-700'
             : 'bg-red-100 border border-red-400 text-red-700'
-        }`}>
+          }`}>
           <div className="flex items-center">
             {error.type === 'success' ? (
               <CheckCircle className="w-5 h-5 mr-2" />
@@ -301,7 +300,7 @@ export default function KYCApprovalPage() {
                   </div>
                 </div>
               </div>
-              
+
               {/* PAN Verification Checkbox */}
               <div className="flex items-center">
                 <input
@@ -317,7 +316,7 @@ export default function KYCApprovalPage() {
               </div>
             </div>
           </div>
-          
+
           <div className="p-5">
             {kycData?.pan ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -348,9 +347,9 @@ export default function KYCApprovalPage() {
                 {kycData.pan.document_url && (
                   <div className="md:col-span-2">
                     <label className="block text-xs font-medium text-gray-500 mb-1">PAN Document</label>
-                    <a 
-                      href={kycData.pan.document_url} 
-                      target="_blank" 
+                    <a
+                      href={kycData.pan.document_url}
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center text-sm text-[#50C2C9] hover:text-[#3aa9b9]"
                     >
@@ -385,7 +384,7 @@ export default function KYCApprovalPage() {
                   </div>
                 </div>
               </div>
-              
+
               {/* Bank Verification Checkbox */}
               <div className="flex items-center">
                 <input
@@ -401,7 +400,7 @@ export default function KYCApprovalPage() {
               </div>
             </div>
           </div>
-          
+
           <div className="p-5">
             {kycData?.bank ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -438,9 +437,9 @@ export default function KYCApprovalPage() {
                 {kycData.bank.document_url && (
                   <div className="md:col-span-2">
                     <label className="block text-xs font-medium text-gray-500 mb-1">Bank Document</label>
-                    <a 
-                      href={kycData.bank.document_url} 
-                      target="_blank" 
+                    <a
+                      href={kycData.bank.document_url}
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center text-sm text-[#50C2C9] hover:text-[#3aa9b9]"
                     >
@@ -530,10 +529,10 @@ export default function KYCApprovalPage() {
               <div className="text-xs opacity-90">Checks Completed</div>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-2 gap-2 mb-4">
             {Object.entries(approvalChecks).map(([key, value]) => (
-              <div 
+              <div
                 key={key}
                 className={`flex items-center p-2 rounded-lg ${value ? 'bg-white bg-opacity-20' : 'bg-black bg-opacity-10'}`}
               >

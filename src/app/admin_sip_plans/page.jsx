@@ -100,7 +100,7 @@ const AdminSIPForm = () => {
         end_date: formData.endDate || null
       };
 
-      const response = await fetch('http://localhost:5000/api/sip/fixed/create', {
+      const response = await fetch('http://35.154.85.104:5000/api/sip/fixed/create', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,

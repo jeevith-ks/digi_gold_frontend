@@ -190,7 +190,7 @@ const PreciousMetalsApp = () => {
 
       // Always use the admin endpoint to get market status
       // This endpoint should be accessible to both admin and customers
-      const response = await fetch('http://localhost:5000/api/admin/market-status', {
+      const response = await fetch('http://35.154.85.104:5000/api/admin/market-status', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -286,7 +286,7 @@ const PreciousMetalsApp = () => {
   // Fetch market history (admin only)
   const fetchMarketHistory = async (token) => {
     try {
-      const response = await fetch('http://localhost:5000/api/admin/market-status/history', {
+      const response = await fetch('http://35.154.85.104:5000/api/admin/market-status/history', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -307,7 +307,7 @@ const PreciousMetalsApp = () => {
   const fetchLatestPrices = async (token) => {
     try {
       setIsLoadingPrices(true);
-      const response = await fetch('http://localhost:5000/api/price/', {
+      const response = await fetch('http://35.154.85.104:5000/api/price/', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -348,7 +348,7 @@ const PreciousMetalsApp = () => {
   const fetchHoldings = async (token) => {
     try {
       setIsLoading(true);
-      const response = await fetch('http://localhost:5000/api/holdings', {
+      const response = await fetch('http://35.154.85.104:5000/api/holdings', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -371,7 +371,7 @@ const PreciousMetalsApp = () => {
   // Fetch notifications
   const fetchNotifications = async (token) => {
     try {
-      const response = await fetch('http://localhost:5000/api/notifications', {
+      const response = await fetch('http://35.154.85.104:5000/api/notifications', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -467,7 +467,7 @@ const PreciousMetalsApp = () => {
       });
 
       // For online payment verification
-      const verifyResponse = await fetch('http://localhost:5000/api/razorpay/verify-payment', {
+      const verifyResponse = await fetch('http://35.154.85.104:5000/api/razorpay/verify-payment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -509,7 +509,7 @@ const PreciousMetalsApp = () => {
       console.log('✅ Payment verified successfully:', verifyData);
 
       // Add transaction to database
-      // const transactionResponse = await fetch('http://localhost:5000/api/transactions/add-transaction', {
+      // const transactionResponse = await fetch('http://35.154.85.104:5000/api/transactions/add-transaction', {
       //   method: 'POST',
       //   headers: {
       //     'Content-Type': 'application/json',
@@ -633,7 +633,7 @@ const PreciousMetalsApp = () => {
       console.log('📤 Sending to backend:', requestBody);
 
       // Create Razorpay order
-      const response = await fetch('http://localhost:5000/api/razorpay/create-order', {
+      const response = await fetch('http://35.154.85.104:5000/api/razorpay/create-order', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -834,7 +834,7 @@ const PreciousMetalsApp = () => {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/admin/market-status', {
+      const response = await fetch('http://35.154.85.104:5000/api/admin/market-status', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -899,7 +899,7 @@ const PreciousMetalsApp = () => {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/admin/market-status', {
+      const response = await fetch('http://35.154.85.104:5000/api/admin/market-status', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1141,7 +1141,7 @@ const PreciousMetalsApp = () => {
         silver: silver
       };
 
-      const response = await fetch('http://localhost:5000/api/price/add', {
+      const response = await fetch('http://35.154.85.104:5000/api/price/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1214,7 +1214,7 @@ const PreciousMetalsApp = () => {
         return;
       }
 
-      const response = await fetch("http://localhost:5000/api/admin/export-excel", {
+      const response = await fetch("http://35.154.85.104:5000/api/admin/export-excel", {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

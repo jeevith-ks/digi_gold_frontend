@@ -83,7 +83,7 @@ const SIPPage = () => {
 
             console.log('📤 Data being sent to API:', dataToSend);
 
-            const response = await fetch('http://localhost:5000/api/transactions/', {
+            const response = await fetch('http://35.154.85.104:5000/api/transactions/', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -148,7 +148,7 @@ const SIPPage = () => {
             });
 
             // For both online and offline payments
-            const verifyResponse = await fetch('http://localhost:5000/api/razorpay/verify-payment', {
+            const verifyResponse = await fetch('http://35.154.85.104:5000/api/razorpay/verify-payment', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -389,7 +389,7 @@ const SIPPage = () => {
                 return;
             }
 
-            const response = await fetch('http://localhost:5000/api/sip/all', {
+            const response = await fetch('http://35.154.85.104:5000/api/sip/all', {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -441,7 +441,7 @@ const SIPPage = () => {
                 return;
             }
 
-            const response = await fetch('http://localhost:5000/api/sip/', {
+            const response = await fetch('http://35.154.85.104:5000/api/sip/', {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -496,7 +496,7 @@ const SIPPage = () => {
         try {
             console.log('💰 Fetching latest prices...');
 
-            const response = await fetch('http://localhost:5000/api/price/', {
+            const response = await fetch('http://35.154.85.104:5000/api/price/', {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -526,7 +526,7 @@ const SIPPage = () => {
         try {
             console.log('🔐 Fetching holdings for customer...');
 
-            const response = await fetch('http://localhost:5000/api/holdings', {
+            const response = await fetch('http://35.154.85.104:5000/api/holdings', {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -575,7 +575,7 @@ const SIPPage = () => {
                 return;
             }
 
-            const response = await fetch('http://localhost:5000/api/sip/fixed', {
+            const response = await fetch('http://35.154.85.104:5000/api/sip/fixed', {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -649,7 +649,7 @@ const SIPPage = () => {
                 return;
             }
 
-            const response = await fetch('http://localhost:5000/api/sip/fixed/opt', {
+            const response = await fetch('http://35.154.85.104:5000/api/sip/fixed/opt', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -1241,7 +1241,7 @@ const SIPPage = () => {
                 }
 
                 console.log('📞 Calling Razorpay API...');
-                console.log('Request URL:', 'http://localhost:5000/api/razorpay/create-order');
+                console.log('Request URL:', 'http://35.154.85.104:5000/api/razorpay/create-order');
                 console.log('Request payload:', {
                     amount: razorpayAmount,
                     metalType: selectedPlan.metalType || 'Money',
@@ -1250,7 +1250,7 @@ const SIPPage = () => {
                     sipId: selectedSIPId
                 });
 
-                const response = await fetch('http://localhost:5000/api/razorpay/create-order', {
+                const response = await fetch('http://35.154.85.104:5000/api/razorpay/create-order', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1486,7 +1486,7 @@ const SIPPage = () => {
             };
             sessionStorage.setItem('flexibleSIPCreation', JSON.stringify(sipCreationData));
 
-            const response = await fetch('http://localhost:5000/api/sip/flexible/create', {
+            const response = await fetch('http://35.154.85.104:5000/api/sip/flexible/create', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
