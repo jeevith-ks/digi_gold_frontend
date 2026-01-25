@@ -587,18 +587,23 @@ const SIPPage = () => {
                 console.log('Available Fixed SIPs fetched:', data);
 
                 // Transform the data for display
-                const transformedPlans = data.map((plan, index) => ({
-                    id: plan._id || plan.id,
-                    name: plan.Yojna_name || `Fixed SIP Plan ${index + 1}`,
-                    description: plan.description || 'Gold Investment Plan',
-                    monthlyAmount: plan.range_amount || 0,
-                    totalMonths: plan.total_months || 12,
-                    metalType: getDisplayMetalType(plan.metal_type) || '22KT Gold',
-                    minAmount: plan.min_amount || plan.range_amount || 0,
-                    maxAmount: plan.max_amount || plan.range_amount || 0,
-                    isActive: plan.isActive !== false,
-                    createdAt: plan.created_at || new Date().toISOString()
-                }));
+                const transformedPlans = data
+                    .filter(plan => {
+                        const metalType = plan.metal_type ? String(plan.metal_type).trim() : '';
+                        return metalType.toLowerCase() === 'money';
+                    })
+                    .map((plan, index) => ({
+                        id: plan._id || plan.id,
+                        name: plan.Yojna_name || `Fixed SIP Plan ${index + 1}`,
+                        description: plan.description || 'Gold Investment Plan',
+                        monthlyAmount: plan.range_amount || 0,
+                        totalMonths: plan.total_months || 12,
+                        metalType: getDisplayMetalType(plan.metal_type) || 'Money',
+                        minAmount: plan.min_amount || plan.range_amount || 0,
+                        maxAmount: plan.max_amount || plan.range_amount || 0,
+                        isActive: plan.isActive !== false,
+                        createdAt: plan.created_at || new Date().toISOString()
+                    }));
 
                 setAvailableFixedSIPs(transformedPlans);
                 setShowFixedSIPsList(true);
@@ -904,18 +909,6 @@ const SIPPage = () => {
         const metalTypeStr = String(metalType).toLowerCase().trim();
 
         switch (metalTypeStr) {
-            case 'gold22k':
-            case '22kt':
-            case '22kt gold':
-            case '22 karat':
-                return '22KT Gold';
-            case 'gold24k':
-            case '24kt':
-            case '24kt gold':
-            case '24 karat':
-                return '24KT Gold';
-            case 'silver':
-                return 'Silver';
             case 'money':
                 return 'Money';
             default:
@@ -926,9 +919,7 @@ const SIPPage = () => {
 
     const getEnumMetalType = (displayType) => {
         switch (displayType) {
-            case '22KT Gold': return 'gold22K';
-            case '24KT Gold': return 'gold24K';
-            case 'Silver': return 'silver';
+            case 'Money': return 'Money';
             default: return 'Money'
         }
     };
@@ -2112,15 +2103,15 @@ const SIPPage = () => {
                                 <label className="text-[10px] font-black text-slate-400 uppercase ml-2 mb-1 block">Investment Plans</label>
                                 <div className="relative">
                                     <select
-                                        value={getDisplayMetalType(metalType)}
-                                        onChange={(e) => setMetalType(getEnumMetalType(e.target.value))}
+                                        value={investmentAmount}
+                                        onChange={(e) => setInvestmentAmount(e.target.value)}
                                         className="w-full bg-slate-50 border-none rounded-2xl py-4 px-5 text-sm font-bold text-slate-800 appearance-none focus:ring-2 focus:ring-[#50C2C9]/20 transition-all outline-none leading-tight"
                                         disabled={marketStatus === 'closed' || createSIPLoading}
                                     >
-                                        <option value="Money">25000</option>
-                                        <option value="Money">50000</option>
-                                        <option value="Money">75000</option>
-                                        <option value="Money">100000</option>
+                                        <option value="25000">25000</option>
+                                        <option value="50000">50000</option>
+                                        <option value="75000">75000</option>
+                                        <option value="100000">100000</option>
                                     </select>
                                     <ChevronLeft className="absolute right-4 top-1/2 -translate-y-1/2 rotate-270 text-slate-400 -rotate-90 pointer-events-none" size={16} />
                                 </div>

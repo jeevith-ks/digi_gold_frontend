@@ -587,18 +587,20 @@ const SIPPage = () => {
         console.log('Available Fixed SIPs fetched:', data);
 
         // Transform the data for display
-        const transformedPlans = data.map((plan, index) => ({
-          id: plan._id || plan.id,
-          name: plan.Yojna_name || `Fixed SIP Plan ${index + 1}`,
-          description: plan.description || 'Gold Investment Plan',
-          monthlyAmount: plan.range_amount || 0,
-          totalMonths: plan.total_months || 12,
-          metalType: getDisplayMetalType(plan.metal_type) || '22KT Gold',
-          minAmount: plan.min_amount || plan.range_amount || 0,
-          maxAmount: plan.max_amount || plan.range_amount || 0,
-          isActive: plan.isActive !== false,
-          createdAt: plan.created_at || new Date().toISOString()
-        }));
+        const transformedPlans = data
+          .filter(plan => String(plan.metal_type).toLowerCase() !== 'money')
+          .map((plan, index) => ({
+            id: plan._id || plan.id,
+            name: plan.Yojna_name || `Fixed SIP Plan ${index + 1}`,
+            description: plan.description || 'Gold Investment Plan',
+            monthlyAmount: plan.range_amount || 0,
+            totalMonths: plan.total_months || 12,
+            metalType: getDisplayMetalType(plan.metal_type) || '22KT Gold',
+            minAmount: plan.min_amount || plan.range_amount || 0,
+            maxAmount: plan.max_amount || plan.range_amount || 0,
+            isActive: plan.isActive !== false,
+            createdAt: plan.created_at || new Date().toISOString()
+          }));
 
         setAvailableFixedSIPs(transformedPlans);
         setShowFixedSIPsList(true);
@@ -717,6 +719,9 @@ const SIPPage = () => {
 
     if (fixedSips && fixedSips.length > 0) {
       fixedSips.forEach((fixedSip, index) => {
+        // Skip Money SIPs
+        if (String(fixedSip.sipPlanAdmin?.metal_type).toLowerCase() === 'money') return;
+
         const totalAmount = fixedSip.total_amount_paid ? parseFloat(fixedSip.total_amount_paid) : 0;
         const monthlyAmount = fixedSip.sipPlanAdmin?.range_amount || 0;
 
@@ -753,6 +758,9 @@ const SIPPage = () => {
 
     if (flexibleSips && flexibleSips.length > 0) {
       flexibleSips.forEach((flexibleSip, index) => {
+        // Skip Money SIPs
+        if (String(flexibleSip.metal_type).toLowerCase() === 'money') return;
+
         const totalAmount = flexibleSip.total_amount_paid ? parseFloat(flexibleSip.total_amount_paid) : 0;
         const displayMetalType = getDisplayMetalType(flexibleSip.metal_type);
 
@@ -804,6 +812,9 @@ const SIPPage = () => {
     // Process fixed SIPs (opted ones)
     if (apiData.sipsFixed && apiData.sipsFixed.length > 0) {
       apiData.sipsFixed.forEach((fixedSip, index) => {
+        // Skip Money SIPs
+        if (String(fixedSip.sipPlanAdmin?.metal_type).toLowerCase() === 'money') return;
+
         const totalAmount = fixedSip.total_amount_paid ? parseFloat(fixedSip.total_amount_paid) : 0;
         const monthlyAmount = fixedSip.sipPlanAdmin?.range_amount || 0;
 
@@ -832,6 +843,9 @@ const SIPPage = () => {
     // Process flexible SIPs - FIXED: Always use the actual metal type from backend
     if (apiData.sipsFlexible && apiData.sipsFlexible.length > 0) {
       apiData.sipsFlexible.forEach((flexibleSip, index) => {
+        // Skip Money SIPs
+        if (String(flexibleSip.metal_type).toLowerCase() === 'money') return;
+
         const totalAmount = flexibleSip.total_amount_paid ? parseFloat(flexibleSip.total_amount_paid) : 0;
         // CRITICAL FIX: Get the metal type from the flexible SIP record
         const displayMetalType = getDisplayMetalType(flexibleSip.metal_type);

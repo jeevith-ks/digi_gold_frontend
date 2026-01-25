@@ -59,7 +59,9 @@ export default function SecureVault() {
       if (response.status === 401) return null;
       if (!response.ok) throw new Error(`Failed to fetch prices: ${response.status}`);
 
+
       const data = await response.json();
+      console.log('data display', data);
 
       let prices = data;
       if (data.latestPrice) prices = data.latestPrice;
@@ -80,30 +82,33 @@ export default function SecureVault() {
     if (!holding || !holding.qty) return parseFloat(holding.amt) || 0;
 
     const quantity = parseFloat(holding.qty) || 0;
-    if (!prices) return parseFloat(holding.amt) || 0;
+    if (!prices && !holding.metal_type?.toUpperCase().includes('MONEY')) return parseFloat(holding.amt) || 0;
 
     let currentPrice = 0;
     const metalType = holding.metal_type;
 
-    if (prices[metalType]) {
+    if (metalType.toUpperCase().includes('MONEY')) {
+      currentPrice = 1; // Money is 1:1
+    } else if (prices && prices[metalType]) {
       currentPrice = parseFloat(prices[metalType]) || 0;
-    } else if (prices.gold24K && metalType.includes('24')) {
+    } else if (prices && prices.gold24K && metalType.includes('24')) {
       currentPrice = parseFloat(prices.gold24K) || 0;
-    } else if (prices.gold22K && metalType.includes('22')) {
+    } else if (prices && prices.gold22K && metalType.includes('22')) {
       currentPrice = parseFloat(prices.gold22K) || 0;
-    } else if (prices.silver && metalType.toLowerCase().includes('silver')) {
+    } else if (prices && prices.silver && metalType.toLowerCase().includes('silver')) {
       currentPrice = parseFloat(prices.silver) || 0;
-    } else if (prices.GOLD24K) {
+    } else if (prices && prices.GOLD24K) {
       currentPrice = parseFloat(prices.GOLD24K) || 0;
-    } else if (prices.GOLD22K) {
+    } else if (prices && prices.GOLD22K) {
       currentPrice = parseFloat(prices.GOLD22K) || 0;
-    } else if (prices.SILVER) {
+    } else if (prices && prices.SILVER) {
       currentPrice = parseFloat(prices.SILVER) || 0;
     } else {
       // Fallback
       if (metalType.toUpperCase().includes('GOLD24K')) currentPrice = 13000;
       else if (metalType.toUpperCase().includes('GOLD22K')) currentPrice = 11930;
       else if (metalType.toUpperCase().includes('SILVER')) currentPrice = 150;
+      else if (metalType.toUpperCase().includes('MONEY')) currentPrice = 1;
     }
 
     return quantity * currentPrice;
@@ -131,7 +136,7 @@ export default function SecureVault() {
     if (type.includes('GOLD24K')) return { name: 'Pure Gold', purity: '24k (99.5%)', color: 'bg-yellow-400', gradient: 'from-amber-300 to-yellow-500', symbol: 'Au' };
     if (type.includes('GOLD22K')) return { name: 'Standard Gold', purity: '22k (91.6%)', color: 'bg-yellow-500', gradient: 'from-yellow-400 to-amber-600', symbol: 'Au' };
     if (type.includes('SILVER')) return { name: 'Silver', purity: '24k (99.9%)', color: 'bg-slate-300', gradient: 'from-slate-200 to-slate-400', symbol: 'Ag' };
-
+    if (type.includes('MONEY')) return { name: 'Money Wallet', purity: 'Liquid Cash', color: 'bg-emerald-500', gradient: 'from-emerald-400 to-emerald-600', symbol: '₹' };
     return { name: metalType, purity: 'Investment', color: 'bg-[#50C2C9]', gradient: 'from-[#50C2C9] to-teal-500', symbol: metalType.charAt(0) };
   };
 
@@ -190,6 +195,7 @@ export default function SecureVault() {
           if (holding.metal_type.toUpperCase().includes('GOLD24K')) price = 13000;
           else if (holding.metal_type.toUpperCase().includes('GOLD22K')) price = 11930;
           else if (holding.metal_type.toUpperCase().includes('SILVER')) price = 150;
+          else if (holding.metal_type.toUpperCase().includes('MONEY')) price = 1;
           return sum + (qty * price);
         }, 0);
 
@@ -207,7 +213,8 @@ export default function SecureVault() {
   const getDemoData = () => [
     { metal_type: 'GOLD24K', amt: 0, qty: 0 },
     { metal_type: 'GOLD22K', amt: 0, qty: 0 },
-    { metal_type: 'SILVER', amt: 0, qty: 0 }
+    { metal_type: 'SILVER', amt: 0, qty: 0 },
+    { metal_type: 'Money', amt: 0, qty: 0 }
   ];
 
   const handleLogin = () => router.push('/Authentication');
@@ -232,12 +239,16 @@ export default function SecureVault() {
     }).format(amount || 0);
   };
 
-  const formatQuantity = (qty) => {
+  const formatQuantity = (qty, metalType = '') => {
     const quantity = parseFloat(qty || 0);
+    if (metalType.toUpperCase().includes('MONEY')) {
+      return '₹ ' + quantity.toFixed(2);
+    }
     return quantity === 0 ? '0.0000 gm' : quantity.toFixed(4) + ' gm';
   };
 
   const getCurrentPrice = (metalType) => {
+    if (metalType.toUpperCase().includes('MONEY')) return '₹1.00/unit';
     if (!adminPrices) return 'Loading...';
 
     let priceItem = null;
@@ -379,7 +390,7 @@ export default function SecureVault() {
                     <div className="pt-3 border-t border-slate-50 flex justify-between items-center px-1">
                       <div>
                         <p className="text-[9px] font-black text-slate-300 uppercase tracking-wider mb-0.5">Quantity</p>
-                        <p className="text-xs font-bold text-slate-600">{formatQuantity(holding.qty)}</p>
+                        <p className="text-xs font-bold text-slate-600">{formatQuantity(holding.qty, holding.metal_type)}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-[9px] font-black text-slate-300 uppercase tracking-wider mb-0.5">Current Rate</p>
