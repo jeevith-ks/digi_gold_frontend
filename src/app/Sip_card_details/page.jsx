@@ -1826,7 +1826,7 @@ const SIPPage = () => {
           </button>
           <div className="text-center">
             <span className="text-[10px] font-black text-[#50C2C9] uppercase tracking-widest block">Portfolio</span>
-            <h1 className="text-xl font-black text-slate-800 tracking-tight">SIP Holdings</h1>
+            <h1 className="text-xl font-black text-slate-800 tracking-tight">SIP Metal Holdings</h1>
           </div>
           <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-full">
             <Clock className="w-3 h-3 text-slate-400" />

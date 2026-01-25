@@ -100,7 +100,7 @@ const AdminSIPForm = () => {
         end_date: formData.endDate || null
       };
 
-      const response = await fetch('http://35.154.85.104:5000/api/sip/fixed/create', {
+      const response = await fetch('http://localhost:5000/api/sip/fixed/create', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -230,10 +230,11 @@ const AdminSIPForm = () => {
                   className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3.5 pl-12 pr-4 font-semibold text-gray-900 focus:outline-none focus:border-[#50C2C9] focus:ring-4 focus:ring-[#50C2C9]/10 transition-all appearance-none cursor-pointer"
                   required
                 >
-                  <option value="">Select Metal</option>
+                  <option value="">Select Metal or Money</option>
                   <option value="gold22K">22KT Gold</option>
                   <option value="gold24K">24KT Gold</option>
                   <option value="silver">Silver</option>
+                  <option value="Money">Money</option>
                 </select>
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
                   <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
