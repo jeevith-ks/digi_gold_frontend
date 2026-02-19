@@ -51,9 +51,7 @@ export default function KYCApprovalPage() {
         return;
       }
 
-      console.log('📋 Fetching KYC data...');
-
-      const response = await fetch('http://35.154.85.104:5000/api/kyc/me', {
+      const response = await fetch('http://65.2.152.254:5000/api/kyc/me', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -74,7 +72,7 @@ export default function KYCApprovalPage() {
       }
 
       const data = await response.json();
-      console.log('✅ KYC Data received:', data);
+
       setKycData(data);
 
       // Pre-check if already approved
@@ -86,7 +84,7 @@ export default function KYCApprovalPage() {
       }
 
     } catch (error) {
-      console.error('❌ Error fetching KYC data:', error);
+      
       setError(`Error loading KYC data: ${error.message}`);
     } finally {
       setLoading(false);
@@ -112,9 +110,7 @@ export default function KYCApprovalPage() {
         status: 'APPROVED'
       };
 
-      console.log('📤 Submitting KYC approval:', approvalData);
-
-      const response = await fetch('http://35.154.85.104:5000/api/kyc/approve', {
+      const response = await fetch('http://65.2.152.254:5000/api/kyc/approve', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -134,7 +130,6 @@ export default function KYCApprovalPage() {
       }
 
       const result = await response.json();
-      console.log('✅ KYC Approval successful:', result);
 
       // Show success message
       setError({ type: 'success', message: 'KYC approved successfully!' });
@@ -143,7 +138,7 @@ export default function KYCApprovalPage() {
       setTimeout(() => fetchKYCData(), 2000);
 
     } catch (error) {
-      console.error('❌ Error approving KYC:', error);
+      
       setError({ type: 'error', message: error.message });
     } finally {
       setApproving(false);
@@ -239,8 +234,8 @@ export default function KYCApprovalPage() {
       {/* Error/Success Message */}
       {error && (
         <div className={`mx-4 mt-4 p-4 rounded-lg ${error.type === 'success'
-            ? 'bg-green-100 border border-green-400 text-green-700'
-            : 'bg-red-100 border border-red-400 text-red-700'
+          ? 'bg-green-100 border border-green-400 text-green-700'
+          : 'bg-red-100 border border-red-400 text-red-700'
           }`}>
           <div className="flex items-center">
             {error.type === 'success' ? (

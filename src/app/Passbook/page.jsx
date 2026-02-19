@@ -24,7 +24,7 @@ export default function StatementsPage() {
           return;
         }
 
-        const response = await fetch('http://35.154.85.104:5000/api/transactions/', {
+        const response = await fetch('http://65.2.152.254:5000/api/transactions/', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -33,7 +33,6 @@ export default function StatementsPage() {
 
         if (response.ok) {
           const data = await response.json();
-          console.log('Transactions data:', data);
 
           // Transform the data to match our frontend structure
           const transformedTransactions = transformTransactionData(data);
@@ -43,7 +42,7 @@ export default function StatementsPage() {
           setError(errorData.message || 'Failed to fetch transactions');
         }
       } catch (err) {
-        console.error('Error fetching transactions:', err);
+        
         setError('Network error while fetching transactions');
       } finally {
         setLoading(false);

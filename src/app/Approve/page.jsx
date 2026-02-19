@@ -142,7 +142,7 @@ export default function AdminApprovalPage() {
         return;
       }
 
-      const response = await fetch('http://35.154.85.104:5000/api/admin/approve', {
+      const response = await fetch('http://65.2.152.254:5000/api/admin/approve', {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
 
@@ -158,7 +158,7 @@ export default function AdminApprovalPage() {
 
       setRequests(transformedData);
     } catch (err) {
-      console.error(err);
+      
       setError(err.message || 'Failed to load requests.');
     } finally {
       setLoading(false);
@@ -173,7 +173,7 @@ export default function AdminApprovalPage() {
       setError(''); setSuccessMessage('');
       const token = localStorage.getItem('adminToken') || sessionStorage.getItem('authToken');
 
-      const response = await fetch('http://35.154.85.104:5000/api/admin/approved', {
+      const response = await fetch('http://65.2.152.254:5000/api/admin/approved', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ sip_id: sipId, action: 'approve', timestamp: new Date().toISOString() })

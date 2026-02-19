@@ -145,39 +145,34 @@ const PreciousMetalsApp = () => {
     // Generate transaction ID in format: QB_001, QB_002, etc.
     const transactionId = `QB_${String(quickBuyCounter).padStart(3, '0')}_${Date.now().toString().slice(-6)}`;
 
-    console.log('🔢 Generated Transaction ID:', transactionId);
-
     return transactionId;
   };
 
   const debugSessionStorage = () => {
-    console.log("=== SESSION STORAGE DEBUG ===");
 
     // Check specific quick buy related keys
     const paymentParamsStr = sessionStorage.getItem("paymentParameters");
     const offlinePaymentDataStr = sessionStorage.getItem("offlinePaymentData");
 
-    console.log("=== RAW SESSION STORAGE VALUES ===");
     if (paymentParamsStr) {
-      console.log("paymentParameters:", JSON.parse(paymentParamsStr));
+
     } else {
-      console.log("paymentParameters: NOT FOUND");
+
     }
 
     if (offlinePaymentDataStr) {
-      console.log("offlinePaymentData:", JSON.parse(offlinePaymentDataStr));
+
     } else {
-      console.log("offlinePaymentData: NOT FOUND");
+
     }
 
-    console.log("=== ALL SESSION STORAGE KEYS ===");
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i);
       try {
         const value = sessionStorage.getItem(key);
-        console.log(key, "=>", JSON.parse(value));
+
       } catch {
-        console.log(key, "=>", sessionStorage.getItem(key));
+
       }
     }
   };
@@ -190,7 +185,7 @@ const PreciousMetalsApp = () => {
 
       // Always use the admin endpoint to get market status
       // This endpoint should be accessible to both admin and customers
-      const response = await fetch('http://35.154.85.104:5000/api/admin/market-status', {
+      const response = await fetch('http://65.2.152.254:5000/api/admin/market-status', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -200,7 +195,6 @@ const PreciousMetalsApp = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Market Status Data:', data);
 
         // Extract market status from response
         let marketStatusValue = 'CLOSED';
@@ -233,12 +227,6 @@ const PreciousMetalsApp = () => {
         sessionStorage.setItem('tradingHours', JSON.stringify(tradingHours));
         sessionStorage.setItem('isMarketOpen', marketOpen.toString());
 
-        console.log('Market status updated:', {
-          status: marketStatusValue,
-          isOpen: marketOpen,
-          tradingHours
-        });
-
         // Add notification if status changed to CLOSED
         if (marketStatusValue === 'CLOSED') {
           addNotification({
@@ -248,7 +236,7 @@ const PreciousMetalsApp = () => {
           });
         }
       } else {
-        console.error('Failed to fetch market status:', response.status);
+        
 
         // Fallback to sessionStorage if API fails
         const storedStatus = sessionStorage.getItem('marketStatus');
@@ -265,7 +253,7 @@ const PreciousMetalsApp = () => {
         }
       }
     } catch (error) {
-      console.error('Error fetching market status:', error);
+      
 
       // Fallback to sessionStorage
       const storedStatus = sessionStorage.getItem('marketStatus');
@@ -286,7 +274,7 @@ const PreciousMetalsApp = () => {
   // Fetch market history (admin only)
   const fetchMarketHistory = async (token) => {
     try {
-      const response = await fetch('http://35.154.85.104:5000/api/admin/market-status/history', {
+      const response = await fetch('http://65.2.152.254:5000/api/admin/market-status/history', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -299,7 +287,7 @@ const PreciousMetalsApp = () => {
         setMarketHistory(data.history || data);
       }
     } catch (error) {
-      console.error('Error fetching market history:', error);
+      
     }
   };
 
@@ -307,7 +295,7 @@ const PreciousMetalsApp = () => {
   const fetchLatestPrices = async (token) => {
     try {
       setIsLoadingPrices(true);
-      const response = await fetch('http://35.154.85.104:5000/api/price/', {
+      const response = await fetch('http://65.2.152.254:5000/api/price/', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -338,7 +326,7 @@ const PreciousMetalsApp = () => {
         }
       }
     } catch (error) {
-      console.error('Error fetching prices:', error);
+      
     } finally {
       setIsLoadingPrices(false);
     }
@@ -348,7 +336,7 @@ const PreciousMetalsApp = () => {
   const fetchHoldings = async (token) => {
     try {
       setIsLoading(true);
-      const response = await fetch('http://35.154.85.104:5000/api/holdings', {
+      const response = await fetch('http://65.2.152.254:5000/api/holdings', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -362,7 +350,7 @@ const PreciousMetalsApp = () => {
         updateMetalBalances(data.holdings || data);
       }
     } catch (error) {
-      console.error('Error fetching holdings:', error);
+      
     } finally {
       setIsLoading(false);
     }
@@ -371,7 +359,7 @@ const PreciousMetalsApp = () => {
   // Fetch notifications
   const fetchNotifications = async (token) => {
     try {
-      const response = await fetch('http://35.154.85.104:5000/api/notifications', {
+      const response = await fetch('http://65.2.152.254:5000/api/notifications', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -384,7 +372,7 @@ const PreciousMetalsApp = () => {
         setNotifications(data.notifications || []);
       }
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      
     }
   };
 
@@ -458,16 +446,8 @@ const PreciousMetalsApp = () => {
         throw new Error('Authentication token not found. Please login again.');
       }
 
-      console.log('🔐 Verifying payment with details:', {
-        sipId: sipId,
-        orderId: paymentResponse.razorpay_order_id,
-        paymentId: paymentResponse.razorpay_payment_id,
-        amount: parseFloat(amount),
-        metalType: selectedMetalData?.metalType
-      });
-
       // For online payment verification
-      const verifyResponse = await fetch('http://35.154.85.104:5000/api/razorpay/verify-payment', {
+      const verifyResponse = await fetch('http://65.2.152.254:5000/api/razorpay/verify-payment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -498,7 +478,7 @@ const PreciousMetalsApp = () => {
             }
           }
         } catch (e) {
-          console.error('Failed to parse verification error:', e);
+          
         }
 
         throw new Error(`HTTP ${verifyResponse.status}: ${errorMessage}`);
@@ -506,10 +486,9 @@ const PreciousMetalsApp = () => {
 
       // Parse JSON only if response is ok
       const verifyData = await verifyResponse.json();
-      console.log('✅ Payment verified successfully:', verifyData);
 
       // Add transaction to database
-      // const transactionResponse = await fetch('http://35.154.85.104:5000/api/transactions/add-transaction', {
+      // const transactionResponse = await fetch('http://65.2.152.254:5000/api/transactions/add-transaction', {
       //   method: 'POST',
       //   headers: {
       //     'Content-Type': 'application/json',
@@ -543,13 +522,13 @@ const PreciousMetalsApp = () => {
       setGrams('');
       setAmount('');
       // } else {
-      //   console.error('Failed to record transaction');
+      //   
       //   alert('Payment successful but failed to record transaction. Please contact support.');
       // }
 
       return { success: true, data: verifyData };
     } catch (error) {
-      console.error('❌ Payment verification error:', error);
+      
       alert(`Payment verification failed: ${error.message}`);
       return { success: false, error: error.message };
     } finally {
@@ -593,13 +572,6 @@ const PreciousMetalsApp = () => {
       // Generate unique SIP ID for quick buy
       const sipId = generateQuickBuyTransactionId();
 
-      console.log('💰 Creating Razorpay order for:', {
-        sipId: sipId,
-        amount: paymentAmount,
-        metalType: selectedMetalData?.metalType,
-        grams: grams
-      });
-
       // Update payment parameters in session storage with SIP ID
       const existingParams = JSON.parse(sessionStorage.getItem('paymentParameters') || '{}');
       const updatedParams = {
@@ -630,10 +602,8 @@ const PreciousMetalsApp = () => {
         sipMonths: 1 // Add default value for sipMonths if required
       };
 
-      console.log('📤 Sending to backend:', requestBody);
-
       // Create Razorpay order
-      const response = await fetch('http://35.154.85.104:5000/api/razorpay/create-order', {
+      const response = await fetch('http://65.2.152.254:5000/api/razorpay/create-order', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -658,7 +628,6 @@ const PreciousMetalsApp = () => {
 
         try {
           const errorText = await response.text();
-          console.log('❌ Backend error response:', errorText);
 
           if (errorText) {
             try {
@@ -679,7 +648,7 @@ const PreciousMetalsApp = () => {
             }
           }
         } catch (e) {
-          console.error('Failed to parse error response:', e);
+          
         }
 
         throw new Error(`HTTP ${response.status}: ${errorMessage} ${errorDetails ? `(${errorDetails})` : ''}`);
@@ -687,7 +656,6 @@ const PreciousMetalsApp = () => {
 
       // If response is ok, then parse JSON
       const orderData = await response.json();
-      console.log('✅ Order created successfully:', orderData);
 
       // Store successful order data
       const successfulOrderData = {
@@ -713,7 +681,6 @@ const PreciousMetalsApp = () => {
         description: `${grams}g ${selectedMetalData?.name} (${selectedMetalData?.purity})`,
         order_id: orderData.id,
         handler: async function (paymentResponse) {
-          console.log('✅ Payment successful:', paymentResponse);
 
           // Store payment success data
           const paymentSuccessData = {
@@ -751,7 +718,7 @@ const PreciousMetalsApp = () => {
         },
         modal: {
           ondismiss: function () {
-            console.log('Payment modal closed');
+
             setProcessingPayment(false);
             alert('Payment was cancelled. You can try again.');
 
@@ -767,12 +734,10 @@ const PreciousMetalsApp = () => {
         }
       };
 
-      console.log('🎯 Razorpay options:', options);
-
       const razorpay = new window.Razorpay(options);
 
       razorpay.on('payment.failed', function (response) {
-        console.error('❌ Payment failed:', response.error);
+        
         setProcessingPayment(false);
 
         // Store payment failure in session storage
@@ -790,11 +755,7 @@ const PreciousMetalsApp = () => {
       razorpay.open();
 
     } catch (error) {
-      console.error('❌ Payment initialization error:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      });
+      
 
       setProcessingPayment(false);
 
@@ -834,7 +795,7 @@ const PreciousMetalsApp = () => {
         return;
       }
 
-      const response = await fetch('http://35.154.85.104:5000/api/admin/market-status', {
+      const response = await fetch('http://65.2.152.254:5000/api/admin/market-status', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -875,7 +836,7 @@ const PreciousMetalsApp = () => {
         alert(errorData.message || 'Failed to update market status');
       }
     } catch (error) {
-      console.error('Error updating market status:', error);
+      
       alert('Error updating market status. Please try again.');
     } finally {
       setIsUpdatingMarket(false);
@@ -899,7 +860,7 @@ const PreciousMetalsApp = () => {
         return;
       }
 
-      const response = await fetch('http://35.154.85.104:5000/api/admin/market-status', {
+      const response = await fetch('http://65.2.152.254:5000/api/admin/market-status', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -930,7 +891,7 @@ const PreciousMetalsApp = () => {
         alert(errorData.message || 'Failed to update trading hours');
       }
     } catch (error) {
-      console.error('Error updating trading hours:', error);
+      
       alert('Error updating trading hours. Please try again.');
     } finally {
       setIsUpdatingMarket(false);
@@ -1029,7 +990,6 @@ const PreciousMetalsApp = () => {
       username: username
     };
 
-    console.log('💾 Storing payment parameters in session storage:', paymentParams);
     sessionStorage.setItem('paymentParameters', JSON.stringify(paymentParams));
 
     if (method === 'Online') {
@@ -1042,7 +1002,6 @@ const PreciousMetalsApp = () => {
         status: 'offline_pending'
       };
 
-      console.log('💾 Storing offline payment data:', offlineData);
       sessionStorage.setItem('offlinePaymentData', JSON.stringify(offlineData));
 
       setShowPaymentDialog(false);
@@ -1141,7 +1100,7 @@ const PreciousMetalsApp = () => {
         silver: silver
       };
 
-      const response = await fetch('http://35.154.85.104:5000/api/price/add', {
+      const response = await fetch('http://65.2.152.254:5000/api/price/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1171,7 +1130,7 @@ const PreciousMetalsApp = () => {
         alert('Failed to update rates: ' + (errorData.message || 'Unknown error'));
       }
     } catch (error) {
-      console.error('Error updating rates:', error);
+      
       alert('Error updating rates. Please try again.');
     } finally {
       setIsSaving(false);
@@ -1214,7 +1173,7 @@ const PreciousMetalsApp = () => {
         return;
       }
 
-      const response = await fetch("http://35.154.85.104:5000/api/admin/export-excel", {
+      const response = await fetch("http://65.2.152.254:5000/api/admin/export-excel", {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -1243,10 +1202,8 @@ const PreciousMetalsApp = () => {
         window.URL.revokeObjectURL(url);
       }, 100);
 
-      console.log('Excel file downloaded successfully');
-
     } catch (error) {
-      console.error('Failed to download excel:', error);
+      
       alert('Failed to download Excel file. Please try again.');
     }
   };

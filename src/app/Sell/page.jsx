@@ -1,4 +1,4 @@
-'use client'; 
+'use client';
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, Building2, Check, Scale, ArrowLeftRight, ShoppingCart, FileText } from 'lucide-react';
 import Link from 'next/link';
@@ -50,10 +50,8 @@ const SellPage = () => {
         router.push('/login');
         return;
       }
-      
-      console.log('📊 Fetching admin prices with token...');
 
-      const response = await fetch('http://35.154.85.104:5000/api/price/', {
+      const response = await fetch('http://65.2.152.254:5000/api/price/', {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
@@ -72,8 +70,7 @@ const SellPage = () => {
       }
 
       const data = await response.json();
-      console.log('✅ Admin prices received:', data);
-      
+
       // Check different response formats
       let prices = data;
       if (data.latestPrice) {
@@ -81,10 +78,10 @@ const SellPage = () => {
       } else if (data.data) {
         prices = data.data;
       }
-      
+
       setAdminPrices(prices);
     } catch (err) {
-      console.error('❌ Error fetching admin prices:', err);
+      
       setError('Failed to load current prices. Please try again.');
     } finally {
       setLoadingPrices(false);
@@ -98,10 +95,8 @@ const SellPage = () => {
         router.push('/login');
         return;
       }
-      
-      console.log('🔐 Fetching holdings with token:', token.substring(0, 20) + '...');
 
-      const response = await fetch('http://35.154.85.104:5000/api/holdings', {
+      const response = await fetch('http://65.2.152.254:5000/api/holdings', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -117,16 +112,15 @@ const SellPage = () => {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Holdings API error:', errorText);
+        
         throw new Error(`Failed to fetch holdings: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('✅ Holdings data received:', data);
-      
+
       // Extract holdings array from response
       let holdingsArray = [];
-      
+
       if (Array.isArray(data)) {
         holdingsArray = data;
       } else if (data.holdings && Array.isArray(data.holdings)) {
@@ -135,13 +129,12 @@ const SellPage = () => {
         holdingsArray = data.data;
       }
 
-      console.log('📊 Holdings array:', holdingsArray);
       setHoldingsData(holdingsArray);
 
       // Process available metals when both holdings and prices are available
       processAvailableMetals(holdingsArray);
     } catch (err) {
-      console.error('❌ Error fetching holdings:', err);
+      
       setError('Failed to load current balance. Please try again.');
     }
   };
@@ -149,20 +142,18 @@ const SellPage = () => {
   const processAvailableMetals = (holdingsArray) => {
     // Wait for admin prices to be available
     if (!adminPrices || Object.keys(adminPrices).length === 0) {
-      console.log('⚠️ Waiting for admin prices...');
+
       return;
     }
 
-    console.log('💰 Processing metals with admin prices:', adminPrices);
-    console.log('📦 Holdings array:', holdingsArray);
 
     const available = [];
-    
+
     holdingsArray.forEach(holding => {
       const frontendMetalType = metalTypeMap[holding.metal_type];
       if (frontendMetalType) {
         const quantity = parseFloat(holding.qty) || 0;
-        
+
         // Get current price from adminPrices
         // Try different key formats
         let currentPrice = 0;
@@ -177,11 +168,9 @@ const SellPage = () => {
         } else if (adminPrices.silver && holding.metal_type === 'silver') {
           currentPrice = parseFloat(adminPrices.silver) || 0;
         }
-        
+
         const calculatedAmount = quantity * currentPrice;
-        
-        console.log(`📈 ${holding.metal_type}: ${quantity}gm × ₹${currentPrice} = ₹${calculatedAmount}`);
-        
+
         available.push({
           id: frontendMetalType,
           backendId: holding.metal_type,
@@ -194,7 +183,6 @@ const SellPage = () => {
       }
     });
 
-    console.log('🛠️ Available metals with calculated amounts:', available);
     setAvailableMetals(available);
 
     // If no metals are selected from available, select the first one
@@ -217,7 +205,7 @@ const SellPage = () => {
   }, [adminPrices]);
 
   const getMetalName = (metalType) => {
-    switch(metalType) {
+    switch (metalType) {
       case '24k-995':
       case '22k-916':
         return 'Gold';
@@ -229,7 +217,7 @@ const SellPage = () => {
   };
 
   const getMetalPurity = (metalType) => {
-    switch(metalType) {
+    switch (metalType) {
       case '24k-995':
         return '24k-995';
       case '22k-916':
@@ -242,7 +230,7 @@ const SellPage = () => {
   };
 
   const getMetalSymbol = (metalType) => {
-    switch(metalType) {
+    switch (metalType) {
       case '24k-995':
       case '22k-916':
         return 'Au';
@@ -255,7 +243,7 @@ const SellPage = () => {
 
   const updateCurrentBalance = (metalType, availableMetalsArray = availableMetals) => {
     const metal = availableMetalsArray.find(m => m.id === metalType);
-    
+
     if (metal) {
       setCurrentBalance({
         amount: metal.amt,
@@ -335,10 +323,8 @@ const SellPage = () => {
         quantity: parseFloat(grams)
       };
 
-      console.log('📤 Sending sell request:', requestBody);
-      console.log('🔑 Using authToken:', token.substring(0, 20) + '...');
 
-      const response = await fetch('http://35.154.85.104:5000/api/transactions/sell', {
+      const response = await fetch('http://65.2.152.254:5000/api/transactions/sell', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -348,24 +334,23 @@ const SellPage = () => {
       });
 
       const data = await response.json();
-      console.log('📥 Sell response:', data);
 
       if (response.ok) {
         alert(data.message || 'Sell successful,Amount will be Credited with in 24Hours');
         setGrams('');
         setAmount('');
-        
+
         // Refresh both prices and holdings
         await Promise.all([
           fetchAdminPrices(),
           fetchUserHoldings()
         ]);
-        
+
       } else {
         setError(data.message || 'Sell failed. Please try again.');
       }
     } catch (err) {
-      console.error('❌ Sell error:', err);
+      
       setError('Network error. Please check your connection and try again.');
     } finally {
       setLoading(false);
@@ -374,13 +359,11 @@ const SellPage = () => {
 
   const selectedMetalAvailable = availableMetals.find(m => m.id === selectedMetal);
 
-  console.log('🔧 Current state:');
-  console.log('- selectedMetal:', selectedMetal);
-  console.log('- availableMetals:', availableMetals);
-  console.log('- selectedMetalAvailable:', selectedMetalAvailable);
-  console.log('- currentBalance:', currentBalance);
-  console.log('- adminPrices:', adminPrices);
-  console.log('- holdingsData:', holdingsData);
+
+
+
+
+
 
   return (
     <div className="w-full max-w-sm mx-auto bg-white min-h-screen flex flex-col">
@@ -418,11 +401,10 @@ const SellPage = () => {
               <button
                 key={metal.id}
                 onClick={() => handleMetalSelect(metal.id)}
-                className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-colors flex flex-col items-center ${
-                  selectedMetal === metal.id
+                className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-colors flex flex-col items-center ${selectedMetal === metal.id
                     ? 'bg-[#50C2C9] text-white'
                     : 'bg-gray-200 text-gray-700'
-                }`}
+                  }`}
               >
                 <div>{metal.name}</div>
                 <div className="text-xs opacity-80">{metal.purity}</div>
@@ -444,9 +426,9 @@ const SellPage = () => {
           <h3 className="text-lg font-medium mb-2">Current Balance</h3>
           <div className="flex items-baseline">
             <span className="text-3xl font-bold">
-              ₹ {currentBalance.amount.toLocaleString('en-IN', { 
-                minimumFractionDigits: 2, 
-                maximumFractionDigits: 2 
+              ₹ {currentBalance.amount.toLocaleString('en-IN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
               })}
             </span>
             <span className="text-sm opacity-80 ml-2">({currentBalance.grams.toFixed(4)} gm)</span>
@@ -468,12 +450,10 @@ const SellPage = () => {
               <span className="text-sm text-gray-500 ml-1">
                 ({getMetalPurity(selectedMetal)})
               </span>
-              <div className={`w-8 h-8 rounded-full ml-2 flex items-center justify-center ${
-                getMetalName(selectedMetal) === 'Gold' ? 'bg-yellow-400' : 'bg-gray-400'
-              }`}>
-                <span className={`font-bold text-sm ${
-                  getMetalName(selectedMetal) === 'Gold' ? 'text-yellow-800' : 'text-gray-800'
+              <div className={`w-8 h-8 rounded-full ml-2 flex items-center justify-center ${getMetalName(selectedMetal) === 'Gold' ? 'bg-yellow-400' : 'bg-gray-400'
                 }`}>
+                <span className={`font-bold text-sm ${getMetalName(selectedMetal) === 'Gold' ? 'text-yellow-800' : 'text-gray-800'
+                  }`}>
                   {getMetalSymbol(selectedMetal)}
                 </span>
               </div>
@@ -569,14 +549,13 @@ const SellPage = () => {
         </div>
 
         {/* Sell Button */}
-        <button 
+        <button
           onClick={handleSell}
           disabled={loading || !grams || parseFloat(grams) <= 0 || !selectedMetalAvailable}
-          className={`w-full py-4 rounded-lg font-bold text-lg transition-colors ${
-            loading || !grams || parseFloat(grams) <= 0 || !selectedMetalAvailable
+          className={`w-full py-4 rounded-lg font-bold text-lg transition-colors ${loading || !grams || parseFloat(grams) <= 0 || !selectedMetalAvailable
               ? 'bg-gray-400 cursor-not-allowed'
               : 'bg-[#50C2C9] hover:bg-[#3caab0] text-white'
-          }`}
+            }`}
         >
           {loading ? 'Processing...' : `Sell ${getMetalName(selectedMetal)}`}
         </button>

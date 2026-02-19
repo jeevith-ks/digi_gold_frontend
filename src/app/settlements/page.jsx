@@ -38,7 +38,7 @@ export default function SettlementsPage() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-      const response = await fetch('http://35.154.85.104:5000/api/admin/completed-settled-sips', {
+      const response = await fetch('http://65.2.152.254:5000/api/admin/completed-settled-sips', {
         signal: controller.signal,
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -61,7 +61,7 @@ export default function SettlementsPage() {
       setSettlements(transformApiData(data));
 
     } catch (err) {
-      console.error('Error fetching settlements:', err);
+      
       setApiError(true);
       // Fallback data
       setSettlements(getSampleData());
@@ -123,7 +123,7 @@ export default function SettlementsPage() {
     if (!confirm('Are you sure you want to settle this SIP? This action cannot be undone.')) return;
 
     try {
-      const response = await fetch('http://35.154.85.104:5000/api/admin/settlements', {
+      const response = await fetch('http://65.2.152.254:5000/api/admin/settlements', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -141,7 +141,7 @@ export default function SettlementsPage() {
         alert(data.message || 'Failed to settle SIP');
       }
     } catch (error) {
-      console.error('Error settling SIP:', error);
+      
       alert('Failed to settle SIP. Please check connection.');
     }
   };

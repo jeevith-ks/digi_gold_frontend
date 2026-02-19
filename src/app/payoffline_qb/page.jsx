@@ -32,7 +32,6 @@ export default function PayofflinePage() {
 
       if (offlinePaymentDataStr) {
         const offlineData = JSON.parse(offlinePaymentDataStr);
-        console.log("Found offline payment data in session:", offlineData);
 
         // Set fields from the offline payment data
         if (offlineData.amount) {
@@ -64,7 +63,6 @@ export default function PayofflinePage() {
         }
       } else {
         // Fallback to old session storage structure
-        console.log("No offlinePaymentData found, checking old structure");
 
         const amountPayingValuesStr = sessionStorage.getItem("amount");
         if (amountPayingValuesStr) {
@@ -96,7 +94,7 @@ export default function PayofflinePage() {
         setMessage("Found existing transaction. Please verify OTP.");
       }
     } catch (error) {
-      console.error("Session storage error:", error);
+      
     }
   }, []);
 
@@ -129,10 +127,8 @@ export default function PayofflinePage() {
         ...(grams && { grams: parseFloat(grams) }),
       };
 
-      console.log("Sending transaction data:", transactionData);
-
       const response = await fetch(
-        "http://35.154.85.104:5000/api/transactions/",
+        "http://65.2.152.254:5000/api/transactions/",
         {
           method: "POST",
           headers: {
@@ -145,7 +141,7 @@ export default function PayofflinePage() {
       );
 
       const result = await response.json();
-      console.log("Transaction Response:", result);
+
       setApiResponse(JSON.stringify(result, null, 2));
 
       if (!response.ok) {
@@ -190,7 +186,7 @@ export default function PayofflinePage() {
 
     try {
       const response = await fetch(
-        "http://35.154.85.104:5000/api/transactions/verify-offline",
+        "http://65.2.152.254:5000/api/transactions/verify-offline",
         {
           method: "POST",
           headers: {
@@ -246,10 +242,10 @@ export default function PayofflinePage() {
   };
 
   const debugSessionStorage = () => {
-    console.log("=== SESSION STORAGE ===");
+
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i);
-      console.log(key, sessionStorage.getItem(key));
+
     }
   };
 

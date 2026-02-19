@@ -71,7 +71,6 @@ const SIPPage = () => {
   // Function to send transaction data to API
   const sendTransactionData = async (transactionData) => {
     try {
-      console.log('📤 Sending transaction data:', transactionData);
 
       const token = sessionStorage.getItem('authToken');
 
@@ -81,9 +80,7 @@ const SIPPage = () => {
         dataToSend[key] = transactionData[key] === null ? null : transactionData[key];
       });
 
-      console.log('📤 Data being sent to API:', dataToSend);
-
-      const response = await fetch('http://35.154.85.104:5000/api/transactions/', {
+      const response = await fetch('http://65.2.152.254:5000/api/transactions/', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -94,11 +91,11 @@ const SIPPage = () => {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ Transaction data sent successfully:', result);
+
         return { success: true, data: result };
       } else {
         const errorText = await response.text();
-        console.error('❌ Failed to send transaction data. Status:', response.status, 'Response:', errorText);
+        
 
         try {
           const errorData = JSON.parse(errorText);
@@ -108,7 +105,7 @@ const SIPPage = () => {
         }
       }
     } catch (error) {
-      console.error('❌ Error sending transaction data:', error);
+      
       return { success: false, error: error.message };
     }
   };
@@ -138,17 +135,8 @@ const SIPPage = () => {
         amount = parseAmount(paymentData.amount || '0');
       }
 
-      console.log('🔐 Verifying payment with details:', {
-        orderId: paymentResponse.razorpay_order_id,
-        paymentId: paymentResponse.razorpay_payment_id,
-        signature: paymentResponse.razorpay_signature,
-        amountToVerify: amount,
-        sipId: selectedSIPId,
-        isOffline: isOffline
-      });
-
       // For both online and offline payments
-      const verifyResponse = await fetch('http://35.154.85.104:5000/api/razorpay/verify-payment', {
+      const verifyResponse = await fetch('http://65.2.152.254:5000/api/razorpay/verify-payment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -167,7 +155,6 @@ const SIPPage = () => {
       const verifyData = await verifyResponse.json();
 
       if (verifyResponse.ok) {
-        console.log('✅ Payment verified successfully:', verifyData);
 
         // Clear session storage after successful payment
         clearPaymentDataFromSession();
@@ -190,12 +177,12 @@ const SIPPage = () => {
 
         return { success: true, data: verifyData };
       } else {
-        console.error('❌ Payment verification failed:', verifyData);
+        
         showNotification(`Payment verification failed: ${verifyData.error || verifyData.message}`, 'error');
         return { success: false, error: verifyData.error || verifyData.message };
       }
     } catch (error) {
-      console.error('❌ Payment verification error:', error);
+      
       showNotification('Payment verification failed. Please contact support.', 'error');
       return { success: false, error: error.message };
     } finally {
@@ -206,7 +193,6 @@ const SIPPage = () => {
   // Function to handle offline payment submission
   const handleOfflinePaymentSubmission = async (offlinePaymentData) => {
     try {
-      console.log('📤 Submitting offline payment:', offlinePaymentData);
 
       // For offline payment, we need to create a mock payment response
       const mockPaymentResponse = {
@@ -227,7 +213,7 @@ const SIPPage = () => {
         return { success: false, error: verificationResult.error };
       }
     } catch (error) {
-      console.error('❌ Offline payment submission error:', error);
+      
       return { success: false, error: error.message };
     }
   };
@@ -239,12 +225,6 @@ const SIPPage = () => {
       const storedUsername = sessionStorage.getItem('username');
       const storedToken = sessionStorage.getItem('authToken');
 
-      console.log('Session Storage Data:', {
-        userType: storedUserType,
-        username: storedUsername,
-        hasToken: !!storedToken
-      });
-
       if (storedUserType) {
         setUserType(storedUserType);
       }
@@ -255,11 +235,11 @@ const SIPPage = () => {
       // Check for stored market status - Load from sessionStorage
       const storedMarketStatus = sessionStorage.getItem('marketStatus');
       if (storedMarketStatus) {
-        console.log('📊 Loading market status from sessionStorage:', storedMarketStatus);
+
         setMarketStatus(storedMarketStatus);
       } else {
         // Initialize with 'open' if not stored yet
-        console.log('📊 Initializing market status to: open');
+
         sessionStorage.setItem('marketStatus', 'open');
         setMarketStatus('open');
       }
@@ -295,7 +275,7 @@ const SIPPage = () => {
       // Load saved payment data if exists
       const savedPaymentData = sessionStorage.getItem('currentPaymentData');
       if (savedPaymentData) {
-        console.log('📝 Loaded saved payment data from session:', JSON.parse(savedPaymentData));
+
       }
 
       // Initial fetch based on user type
@@ -335,14 +315,6 @@ const SIPPage = () => {
       currentTimeInMinutes <= endTimeInMinutes;
 
     setIsWithinAllowedTime(isWithinTime);
-
-    console.log('⏰ Time check:', {
-      currentTime: `${currentHour}:${currentMinute < 10 ? '0' + currentMinute : currentMinute}`,
-      currentTimeInMinutes,
-      startTime: '10:00 AM (600 minutes)',
-      endTime: '6:00 PM (1080 minutes)',
-      isWithinAllowedTime: isWithinTime
-    });
 
     return isWithinTime;
   };
@@ -389,7 +361,7 @@ const SIPPage = () => {
         return;
       }
 
-      const response = await fetch('http://35.154.85.104:5000/api/sip/all', {
+      const response = await fetch('http://65.2.152.254:5000/api/sip/all', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -398,7 +370,6 @@ const SIPPage = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('All SIP Data fetched (Admin):', data);
 
         // For admin, separate fixed and flexible SIPs
         const transformedFixedSips = transformFixedSIPsData(data.sipsFixed || [], true);
@@ -423,7 +394,7 @@ const SIPPage = () => {
         setError(errorData.message || 'Failed to fetch SIP data');
       }
     } catch (err) {
-      console.error('Error fetching SIP data:', err);
+      
       setError('Network error while fetching SIP data');
     } finally {
       setLoading(false);
@@ -441,7 +412,7 @@ const SIPPage = () => {
         return;
       }
 
-      const response = await fetch('http://35.154.85.104:5000/api/sip/', {
+      const response = await fetch('http://65.2.152.254:5000/api/sip/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -450,13 +421,7 @@ const SIPPage = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('🔍 Raw API data for user SIPs:', {
-          flexibleSIPs: data.sipsFlexible,
-          metalTypes: data.sipsFlexible?.map(sip => ({
-            id: sip.id,
-            metal_type: sip.metal_type,
-            status: sip.status
-          }))
+
         });
 
         // Transform and set data
@@ -484,7 +449,7 @@ const SIPPage = () => {
         setError(errorData.message || 'Failed to fetch SIP data');
       }
     } catch (err) {
-      console.error('Error fetching SIP data:', err);
+      
       setError('Network error while fetching SIP data');
     } finally {
       setLoading(false);
@@ -494,9 +459,8 @@ const SIPPage = () => {
   // Fetch latest prices from API
   const fetchLatestPrices = async (token) => {
     try {
-      console.log('💰 Fetching latest prices...');
 
-      const response = await fetch('http://35.154.85.104:5000/api/price/', {
+      const response = await fetch('http://65.2.152.254:5000/api/price/', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -504,29 +468,25 @@ const SIPPage = () => {
         }
       });
 
-      console.log('📡 Price response status:', response.status);
-
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ Latest prices received:', data);
 
         if (data.latestPrice) {
-          console.log('🔄 Metal rates updated with latest prices');
+
         }
       } else {
-        console.error('❌ Failed to fetch prices:', response.status);
+        
       }
     } catch (error) {
-      console.error('❌ Error fetching prices:', error);
+      
     }
   };
 
   // Fetch holdings data for customers
   const fetchHoldings = async (token) => {
     try {
-      console.log('🔐 Fetching holdings for customer...');
 
-      const response = await fetch('http://35.154.85.104:5000/api/holdings', {
+      const response = await fetch('http://65.2.152.254:5000/api/holdings', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -534,16 +494,14 @@ const SIPPage = () => {
         }
       });
 
-      console.log('📡 Holdings response status:', response.status);
-
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ Holdings data received:', data);
+
       } else {
-        console.error('❌ Failed to fetch holdings:', response.status);
+        
       }
     } catch (error) {
-      console.error('❌ Error fetching holdings:', error);
+      
     }
   };
 
@@ -575,7 +533,7 @@ const SIPPage = () => {
         return;
       }
 
-      const response = await fetch('http://35.154.85.104:5000/api/sip/fixed', {
+      const response = await fetch('http://65.2.152.254:5000/api/sip/fixed', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -584,7 +542,6 @@ const SIPPage = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Available Fixed SIPs fetched:', data);
 
         // Transform the data for display
         const transformedPlans = data
@@ -609,7 +566,7 @@ const SIPPage = () => {
         throw new Error(errorData.message || 'Failed to fetch fixed SIP plans');
       }
     } catch (err) {
-      console.error('Error fetching fixed SIP plans:', err);
+      
       setError(err.message || 'Failed to load fixed SIP plans');
     } finally {
       setLoadingFixedSIPs(false);
@@ -646,7 +603,7 @@ const SIPPage = () => {
         return;
       }
 
-      const response = await fetch('http://35.154.85.104:5000/api/sip/fixed/opt', {
+      const response = await fetch('http://65.2.152.254:5000/api/sip/fixed/opt', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -660,7 +617,6 @@ const SIPPage = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Fixed SIP chosen successfully:', data);
 
         // Mark this SIP as selected temporarily
         setSelectedFixedSIPId(planId);
@@ -689,7 +645,7 @@ const SIPPage = () => {
         throw new Error(errorData.message || 'Failed to choose fixed SIP');
       }
     } catch (err) {
-      console.error('Error choosing fixed SIP:', err);
+      
       setError(err.message || 'Failed to choose fixed SIP');
       setSelectedFixedSIPId(null);
     } finally {
@@ -706,10 +662,8 @@ const SIPPage = () => {
         return;
       }
 
-      console.log('Opted fixed SIPs are included in the main fetch');
-
     } catch (err) {
-      console.error('Error fetching opted fixed SIPs:', err);
+      
     }
   };
 
@@ -764,13 +718,6 @@ const SIPPage = () => {
         const totalAmount = flexibleSip.total_amount_paid ? parseFloat(flexibleSip.total_amount_paid) : 0;
         const displayMetalType = getDisplayMetalType(flexibleSip.metal_type);
 
-        console.log(`🔍 Admin Flexible SIP ${index + 1}:`, {
-          id: flexibleSip.id,
-          backendMetalType: flexibleSip.metal_type,
-          displayMetalType: displayMetalType,
-          name: `Flexible SIP - ${displayMetalType}`
-        });
-
         flexiblePlans.push({
           id: flexibleSip.id,
           name: `Flexible SIP - ${displayMetalType}`,
@@ -801,11 +748,6 @@ const SIPPage = () => {
 
   // Transform user's personal SIP data (Used for Customer view)
   const transformSIPData = (apiData) => {
-    console.log('🔍 Transforming SIP data for customer:', {
-      hasFixedSIPs: apiData.sipsFixed?.length || 0,
-      hasFlexibleSIPs: apiData.sipsFlexible?.length || 0,
-      flexibleSIPs: apiData.sipsFlexible
-    });
 
     const plans = [];
 
@@ -850,13 +792,6 @@ const SIPPage = () => {
         // CRITICAL FIX: Get the metal type from the flexible SIP record
         const displayMetalType = getDisplayMetalType(flexibleSip.metal_type);
 
-        console.log(`✅ Customer Flexible SIP ${index + 1} - FIXED:`, {
-          id: flexibleSip.id,
-          backendMetalType: flexibleSip.metal_type,
-          displayMetalType: displayMetalType,
-          name: `Flexible SIP - ${displayMetalType}`
-        });
-
         plans.push({
           id: flexibleSip.id,
           name: `Flexible SIP - ${displayMetalType}`, // Now shows correct metal type
@@ -879,7 +814,6 @@ const SIPPage = () => {
       });
     }
 
-    console.log('✅ Final transformed plans:', plans);
     return plans;
   };
 
@@ -894,7 +828,7 @@ const SIPPage = () => {
         year: 'numeric'
       });
     } catch (error) {
-      console.error('Error formatting date:', dateString, error);
+      
       return 'N/A';
     }
   };
@@ -951,8 +885,6 @@ const SIPPage = () => {
     const sipType = tab === 'All' ? 'fixed' : 'flexible';
     sessionStorage.setItem('sipType', sipType);
 
-    console.log('SIP type stored:', sipType);
-
     // Save tab change to session storage
     sessionStorage.setItem('activeSIPTab', tab);
 
@@ -970,8 +902,6 @@ const SIPPage = () => {
   const handleAmountPayingChange = (planId, value) => {
     const numericValue = value.replace(/[^0-9]/g, '');
 
-    console.log('💾 Amount paying change:', { planId, value, numericValue });
-
     let newValue = '';
     if (numericValue !== '') {
       newValue = `₹${formatCurrency(parseInt(numericValue))}`;
@@ -987,12 +917,6 @@ const SIPPage = () => {
     // Immediately save to sessionStorage
     sessionStorage.setItem('amountPayingValues', JSON.stringify(newAmountPayingValues));
 
-    console.log('💾 Saved amount to sessionStorage:', {
-      planId,
-      value: newValue,
-      numericValue: parseInt(numericValue) || 0,
-      allValues: newAmountPayingValues
-    });
   };
 
   // Save payment data to session storage
@@ -1014,7 +938,7 @@ const SIPPage = () => {
     };
 
     sessionStorage.setItem('currentPaymentData', JSON.stringify(paymentData));
-    console.log('💾 Current payment data saved:', paymentData);
+
   };
 
   // Function to clear payment data after successful payment
@@ -1029,7 +953,6 @@ const SIPPage = () => {
     sessionStorage.removeItem('razorpayPlanType');
     sessionStorage.removeItem('razorpayMetalType');
 
-    console.log('🧹 Cleared payment data from sessionStorage');
   };
 
   const handlePay = (id, plan, e) => {
@@ -1129,19 +1052,11 @@ const SIPPage = () => {
   const parseAmount = (amountString) => {
     if (!amountString) return 0;
 
-    console.log('🔍 Parsing amount:', amountString);
-
     // Remove ₹ symbol, commas, and any whitespace
     const cleanedAmount = amountString.replace(/[₹,]/g, '').trim();
 
     // Parse as float
     const amount = parseFloat(cleanedAmount);
-
-    console.log('🔍 Parsed amount result:', {
-      original: amountString,
-      cleaned: cleanedAmount,
-      parsed: amount
-    });
 
     // Return 0 if invalid, otherwise return the amount
     return isNaN(amount) ? 0 : amount;
@@ -1196,18 +1111,10 @@ const SIPPage = () => {
         // Determine the amount to use
         if (showAmountInput && manualAmount) {
           amount = parseAmount(manualAmount);
-          console.log('💰 Using MANUAL amount:', {
-            manualAmount,
-            parsedAmount: amount,
-            planType: selectedPlan.type
-          });
+
         } else {
           amount = selectedPlan.monthlyAmount || parseAmount(selectedPlan.investMin);
-          console.log('💰 Using DEFAULT amount:', {
-            defaultAmount: selectedPlan.investMin,
-            parsedAmount: amount,
-            planType: selectedPlan.type
-          });
+
         }
 
         // Enhanced validation
@@ -1219,19 +1126,6 @@ const SIPPage = () => {
           throw new Error('Minimum payment amount is ₹1');
         }
 
-        console.log('💰 Final payment details:', {
-          amount,
-          manualAmount,
-          showAmountInput,
-          planType: selectedPlan.type,
-          planName: selectedPlan.name,
-          isFixed: selectedPlan.isFixed,
-          isFlexible: !selectedPlan.isFixed,
-          amountInPaise: amount * 100,
-          sipId: selectedSIPId,
-          metalType: selectedPlan.metalType
-        });
-
         // Store payment details in sessionStorage for Razorpay
         sessionStorage.setItem('razorpayAmount', amount.toString());
         sessionStorage.setItem('razorpaySIPId', selectedSIPId);
@@ -1241,25 +1135,15 @@ const SIPPage = () => {
 
         const razorpayAmount = Math.round(amount * 100); // Convert to paise for Razorpay
 
-        console.log('💰 Razorpay amount in paise:', razorpayAmount);
-
         // Get auth token from session storage
         const token = sessionStorage.getItem('authToken');
         if (!token) {
           throw new Error('Authentication required. Please login again.');
         }
 
-        console.log('📞 Calling Razorpay API...');
-        console.log('Request URL:', 'http://35.154.85.104:5000/api/razorpay/create-order');
-        console.log('Request payload:', {
-          amount: razorpayAmount,
-          metalType: selectedPlan.metalType || '22KT Gold',
-          sipMonths: selectedPlan.totalMonths || 12,
-          sipType: selectedPlan.isFixed ? 'fixed' : 'flexible',
-          sipId: selectedSIPId
-        });
 
-        const response = await fetch('http://35.154.85.104:5000/api/razorpay/create-order', {
+
+        const response = await fetch('http://65.2.152.254:5000/api/razorpay/create-order', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1274,27 +1158,22 @@ const SIPPage = () => {
           }),
         });
 
-        console.log('📋 API Response status:', response.status);
-        console.log('📋 API Response headers:', [...response.headers.entries()]);
 
         // Read the response text once
         const responseText = await response.text();
-        console.log('📋 API Response text:', responseText);
 
         let orderData;
         try {
           orderData = JSON.parse(responseText);
         } catch (parseError) {
-          console.error('❌ Failed to parse JSON response:', parseError);
+          
           throw new Error(`Invalid response from server: ${responseText.substring(0, 100)}`);
         }
 
         if (!response.ok) {
-          console.error('❌ Backend API Error response:', orderData);
+          
           throw new Error(orderData.error || orderData.message || `HTTP error! status: ${response.status}`);
         }
-
-        console.log('✅ Order created successfully:', orderData);
 
         await loadRazorpayScript();
 
@@ -1307,15 +1186,14 @@ const SIPPage = () => {
           description: `${selectedPlan.metalType} ${selectedPlan.type} Payment - ${selectedPlan.name}`,
           order_id: orderData.id,
           handler: async function (paymentResponse) {
-            console.log('✅ Payment successful:', paymentResponse);
 
             // Call verifyPayment with the payment response
             const result = await verifyPayment(paymentResponse);
 
             if (result.success) {
-              console.log('✅ Payment verification and processing completed successfully');
+
             } else {
-              console.error('❌ Payment processing failed:', result.error);
+              
             }
           },
           prefill: {
@@ -1335,29 +1213,23 @@ const SIPPage = () => {
           },
           modal: {
             ondismiss: function () {
-              console.log('Payment modal closed');
+
               showNotification('Payment was cancelled. You can try again.', 'error');
             }
           }
         };
 
-        console.log('🎯 Razorpay options:', options);
-
         const razorpay = new window.Razorpay(options);
 
         razorpay.on('payment.failed', function (response) {
-          console.error('❌ Payment failed:', response.error);
+          
           showNotification(`Payment failed: ${response.error.description}. Please try again.`, 'error');
         });
 
         razorpay.open();
 
       } catch (error) {
-        console.error('❌ Payment initialization error:', {
-          message: error.message,
-          stack: error.stack,
-          name: error.name
-        });
+        
 
         // Show more helpful error message
         let errorMessage = error.message;
@@ -1405,7 +1277,6 @@ const SIPPage = () => {
         isFlexible: !selectedPlan.isFixed
       };
 
-      console.log('💾 Storing offline payment data in session storage:', offlineData);
       sessionStorage.setItem('offlinePaymentData', JSON.stringify(offlineData));
 
       // Navigate to offline payment page
@@ -1422,8 +1293,6 @@ const SIPPage = () => {
   const handleManualAmountChange = (e) => {
     const value = e.target.value.replace(/[^0-9]/g, '');
     const numericValue = value ? parseInt(value) : 0;
-
-    console.log('⌨️ Manual amount input:', { value, numericValue });
 
     if (numericValue > 0) {
       const formattedAmount = `₹${formatCurrency(numericValue)}`;
@@ -1471,17 +1340,10 @@ const SIPPage = () => {
         return;
       }
 
-      console.log('🔍 Creating flexible SIP with:', {
-        currentMetalTypeState: metalType,
-        getDisplayMetalType: getDisplayMetalType(metalType),
-        getEnumMetalType: getEnumMetalType(getDisplayMetalType(metalType))
       });
 
       const enumMetalType = getEnumMetalType(getDisplayMetalType(metalType)); // FIXED
 
-      console.log('🔍 Sending to backend:', {
-        metal_type: enumMetalType,
-        display: getDisplayMetalType(metalType)
       });
 
       // Save flexible SIP creation data to session storage
@@ -1495,7 +1357,7 @@ const SIPPage = () => {
       };
       sessionStorage.setItem('flexibleSIPCreation', JSON.stringify(sipCreationData));
 
-      const response = await fetch('http://35.154.85.104:5000/api/sip/flexible/create', {
+      const response = await fetch('http://65.2.152.254:5000/api/sip/flexible/create', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1511,7 +1373,7 @@ const SIPPage = () => {
       const responseData = await response.json();
 
       if (response.ok) {
-        console.log('✅ SIP created successfully:', responseData);
+
         // Clear creation data from session storage
         sessionStorage.removeItem('flexibleSIPCreation');
 
@@ -1694,12 +1556,7 @@ const SIPPage = () => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        console.log('Select Plan clicked:', {
-                          planId: plan.id,
-                          isWithinAllowedTime,
-                          marketStatus,
-                          isActive: plan.isActive
-                        });
+
                         handleChooseFixedSIP(plan.id);
                       }}
                       disabled={!isWithinAllowedTime || marketStatus === 'closed' || !plan.isActive}
@@ -1779,8 +1636,8 @@ const SIPPage = () => {
   // Debug component to show current SIP plans data
   const DebugInfo = () => {
     useEffect(() => {
-      console.log('🔍 Current SIP plans:', sipPlans);
-      console.log('🔍 Amount paying values:', amountPayingValues);
+
+
     }, [sipPlans]);
 
     return null;

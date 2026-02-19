@@ -64,7 +64,7 @@ export default function AuthPage() {
     if (isLogin) {
       // Login logic
       try {
-        const response = await fetch("http://35.154.85.104:5000/api/auth/login", {
+        const response = await fetch("http://65.2.152.254:5000/api/auth/login", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
@@ -77,7 +77,6 @@ export default function AuthPage() {
 
         if (response.ok) {
           const data = await response.json();
-          console.log("✅ Login successful:", data);
 
           // Store user info in session storage
           sessionStorage.setItem("authToken", data.token);
@@ -90,11 +89,11 @@ export default function AuthPage() {
           router.push("/Home");
         } else {
           const errorData = await response.json();
-          console.error("❌ Login failed:", errorData);
+          
           alert("Login failed: " + (errorData.message || "Invalid credentials"));
         }
       } catch (error) {
-        console.error("❌ Error:", error);
+        
         alert("Something went wrong during login!");
       }
     } else {
@@ -120,17 +119,8 @@ export default function AuthPage() {
       }
 
       try {
-        console.log("Sending registration data:", {
-          username: formData.username,
-          email: formData.email,
-          password: formData.password,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          phone: formData.phone,
-          user_type: finalUserType // Use dynamically determined user type
-        });
 
-        const response = await fetch("http://35.154.85.104:5000/api/auth/register", {
+        const response = await fetch("http://65.2.152.254:5000/api/auth/register", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
@@ -149,7 +139,6 @@ export default function AuthPage() {
         const responseData = await response.json();
 
         if (response.ok) {
-          console.log("✅ Registration successful:", responseData);
 
           // Store user info in session storage
           sessionStorage.setItem("authToken", responseData.token);
@@ -169,7 +158,7 @@ export default function AuthPage() {
           router.push("/Home");
           resetForm();
         } else {
-          console.error("❌ Registration failed:", responseData);
+          
 
           // Handle specific error cases
           if (responseData.message?.includes('already exists')) {
@@ -179,7 +168,7 @@ export default function AuthPage() {
           }
         }
       } catch (error) {
-        console.error("❌ Error:", error);
+        
         alert("Something went wrong during registration!");
       }
     }

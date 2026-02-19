@@ -50,7 +50,7 @@ export default function SipPlan() {
 
       return await response.json();
     } catch (error) {
-      console.error('Error creating order:', error);
+      
       throw error;
     }
   };
@@ -67,7 +67,7 @@ export default function SipPlan() {
       if (!response.ok) throw new Error('Payment verification failed');
       return await response.json();
     } catch (error) {
-      console.error('Error verifying payment:', error);
+      
       throw error;
     }
   };
@@ -161,7 +161,7 @@ export default function SipPlan() {
     };
 
     try {
-      const response = await fetch("http://35.154.85.104:8089/sip/save", {
+      const response = await fetch("http://65.2.152.254:8089/sip/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(planData),
@@ -175,7 +175,7 @@ export default function SipPlan() {
       // ✅ Redirect after success
       router.push("/Sip_card_details");
     } catch (err) {
-      console.error(err);
+      
       alert("Failed to create savings plan ❌");
     }
   };
@@ -183,7 +183,7 @@ export default function SipPlan() {
   return (
     <div className="flex justify-center items-center min-h-screen bg-gray-100 p-4">
       <div className="w-full max-w-sm sm:max-w-md md:max-w-lg rounded-3xl shadow-xl bg-white p-6">
-        
+
         {/* Title */}
         <div className="flex items-center px-4 py-4 mb-2 border-b border-gray-100">
           <button className="mr-4" onClick={() => router.push('/savings_plan')}>
@@ -253,11 +253,10 @@ export default function SipPlan() {
 
         {/* Payment Status */}
         {paymentStatus && (
-          <div className={`text-center font-semibold mb-4 p-3 rounded-lg ${
-            paymentStatus.includes('Success') 
-              ? 'text-green-600 bg-green-50' 
+          <div className={`text-center font-semibold mb-4 p-3 rounded-lg ${paymentStatus.includes('Success')
+              ? 'text-green-600 bg-green-50'
               : 'text-red-600 bg-red-50'
-          }`}>
+            }`}>
             {paymentStatus}
           </div>
         )}
@@ -271,21 +270,21 @@ export default function SipPlan() {
               ${paymentDoneMode === "online"
                 ? 'bg-blue-600 text-white border border-blue-600'
                 : paymentMode === "online"
-                ? 'bg-[#50C2C9] text-white border border-[#50C2C9]'
-                : 'bg-white text-[#50C2C9] border border-[#50C2C9] hover:bg-[#50C2C9] hover:text-white'
+                  ? 'bg-[#50C2C9] text-white border border-[#50C2C9]'
+                  : 'bg-white text-[#50C2C9] border border-[#50C2C9] hover:bg-[#50C2C9] hover:text-white'
               }`}
           >
             {isLoading ? 'Processing...' : 'Pay Online'}
           </button>
 
-          <button 
+          <button
             onClick={handlePayOffline}
             className={`flex-1 py-3 rounded-lg font-semibold transition-all
               ${paymentDoneMode === "offline"
                 ? 'bg-blue-600 text-white border border-blue-600'
                 : paymentMode === "offline"
-                ? 'bg-[#50C2C9] text-white border border-[#50C2C9]'
-                : 'bg-white text-[#50C2C9] border border-[#50C2C9] hover:bg-[#50C2C9] hover:text-white'
+                  ? 'bg-[#50C2C9] text-white border border-[#50C2C9]'
+                  : 'bg-white text-[#50C2C9] border border-[#50C2C9] hover:bg-[#50C2C9] hover:text-white'
               }`}
           >
             Pay Offline
@@ -293,7 +292,7 @@ export default function SipPlan() {
         </div>
 
         {/* Create Savings Plan */}
-        <button 
+        <button
           onClick={handleCreateSavingsPlan}
           className="w-full bg-[#50C2C9] text-white py-3 rounded-lg font-semibold mb-6 hover:bg-[#45B0B7] transition-all active:scale-95"
         >

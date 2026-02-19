@@ -49,7 +49,7 @@ export default function SecureVault() {
 
       if (!token) return null;
 
-      const response = await fetch('http://35.154.85.104:5000/api/price/', {
+      const response = await fetch('http://65.2.152.254:5000/api/price/', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -62,7 +62,6 @@ export default function SecureVault() {
 
 
       const data = await response.json();
-      console.log('data display', data);
 
       let prices = data;
       if (data.latestPrice) prices = data.latestPrice;
@@ -71,7 +70,7 @@ export default function SecureVault() {
       setAdminPrices(prices);
       return prices;
     } catch (error) {
-      console.error('❌ Error fetching admin prices:', error);
+      
       return null;
     } finally {
       setLoadingPrices(false);
@@ -182,7 +181,7 @@ export default function SecureVault() {
 
       const prices = await fetchAdminPrices();
 
-      const response = await fetch('http://35.154.85.104:5000/api/user/holdings', {
+      const response = await fetch('http://65.2.152.254:5000/api/user/holdings', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -201,7 +200,7 @@ export default function SecureVault() {
       if (!response.ok) throw new Error(`Failed to fetch holdings: ${response.status}`);
 
       const data = await response.json();
-      console.log("Holdings API response:", data);
+
       let holdingsArray = [];
 
       // Handle various response structures - Prioritize data.data based on user logs
@@ -212,8 +211,6 @@ export default function SecureVault() {
       } else if (data.holdings && Array.isArray(data.holdings)) {
         holdingsArray = data.holdings;
       }
-
-      console.log("Parsed holdings array:", holdingsArray);
 
       const { processedHoldings, total } = processHoldingsWithPrices(holdingsArray, prices);
 
@@ -238,7 +235,7 @@ export default function SecureVault() {
         setTotalSavings(manualTotal);
       }
     } catch (error) {
-      console.error('Error fetching holdings:', error);
+      
       setError(`Error: ${error.message}`);
       setHoldings(getDemoData());
     } finally {

@@ -52,7 +52,7 @@ export default function PayofflinePage() {
         setSipType(storedSipType.toUpperCase().trim());
       }
     } catch (error) {
-      console.error("Session storage error:", error);
+      
     }
   }, []);
 
@@ -80,23 +80,8 @@ export default function PayofflinePage() {
         shop: shop !== "Select Shop" ? shop : null,
       };
 
-      console.log("Sending transaction data:", transactionData); // Debug log
-
-      const response = await fetch(
-        "http://35.154.85.104:5000/api/transactions/",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${sessionStorage.getItem("authToken") || ""
-              }`,
-          },
-          body: JSON.stringify(transactionData),
-        }
-      );
-
       const result = await response.json();
-      console.log("Transaction Response:", result);
+
       setApiResponse(JSON.stringify(result, null, 2));
 
       if (!response.ok) {
@@ -141,7 +126,7 @@ export default function PayofflinePage() {
 
     try {
       const response = await fetch(
-        "http://35.154.85.104:5000/api/transactions/verify-offline",
+        "http://65.2.152.254:5000/api/transactions/verify-offline",
         {
           method: "POST",
           headers: {
@@ -194,10 +179,10 @@ export default function PayofflinePage() {
   };
 
   const debugSessionStorage = () => {
-    console.log("=== SESSION STORAGE ===");
+
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i);
-      console.log(key, sessionStorage.getItem(key));
+
     }
   };
 

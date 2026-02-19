@@ -10,6 +10,6 @@ const handleDownload = async () => {
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Failed to download excel:', error);
+      
     }
   };

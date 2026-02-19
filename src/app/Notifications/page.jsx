@@ -54,7 +54,7 @@ const NotificationsPage = () => {
         return;
       }
 
-      const response = await fetch('http://35.154.85.104:5000/api/notifications', {
+      const response = await fetch('http://65.2.152.254:5000/api/notifications', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -69,7 +69,7 @@ const NotificationsPage = () => {
         setNotifications(notifs);
       }
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -81,7 +81,7 @@ const NotificationsPage = () => {
       const token = sessionStorage.getItem('authToken');
       if (!token) return;
 
-      const response = await fetch(`http://35.154.85.104:5000/api/notifications/${id}/read`, {
+      const response = await fetch(`http://65.2.152.254:5000/api/notifications/${id}/read`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -97,7 +97,7 @@ const NotificationsPage = () => {
         );
       }
     } catch (error) {
-      console.error('Error marking as read:', error);
+      
     }
   };
 
@@ -106,7 +106,7 @@ const NotificationsPage = () => {
       const token = sessionStorage.getItem('authToken');
       if (!token) return;
 
-      const response = await fetch('http://35.154.85.104:5000/api/notifications/read-all', {
+      const response = await fetch('http://65.2.152.254:5000/api/notifications/read-all', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -120,7 +120,7 @@ const NotificationsPage = () => {
         );
       }
     } catch (error) {
-      console.error('Error marking all as read:', error);
+      
     }
   };
 

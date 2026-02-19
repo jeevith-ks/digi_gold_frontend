@@ -87,17 +87,17 @@ export default function SipHoldings() {
 
             if (verificationResult.success) {
               setPaymentStatus('Payment Success ✅');
-               await fetch("http://35.154.85.104:8089/payment/save", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      user_id: userId,
-      amount: sip.amount,
-      dateTime: new Date().toISOString(),
-      transaction_id: response.razorpay_payment_id,
-      status: "SUCCESS",
-    }),
-  });
+              await fetch("http://65.2.152.254:8089/payment/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  user_id: userId,
+                  amount: sip.amount,
+                  dateTime: new Date().toISOString(),
+                  transaction_id: response.razorpay_payment_id,
+                  status: "SUCCESS",
+                }),
+              });
               router.push('/payment-success');
             } else {
               setPaymentStatus('Payment Verification Failed ❌');
@@ -124,7 +124,7 @@ export default function SipHoldings() {
       rzp.open();
       setIsLoading(false);
     } catch (err) {
-      console.error(err);
+      
       setPaymentStatus('Payment Init Failed ❌');
       setIsLoading(false);
     }
@@ -143,7 +143,7 @@ export default function SipHoldings() {
     setUserName(storedUserName);
 
     if (storedUserId) {
-      fetch('http://35.154.85.104:8089/create_sip/getByUserId', {
+      fetch('http://65.2.152.254:8089/create_sip/getByUserId', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: parseInt(storedUserId) }),
@@ -152,7 +152,7 @@ export default function SipHoldings() {
         .then((data) => {
           setSipData(data);
         })
-        .catch((err) => console.error('Error fetching SIP:', err));
+        .catch((err) => );
     }
   }, []);
 

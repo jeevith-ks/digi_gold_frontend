@@ -100,7 +100,7 @@ const AdminSIPForm = () => {
         end_date: formData.endDate || null
       };
 
-      const response = await fetch('http://35.154.85.104:5000/api/sip/fixed/create', {
+      const response = await fetch('http://65.2.152.254:5000/api/sip/fixed/create', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -132,7 +132,7 @@ const AdminSIPForm = () => {
       });
 
     } catch (error) {
-      console.error('Error creating Fixed SIP plan:', error);
+      
       alert(`Failed to create Fixed SIP plan: ${error.message}`);
     } finally {
       setIsLoading(false);
