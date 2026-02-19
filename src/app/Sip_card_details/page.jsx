@@ -422,7 +422,7 @@ const SIPPage = () => {
       if (response.ok) {
         const data = await response.json();
 
-        });
+       
 
         // Transform and set data
         const transformedPlans = transformSIPData(data);
@@ -1340,11 +1340,11 @@ const SIPPage = () => {
         return;
       }
 
-      });
+    
 
       const enumMetalType = getEnumMetalType(getDisplayMetalType(metalType)); // FIXED
 
-      });
+     
 
       // Save flexible SIP creation data to session storage
       const sipCreationData = {

@@ -55,6 +55,7 @@ const PreciousMetalsApp = () => {
   const [processingPayment, setProcessingPayment] = useState(false);
 
   const router = useRouter();
+  const pathname = usePathname();
 
   // Initialize user data and fetch market status
   useEffect(() => {
@@ -236,7 +237,7 @@ const PreciousMetalsApp = () => {
           });
         }
       } else {
-        
+
 
         // Fallback to sessionStorage if API fails
         const storedStatus = sessionStorage.getItem('marketStatus');
@@ -253,7 +254,7 @@ const PreciousMetalsApp = () => {
         }
       }
     } catch (error) {
-      
+
 
       // Fallback to sessionStorage
       const storedStatus = sessionStorage.getItem('marketStatus');
@@ -287,7 +288,7 @@ const PreciousMetalsApp = () => {
         setMarketHistory(data.history || data);
       }
     } catch (error) {
-      
+
     }
   };
 
@@ -326,7 +327,7 @@ const PreciousMetalsApp = () => {
         }
       }
     } catch (error) {
-      
+
     } finally {
       setIsLoadingPrices(false);
     }
@@ -350,7 +351,7 @@ const PreciousMetalsApp = () => {
         updateMetalBalances(data.holdings || data);
       }
     } catch (error) {
-      
+
     } finally {
       setIsLoading(false);
     }
@@ -372,7 +373,7 @@ const PreciousMetalsApp = () => {
         setNotifications(data.notifications || []);
       }
     } catch (error) {
-      
+
     }
   };
 
@@ -478,7 +479,7 @@ const PreciousMetalsApp = () => {
             }
           }
         } catch (e) {
-          
+
         }
 
         throw new Error(`HTTP ${verifyResponse.status}: ${errorMessage}`);
@@ -528,7 +529,7 @@ const PreciousMetalsApp = () => {
 
       return { success: true, data: verifyData };
     } catch (error) {
-      
+
       alert(`Payment verification failed: ${error.message}`);
       return { success: false, error: error.message };
     } finally {
@@ -648,7 +649,7 @@ const PreciousMetalsApp = () => {
             }
           }
         } catch (e) {
-          
+
         }
 
         throw new Error(`HTTP ${response.status}: ${errorMessage} ${errorDetails ? `(${errorDetails})` : ''}`);
@@ -737,7 +738,7 @@ const PreciousMetalsApp = () => {
       const razorpay = new window.Razorpay(options);
 
       razorpay.on('payment.failed', function (response) {
-        
+
         setProcessingPayment(false);
 
         // Store payment failure in session storage
@@ -755,7 +756,7 @@ const PreciousMetalsApp = () => {
       razorpay.open();
 
     } catch (error) {
-      
+
 
       setProcessingPayment(false);
 
@@ -836,7 +837,7 @@ const PreciousMetalsApp = () => {
         alert(errorData.message || 'Failed to update market status');
       }
     } catch (error) {
-      
+
       alert('Error updating market status. Please try again.');
     } finally {
       setIsUpdatingMarket(false);
@@ -891,7 +892,7 @@ const PreciousMetalsApp = () => {
         alert(errorData.message || 'Failed to update trading hours');
       }
     } catch (error) {
-      
+
       alert('Error updating trading hours. Please try again.');
     } finally {
       setIsUpdatingMarket(false);
@@ -1130,7 +1131,7 @@ const PreciousMetalsApp = () => {
         alert('Failed to update rates: ' + (errorData.message || 'Unknown error'));
       }
     } catch (error) {
-      
+
       alert('Error updating rates. Please try again.');
     } finally {
       setIsSaving(false);
@@ -1203,7 +1204,7 @@ const PreciousMetalsApp = () => {
       }, 100);
 
     } catch (error) {
-      
+
       alert('Failed to download Excel file. Please try again.');
     }
   };
@@ -1733,7 +1734,6 @@ const PreciousMetalsApp = () => {
             isActive: (path) => path === '/profile'
           }
         ].map((item, index) => {
-          const pathname = usePathname();
           const active = item.isActive(pathname);
 
           return (

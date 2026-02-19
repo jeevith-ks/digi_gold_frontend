@@ -32,36 +32,29 @@ const RenderInput = ({ label, name, type = 'text', disabled = false, placeholder
 };
 
 export default function ProfilePage() {
-  // ---------------------------------------------------------------------------
-  // STATE MANAGEMENT
-  // ---------------------------------------------------------------------------
+  // 1. Hooks (Must be top-level and consistent)
   const [activeTab, setActiveTab] = useState('Personal');
   const [userData, setUserData] = useState({
     fullName: '', email: '', gender: '', phoneNumber: '', dateOfBirth: '',
     pincode: '', houseOrFlatOrApartmentNo: '', area: '', city: '', state: '',
     panFullName: '', panNumber: '', bankFullName: '', bankName: '', ifscCode: '', accountNumber: '',
   });
-
   const [kycStatus, setKycStatus] = useState({
     pan: { status: 'NOT_SUBMITTED', message: '' },
     bank: { status: 'NOT_SUBMITTED', message: '' }
   });
-
   const [editMode, setEditMode] = useState(false);
   const [authToken, setAuthToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
-
   const [verificationStatus, setVerificationStatus] = useState({
     pan: { verified: false, status: '', timestamp: '', data: null },
     aadhaar: { verified: false, status: '', timestamp: '', data: null }
   });
 
   const router = useRouter();
+  const pathname = usePathname();
 
-  // ---------------------------------------------------------------------------
-  // DATA LOADING
-  // ---------------------------------------------------------------------------
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const token = sessionStorage.getItem('authToken');
@@ -79,7 +72,7 @@ export default function ProfilePage() {
           await fetchKYCData();
           await fetchVerificationStatus();
         } catch (error) {
-          
+          console.error('Error loading profile data:', error);
         } finally {
           setLoading(false);
         }
@@ -88,9 +81,7 @@ export default function ProfilePage() {
     }
   }, [authToken]);
 
-  // ---------------------------------------------------------------------------
-  // API HELPERS
-  // ---------------------------------------------------------------------------
+  // 2. Methods
   const fetchUserData = async () => {
     try {
       const response = await fetch('http://65.2.152.254:5000/api/user/details', {
@@ -117,7 +108,7 @@ export default function ProfilePage() {
           state: user.state || '',
         }));
       }
-    } catch (err) {  }
+    } catch (err) { console.error('Error fetching user data:', err); }
   };
 
   const fetchKYCData = async () => {
@@ -142,7 +133,7 @@ export default function ProfilePage() {
           accountNumber: kycData.bank?.account_no || kycData.bank?.account_masked || ''
         }));
       }
-    } catch (err) {  }
+    } catch (err) { console.error('Error fetching KYC data:', err); }
   };
 
   const fetchVerificationStatus = async () => {
@@ -161,12 +152,9 @@ export default function ProfilePage() {
           });
         }
       }
-    } catch (err) {  }
+    } catch (err) { console.error('Error fetching verification status:', err); }
   };
 
-  // ---------------------------------------------------------------------------
-  // HANDLERS
-  // ---------------------------------------------------------------------------
   const handleInputChange = (e) => {
     if (!editMode) return;
     const { name, value } = e.target;
@@ -183,8 +171,6 @@ export default function ProfilePage() {
 
   const handleUpdate = async () => {
     if (!editMode) return;
-
-    // Determine which update function to call based on active tab
     if (activeTab === 'Personal') await updatePersonalDetails();
     else if (activeTab === 'KYC') await updatePanDetails();
     else if (activeTab === 'Bank') await updateBankDetails();
@@ -264,33 +250,29 @@ export default function ProfilePage() {
     } catch (e) { alert(e.message); }
   };
 
-  // ---------------------------------------------------------------------------
-  // COMPONENTS
-  // ---------------------------------------------------------------------------
   const menuItems = [
     { icon: <User size={18} />, label: 'Personal', active: activeTab === 'Personal' },
     { icon: <BadgeCheck size={18} />, label: 'KYC', active: activeTab === 'KYC' },
     { icon: <Wallet size={18} />, label: 'Bank', active: activeTab === 'Bank' }
   ];
 
+  const inputProps = { userData, onChange: handleInputChange, editMode, loading };
+
+  // 3. Early Returns (ONLY after all hooks)
   if (loading && !userData.email) {
     return (
       <div className="w-full max-w-md mx-auto bg-[#F8FAFC] min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-[#50C2C9] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Loading Profile...</p>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Loading Profile Info...</p>
         </div>
       </div>
     );
   }
 
-  // Common Props for Inputs
-  const inputProps = { userData, onChange: handleInputChange, editMode, loading };
-
+  // 4. Main Render
   return (
     <div className="w-full max-w-md mx-auto bg-[#F8FAFC] min-h-screen pb-28 font-sans relative">
-
-      {/* Header */}
       <header className="bg-white px-6 pt-10 pb-8 rounded-b-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] sticky top-0 z-20">
         <div className="flex justify-between items-start mb-6">
           <div className="flex items-center gap-4">
@@ -302,7 +284,6 @@ export default function ProfilePage() {
                   ) : (
                     <User className="text-slate-300" />
                   )}
-                  {/* Status Valid Indicator */}
                   {verificationStatus.pan.verified && (
                     <div className="absolute inset-0 bg-emerald-500/10 flex items-center justify-center">
                       <CheckCircle2 size={24} className="text-emerald-500" />
@@ -346,7 +327,6 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Custom Tab Switcher */}
         <div className="bg-slate-50 p-1.5 rounded-[1.2rem] flex relative">
           {menuItems.map((item) => (
             <button
@@ -365,8 +345,6 @@ export default function ProfilePage() {
       </header>
 
       <main className="px-6 py-6 space-y-6">
-
-        {/* Personal Details Tab */}
         {activeTab === 'Personal' && (
           <div className="animate-in slide-in-from-right-8 duration-500 space-y-6">
             <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-50">
@@ -376,7 +354,6 @@ export default function ProfilePage() {
                 </div>
                 <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Personal Info</h3>
               </div>
-
               <div className="space-y-4">
                 <RenderInput {...inputProps} label="Full Name" name="fullName" placeholder="John Doe" />
                 <RenderInput {...inputProps} label="Email" name="email" type="email" disabled icon={<Lock size={14} />} />
@@ -387,7 +364,6 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
-
             <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-50">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2.5 bg-violet-50 rounded-xl">
@@ -395,7 +371,6 @@ export default function ProfilePage() {
                 </div>
                 <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Address</h3>
               </div>
-
               <div className="space-y-4">
                 <RenderInput {...inputProps} label="Flat / House No" name="houseOrFlatOrApartmentNo" />
                 <RenderInput {...inputProps} label="Area / Colony" name="area" />
@@ -409,19 +384,9 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* KYC Tab */}
         {activeTab === 'KYC' && (
           <div className="animate-in slide-in-from-right-8 duration-500 space-y-6">
-
-            {/* PAN Card Status */}
-            <div className={`rounded-[2rem] p-6 border transition-all relative overflow-hidden ${verificationStatus.pan.verified
-              ? 'bg-emerald-50/50 border-emerald-100'
-              : 'bg-white border-slate-100 shadow-sm'
-              }`}>
-              {verificationStatus.pan.verified && (
-                <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-100 rounded-full blur-2xl opacity-50"></div>
-              )}
-
+            <div className={`rounded-[2rem] p-6 border transition-all relative overflow-hidden ${verificationStatus.pan.verified ? 'bg-emerald-50/50 border-emerald-100' : 'bg-white border-slate-100 shadow-sm'}`}>
               <div className="flex justify-between items-start mb-6 relative z-10">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-white rounded-xl shadow-sm">
@@ -432,63 +397,31 @@ export default function ProfilePage() {
                     <p className="text-[10px] font-bold text-slate-400 mt-0.5">Mandatory for Investment</p>
                   </div>
                 </div>
-                <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${verificationStatus.pan.verified
-                  ? 'bg-emerald-100 text-emerald-600'
-                  : 'bg-amber-50 text-amber-600'
-                  }`}>
+                <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${verificationStatus.pan.verified ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
                   {verificationStatus.pan.verified ? 'Verified' : 'Pending'}
                 </span>
               </div>
-
               <div className="space-y-4 relative z-10">
                 <RenderInput {...inputProps} label="PAN Number" name="panNumber" placeholder="ABCDE1234F" disabled={verificationStatus.pan.verified} />
                 <RenderInput {...inputProps} label="Full Name (As per PAN)" name="panFullName" disabled={verificationStatus.pan.verified} />
-
                 {!verificationStatus.pan.verified && (
-                  <button
-                    onClick={verifyPAN}
-                    disabled={isVerifying || !editMode}
-                    className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold text-xs uppercase tracking-widest shadow-lg hover:bg-slate-800 disabled:opacity-50 disabled:shadow-none transition-all flex items-center justify-center gap-2"
-                  >
-                    {isVerifying ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Verifying...
-                      </>
-                    ) : (
-                      <>Verify PAN Now <ChevronRight size={16} /></>
-                    )}
+                  <button onClick={verifyPAN} disabled={isVerifying || !editMode} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold text-xs uppercase tracking-widest shadow-lg hover:bg-slate-800 disabled:opacity-50 disabled:shadow-none transition-all flex items-center justify-center gap-2">
+                    {isVerifying ? (<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Verifying...</>) : (<>Verify PAN Now <ChevronRight size={16} /></>)}
                   </button>
                 )}
-              </div>
-            </div>
-
-            {/* Aadhaar Card Placeholder */}
-            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-50 opacity-80">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2.5 bg-slate-50 rounded-xl">
-                  <Shield size={18} className="text-slate-400" />
-                </div>
-                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Aadhaar</h3>
-              </div>
-              <div className="p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-center">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Verification Coming Soon</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Bank Details Tab */}
         {activeTab === 'Bank' && (
           <div className="animate-in slide-in-from-right-8 duration-500 space-y-6">
-
             <div className="p-4 bg-blue-50 rounded-[1.5rem] border border-blue-100 flex gap-3 items-start">
               <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
               <p className="text-[11px] font-bold text-blue-700 leading-relaxed">
                 Ensure the bank account belongs to <span className="text-blue-900 uppercase">{userData.fullName}</span>. Third-party accounts will be rejected during withdrawal.
               </p>
             </div>
-
             <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-50">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2.5 bg-[#50C2C9]/10 rounded-xl">
@@ -496,7 +429,6 @@ export default function ProfilePage() {
                 </div>
                 <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Bank Details</h3>
               </div>
-
               <div className="space-y-4">
                 <RenderInput {...inputProps} label="Account Number" name="accountNumber" type="password" />
                 <RenderInput {...inputProps} label="Re-enter Account" name="accountNumber" placeholder="Confirm Account Number" />
@@ -510,78 +442,33 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Save Button (Fixed at bottom if in edit mode) */}
         {editMode && (
           <div className="fixed bottom-24 left-0 right-0 px-6 z-30 max-w-md mx-auto pointer-events-none">
-            <button
-              onClick={handleUpdate}
-              className="w-full pointer-events-auto py-4 bg-[#50C2C9] text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#50C2C9]/30 hover:bg-[#45b1b9] active:scale-95 transition-all flex items-center justify-center gap-2"
-            >
-              <Save size={18} />
-              Save {activeTab} Details
+            <button onClick={handleUpdate} className="w-full pointer-events-auto py-4 bg-[#50C2C9] text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-[#50C2C9]/30 hover:bg-[#45b1b9] active:scale-95 transition-all flex items-center justify-center gap-2">
+              <Save size={18} /> Save {activeTab} Details
             </button>
           </div>
         )}
-
       </main>
 
-      {/* Navigation Bar */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-slate-100 px-6 py-4 flex justify-between items-center max-w-md mx-auto z-50 pb-safe">
         {[
-          {
-            icon: <Home className="w-6 h-6" />,
-            label: 'Home',
-            href: '/Home',
-            isActive: (path) => path === '/Home'
-          },
-          {
-            icon: <Bell className="w-6 h-6" />,
-            label: 'Notification',
-            href: '/Notifications',
-            isActive: (path) => path === '/Notifications'
-          },
-          {
-            icon: <PiggyBank className="w-6 h-6" />,
-            label: 'Savings',
-            href: '/savings',
-            isActive: (path) => path === '/savings' || path.startsWith('/savings/') || path === '/savings_plan'
-          },
-          {
-            icon: <CreditCard className="w-6 h-6" />,
-            label: 'Passbook',
-            href: '/Passbook',
-            isActive: (path) => path === '/Passbook'
-          },
-          {
-            icon: <User className="w-6 h-6" />,
-            label: 'Profile',
-            href: '/profile',
-            isActive: (path) => path === '/profile'
-          }
+          { icon: <Home className="w-6 h-6" />, label: 'Home', href: '/Home', isActive: (path) => path === '/Home' },
+          { icon: <Bell className="w-6 h-6" />, label: 'Notification', href: '/Notifications', isActive: (path) => path === '/Notifications' },
+          { icon: <PiggyBank className="w-6 h-6" />, label: 'Savings', href: '/savings', isActive: (path) => path === '/savings' || path.startsWith('/savings/') || path === '/savings_plan' },
+          { icon: <CreditCard className="w-6 h-6" />, label: 'Passbook', href: '/Passbook', isActive: (path) => path === '/Passbook' },
+          { icon: <User className="w-6 h-6" />, label: 'Profile', href: '/profile', isActive: (path) => path === '/profile' }
         ].map((item, index) => {
-          const pathname = usePathname();
           const active = item.isActive(pathname);
-
           return (
-            <div
-              key={index}
-              className={`flex flex-col items-center gap-1 cursor-pointer transition-colors relative group ${active
-                ? 'text-[#50C2C9]'
-                : 'text-slate-600 hover:text-slate-700'
-                }`}
-              onClick={() => router.push(item.href)}
-            >
+            <div key={index} className={`flex flex-col items-center gap-1 cursor-pointer transition-colors relative group ${active ? 'text-[#50C2C9]' : 'text-slate-600 hover:text-slate-700'}`} onClick={() => router.push(item.href)}>
               {React.cloneElement(item.icon, { size: 22, strokeWidth: active ? 2.5 : 2 })}
               <span className="text-[9px] font-black uppercase tracking-tighter">{item.label}</span>
-
-              {active && (
-                <div className="absolute -bottom-4 w-8 h-1 bg-[#50C2C9] rounded-t-full"></div>
-              )}
+              {active && <div className="absolute -bottom-4 w-8 h-1 bg-[#50C2C9] rounded-t-full"></div>}
             </div>
           );
         })}
       </nav>
-
     </div>
   );
 }

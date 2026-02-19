@@ -95,7 +95,7 @@ const SIPPage = () => {
                 return { success: true, data: result };
             } else {
                 const errorText = await response.text();
-                
+
 
                 try {
                     const errorData = JSON.parse(errorText);
@@ -105,7 +105,7 @@ const SIPPage = () => {
                 }
             }
         } catch (error) {
-            
+
             return { success: false, error: error.message };
         }
     };
@@ -177,12 +177,12 @@ const SIPPage = () => {
 
                 return { success: true, data: verifyData };
             } else {
-                
+
                 showNotification(`Payment verification failed: ${verifyData.error || verifyData.message}`, 'error');
                 return { success: false, error: verifyData.error || verifyData.message };
             }
         } catch (error) {
-            
+
             showNotification('Payment verification failed. Please contact support.', 'error');
             return { success: false, error: error.message };
         } finally {
@@ -213,7 +213,7 @@ const SIPPage = () => {
                 return { success: false, error: verificationResult.error };
             }
         } catch (error) {
-            
+
             return { success: false, error: error.message };
         }
     };
@@ -394,7 +394,7 @@ const SIPPage = () => {
                 setError(errorData.message || 'Failed to fetch SIP data');
             }
         } catch (err) {
-            
+
             setError('Network error while fetching SIP data');
         } finally {
             setLoading(false);
@@ -422,8 +422,6 @@ const SIPPage = () => {
             if (response.ok) {
                 const data = await response.json();
 
-                });
-
                 // Transform and set data
                 const transformedPlans = transformSIPData(data);
                 setSipPlans(transformedPlans);
@@ -449,7 +447,7 @@ const SIPPage = () => {
                 setError(errorData.message || 'Failed to fetch SIP data');
             }
         } catch (err) {
-            
+
             setError('Network error while fetching SIP data');
         } finally {
             setLoading(false);
@@ -475,10 +473,10 @@ const SIPPage = () => {
 
                 }
             } else {
-                
+
             }
         } catch (error) {
-            
+
         }
     };
 
@@ -498,10 +496,10 @@ const SIPPage = () => {
                 const data = await response.json();
 
             } else {
-                
+
             }
         } catch (error) {
-            
+
         }
     };
 
@@ -569,7 +567,7 @@ const SIPPage = () => {
                 throw new Error(errorData.message || 'Failed to fetch fixed SIP plans');
             }
         } catch (err) {
-            
+
             setError(err.message || 'Failed to load fixed SIP plans');
         } finally {
             setLoadingFixedSIPs(false);
@@ -648,7 +646,7 @@ const SIPPage = () => {
                 throw new Error(errorData.message || 'Failed to choose fixed SIP');
             }
         } catch (err) {
-            
+
             setError(err.message || 'Failed to choose fixed SIP');
             setSelectedFixedSIPId(null);
         } finally {
@@ -666,7 +664,7 @@ const SIPPage = () => {
             }
 
         } catch (err) {
-            
+
         }
     };
 
@@ -831,7 +829,7 @@ const SIPPage = () => {
                 year: 'numeric'
             });
         } catch (error) {
-            
+
             return 'N/A';
         }
     };
@@ -1157,12 +1155,12 @@ const SIPPage = () => {
                 try {
                     orderData = JSON.parse(responseText);
                 } catch (parseError) {
-                    
+
                     throw new Error(`Invalid response from server: ${responseText.substring(0, 100)}`);
                 }
 
                 if (!response.ok) {
-                    
+
                     throw new Error(orderData.error || orderData.message || `HTTP error! status: ${response.status}`);
                 }
 
@@ -1184,7 +1182,7 @@ const SIPPage = () => {
                         if (result.success) {
 
                         } else {
-                            
+
                         }
                     },
                     prefill: {
@@ -1213,14 +1211,14 @@ const SIPPage = () => {
                 const razorpay = new window.Razorpay(options);
 
                 razorpay.on('payment.failed', function (response) {
-                    
+
                     showNotification(`Payment failed: ${response.error.description}. Please try again.`, 'error');
                 });
 
                 razorpay.open();
 
             } catch (error) {
-                
+
 
                 // Show more helpful error message
                 let errorMessage = error.message;
@@ -1331,11 +1329,8 @@ const SIPPage = () => {
                 return;
             }
 
-            });
-
             const enumMetalType = getEnumMetalType(getDisplayMetalType(metalType)); // FIXED
 
-            });
 
             // Save flexible SIP creation data to session storage
             const sipCreationData = {

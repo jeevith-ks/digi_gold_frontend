@@ -152,7 +152,9 @@ export default function SipHoldings() {
         .then((data) => {
           setSipData(data);
         })
-        .catch((err) => );
+        .catch((err) => {
+          console.error('Error fetching SIP data:', err);
+        });
     }
   }, []);
 
