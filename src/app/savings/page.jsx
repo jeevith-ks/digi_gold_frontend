@@ -70,7 +70,7 @@ export default function SecureVault() {
       setAdminPrices(prices);
       return prices;
     } catch (error) {
-      
+      console.error('Network error fetching admin prices:', error);
       return null;
     } finally {
       setLoadingPrices(false);
@@ -235,7 +235,7 @@ export default function SecureVault() {
         setTotalSavings(manualTotal);
       }
     } catch (error) {
-      
+
       setError(`Error: ${error.message}`);
       setHoldings(getDemoData());
     } finally {

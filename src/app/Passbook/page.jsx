@@ -42,8 +42,8 @@ export default function StatementsPage() {
           setError(errorData.message || 'Failed to fetch transactions');
         }
       } catch (err) {
-        
-        setError('Network error while fetching transactions');
+        setError('Network error: Unable to connect to transaction service');
+        console.error('Fetch transactions error:', err);
       } finally {
         setLoading(false);
       }

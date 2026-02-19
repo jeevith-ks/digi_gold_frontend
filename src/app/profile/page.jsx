@@ -47,6 +47,7 @@ export default function ProfilePage() {
   const [authToken, setAuthToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [error, setError] = useState('');
   const [verificationStatus, setVerificationStatus] = useState({
     pan: { verified: false, status: '', timestamp: '', data: null },
     aadhaar: { verified: false, status: '', timestamp: '', data: null }
@@ -107,8 +108,14 @@ export default function ProfilePage() {
           city: user.city || '',
           state: user.state || '',
         }));
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        setError(errData.message || 'Failed to fetch user data');
       }
-    } catch (err) { console.error('Error fetching user data:', err); }
+    } catch (err) {
+      setError('Network error: Unable to connect to the server');
+      console.error('Error fetching user data:', err);
+    }
   };
 
   const fetchKYCData = async () => {
@@ -132,8 +139,14 @@ export default function ProfilePage() {
           ifscCode: kycData.bank?.ifsc_code || '',
           accountNumber: kycData.bank?.account_no || kycData.bank?.account_masked || ''
         }));
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        setError(errData.message || 'Failed to fetch KYC data');
       }
-    } catch (err) { console.error('Error fetching KYC data:', err); }
+    } catch (err) {
+      setError('Network error: Failed to fetch KYC status');
+      console.error('Error fetching KYC data:', err);
+    }
   };
 
   const fetchVerificationStatus = async () => {
@@ -151,8 +164,14 @@ export default function ProfilePage() {
             aadhaar: { verified: aad?.status === 'VALID', status: aad?.status || 'NOT_VERIFIED', timestamp: aad?.verification_date }
           });
         }
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        setError(errData.message || 'Failed to fetch verification status');
       }
-    } catch (err) { console.error('Error fetching verification status:', err); }
+    } catch (err) {
+      setError('Network error: Verification status sync failed');
+      console.error('Error fetching verification status:', err);
+    }
   };
 
   const handleInputChange = (e) => {
@@ -194,13 +213,18 @@ export default function ProfilePage() {
       });
 
       if (response.ok) {
-        alert('Personal details updated successfully!');
         setEditMode(false);
         fetchUserData();
+        // Success notification could be added here if needed, but alert is also fine for critical success
+        alert('Personal details updated successfully!');
       } else {
-        alert('Failed to update personal details');
+        const errData = await response.json().catch(() => ({}));
+        setError(errData.message || 'Failed to update personal details');
       }
-    } catch (e) { alert('Error updating details'); }
+    } catch (e) {
+      setError('Connection error while updating details');
+      console.error('Update error:', e);
+    }
   };
 
   const verifyPAN = async () => {
@@ -212,13 +236,18 @@ export default function ProfilePage() {
         headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ pan_number: userData.panNumber.toUpperCase(), full_name: userData.panFullName, dob: userData.dateOfBirth })
       });
-      const result = await response.json();
-      if (result.success && result.data.status === 'VALID') {
+      const result = await response.json().catch(() => ({}));
+      if (result.success && result.data?.status === 'VALID') {
         alert('PAN Verified Successfully!');
         fetchVerificationStatus();
         fetchKYCData();
-      } else alert(`Verification failed: ${result.message || 'Details do not match'}`);
-    } catch (e) { alert('Verification error occurred'); }
+      } else {
+        setError(result.message || 'Verification failed. Details do not match.');
+      }
+    } catch (e) {
+      setError('Verification service unavailable. Try again later.');
+      console.error('PAN Verification error:', e);
+    }
     finally { setIsVerifying(false); }
   };
 
@@ -230,9 +259,17 @@ export default function ProfilePage() {
         headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      if (res.ok) { alert('PAN Details Saved'); setEditMode(false); fetchKYCData(); }
-      else alert('Failed to save PAN details');
-    } catch (e) { alert(e.message); }
+      if (res.ok) {
+        alert('PAN Details Saved');
+        setEditMode(false);
+        fetchKYCData();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setError(errData.message || 'Failed to save PAN details');
+      }
+    } catch (e) {
+      setError('Network error: Unable to save PAN details');
+    }
   };
 
   const updateBankDetails = async () => {
@@ -245,9 +282,17 @@ export default function ProfilePage() {
           bank_name: userData.bankName, ifsc_code: userData.ifscCode
         })
       });
-      if (res.ok) { alert('Bank Details Saved'); setEditMode(false); fetchKYCData(); }
-      else alert('Failed to save bank details');
-    } catch (e) { alert(e.message); }
+      if (res.ok) {
+        alert('Bank Details Saved');
+        setEditMode(false);
+        fetchKYCData();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setError(errData.message || 'Failed to save bank details');
+      }
+    } catch (e) {
+      setError('Network error: Unable to save bank details');
+    }
   };
 
   const menuItems = [
@@ -273,6 +318,18 @@ export default function ProfilePage() {
   // 4. Main Render
   return (
     <div className="w-full max-w-md mx-auto bg-[#F8FAFC] min-h-screen pb-28 font-sans relative">
+      {/* Error Alert */}
+      {error && (
+        <div className="fixed top-4 left-0 right-0 z-[100] px-4 animate-in slide-in-from-top-4">
+          <div className="max-w-md mx-auto bg-rose-50 border border-rose-100 p-4 rounded-2xl flex items-center gap-3 shadow-lg">
+            <AlertCircle size={20} className="text-rose-500 flex-shrink-0" />
+            <p className="text-xs font-bold text-rose-700 flex-1">{error}</p>
+            <button onClick={() => setError('')} className="p-1 hover:bg-rose-100 rounded-lg transition-colors">
+              <X size={16} className="text-rose-400" />
+            </button>
+          </div>
+        </div>
+      )}
       <header className="bg-white px-6 pt-10 pb-8 rounded-b-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] sticky top-0 z-20">
         <div className="flex justify-between items-start mb-6">
           <div className="flex items-center gap-4">

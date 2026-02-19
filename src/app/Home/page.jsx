@@ -53,6 +53,7 @@ const PreciousMetalsApp = () => {
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [error, setError] = useState('');
 
   const router = useRouter();
   const pathname = usePathname();
@@ -237,7 +238,8 @@ const PreciousMetalsApp = () => {
           });
         }
       } else {
-
+        const errData = await response.json().catch(() => ({}));
+        console.error('Market status fetch failed:', errData.message || response.status);
 
         // Fallback to sessionStorage if API fails
         const storedStatus = sessionStorage.getItem('marketStatus');
@@ -254,7 +256,7 @@ const PreciousMetalsApp = () => {
         }
       }
     } catch (error) {
-
+      console.error('Network error fetching market status:', error);
 
       // Fallback to sessionStorage
       const storedStatus = sessionStorage.getItem('marketStatus');
@@ -325,9 +327,12 @@ const PreciousMetalsApp = () => {
             type: 'info'
           });
         }
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        console.error('Price update failed:', errData.message || response.status);
       }
     } catch (error) {
-
+      console.error('Network error updating prices:', error);
     } finally {
       setIsLoadingPrices(false);
     }
@@ -349,9 +354,13 @@ const PreciousMetalsApp = () => {
         const data = await response.json();
         setHoldings(data.holdings || data);
         updateMetalBalances(data.holdings || data);
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        setError(errData.message || 'Failed to fetch metal holdings');
       }
-    } catch (error) {
-
+    } catch (err) {
+      setError('Network error: Unable to load your holdings');
+      console.error('Error fetching holdings:', err);
     } finally {
       setIsLoading(false);
     }
@@ -1272,6 +1281,18 @@ const PreciousMetalsApp = () => {
 
   return (
     <div className="w-full max-w-md mx-auto bg-[#F8FAFC] min-h-screen pb-24 font-sans relative">
+      {/* ERROR BANNER */}
+      {error && (
+        <div className="fixed top-4 left-0 right-0 z-[100] px-4 animate-in slide-in-from-top-4">
+          <div className="max-w-md mx-auto bg-rose-50 border border-rose-100 p-4 rounded-2xl flex items-center gap-3 shadow-lg">
+            <AlertCircle size={20} className="text-rose-500 flex-shrink-0" />
+            <p className="text-xs font-bold text-rose-700 flex-1">{error}</p>
+            <button onClick={() => setError('')} className="p-1 hover:bg-rose-100 rounded-lg transition-colors">
+              <XCircle size={16} className="text-rose-400" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <header className="bg-white px-6 pt-10 pb-8 rounded-b-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] sticky top-0 z-20">

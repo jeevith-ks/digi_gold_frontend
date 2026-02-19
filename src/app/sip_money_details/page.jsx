@@ -91,22 +91,21 @@ const SIPPage = () => {
 
             if (response.ok) {
                 const result = await response.json();
-
                 return { success: true, data: result };
             } else {
-                const errorText = await response.text();
-
-
+                let errorMsg = 'Failed to record transaction';
                 try {
-                    const errorData = JSON.parse(errorText);
-                    return { success: false, error: errorData.message || 'Failed to send transaction data' };
-                } catch {
-                    return { success: false, error: 'Failed to send transaction data' };
-                }
-            }
-        } catch (error) {
+                    const errorData = await response.json();
+                    errorMsg = errorData.message || errorMsg;
+                } catch (e) { }
 
-            return { success: false, error: error.message };
+                showNotification(`Transaction Error: ${errorMsg}`, 'error');
+                return { success: false, error: errorMsg };
+            }
+        } catch (err) {
+            console.error('Send transaction error:', err);
+            showNotification('Network error: Could not record transaction', 'error');
+            return { success: false, error: err.message };
         }
     };
 
@@ -468,22 +467,19 @@ const SIPPage = () => {
 
             if (response.ok) {
                 const data = await response.json();
-
-                if (data.latestPrice) {
-
-                }
+                // Process latest prices if needed locally
             } else {
-
+                const errorData = await response.json().catch(() => ({}));
+                console.error('Latest prices fetch failed:', errorData.message || response.status);
             }
         } catch (error) {
-
+            console.error('Network error fetching latest prices:', error);
         }
     };
 
     // Fetch holdings data for customers
     const fetchHoldings = async (token) => {
         try {
-
             const response = await fetch('http://65.2.152.254:5000/api/holdings', {
                 method: 'GET',
                 headers: {
@@ -494,12 +490,13 @@ const SIPPage = () => {
 
             if (response.ok) {
                 const data = await response.json();
-
+                // Process holdings data if needed
             } else {
-
+                const errorData = await response.json().catch(() => ({}));
+                console.error('Holdings fetch failed:', errorData.message || response.status);
             }
         } catch (error) {
-
+            console.error('Network error fetching holdings:', error);
         }
     };
 
