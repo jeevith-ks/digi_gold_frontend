@@ -219,7 +219,7 @@ const ImageUploadModal = ({ onClose, onUpload }) => {
   const [uploading, setUploading] = useState(false);
   const [sizeErrors, setSizeErrors] = useState([]);
   const fileInputRef = useRef(null);
-  const { showAlert } = useAlert();
+  const { showAlert, showConfirm } = useAlert();
 
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
@@ -701,6 +701,7 @@ export default function JewelsGalleryPage() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [sortBy, setSortBy] = useState('default');
+  const { showAlert, showConfirm } = useAlert();
 
   // Filter jewels by category
   const categories = ['All', 'Necklace', 'Ring', 'Earrings', 'Bracelet', 'Pendant', 'Bangle'];
@@ -729,9 +730,11 @@ export default function JewelsGalleryPage() {
   };
 
   // Handle jewel deletion
-  const handleJewelDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this jewel?')) {
+  const handleJewelDelete = async (id) => {
+    const isConfirmed = await showConfirm('Are you sure you want to delete this jewel?', 'Delete Jewel');
+    if (isConfirmed) {
       setJewels(prev => prev.filter(jewel => jewel.id !== id));
+      showAlert('Jewel deleted successfully', 'success');
     }
   };
 
@@ -837,8 +840,8 @@ export default function JewelsGalleryPage() {
                         key={category}
                         onClick={() => setCategoryFilter(category)}
                         className={`px-3 py-1 rounded-full text-sm font-medium transition ${categoryFilter === category
-                            ? 'bg-purple-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                           }`}
                       >
                         {category}

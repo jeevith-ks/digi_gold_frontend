@@ -17,21 +17,25 @@ export const AlertProvider = ({ children }) => {
         show: false,
         message: '',
         type: 'info',
-        title: ''
+        title: '',
+        isConfirm: false,
+        resolve: null
     });
 
     const timerRef = useRef(null);
 
-    const hideAlert = useCallback(() => {
-        setAlert(prev => ({ ...prev, show: false }));
+    const hideAlert = useCallback((result = false) => {
+        if (alert.resolve) {
+            alert.resolve(result);
+        }
+        setAlert(prev => ({ ...prev, show: false, resolve: null }));
         if (timerRef.current) {
             clearTimeout(timerRef.current);
             timerRef.current = null;
         }
-    }, []);
+    }, [alert.resolve]);
 
     const showAlert = useCallback((message, type = 'info', title = '') => {
-        // Clear existing timer if any
         if (timerRef.current) {
             clearTimeout(timerRef.current);
         }
@@ -40,24 +44,46 @@ export const AlertProvider = ({ children }) => {
             show: true,
             message,
             type,
-            title: title || (type.charAt(0).toUpperCase() + type.slice(1))
+            title: title || (type.charAt(0).toUpperCase() + type.slice(1)),
+            isConfirm: false,
+            resolve: null
         });
 
-        // Auto hide after 5 seconds
-        timerRef.current = setTimeout(() => {
-            hideAlert();
-        }, 5000);
+        if (type !== 'confirm') {
+            timerRef.current = setTimeout(() => {
+                hideAlert();
+            }, 5000);
+        }
     }, [hideAlert]);
 
+    const showConfirm = useCallback((message, title = 'Confirm') => {
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+        }
+
+        return new Promise((resolve) => {
+            setAlert({
+                show: true,
+                message,
+                type: 'confirm',
+                title,
+                isConfirm: true,
+                resolve
+            });
+        });
+    }, []);
+
     return (
-        <AlertContext.Provider value={{ showAlert, hideAlert }}>
+        <AlertContext.Provider value={{ showAlert, showConfirm, hideAlert }}>
             {children}
             {alert.show && (
                 <CustomAlert
                     message={alert.message}
                     type={alert.type}
                     title={alert.title}
-                    onClose={hideAlert}
+                    onClose={() => hideAlert(false)}
+                    onConfirm={() => hideAlert(true)}
+                    isConfirm={alert.isConfirm}
                 />
             )}
         </AlertContext.Provider>

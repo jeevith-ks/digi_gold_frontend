@@ -56,7 +56,7 @@ export default function ProfilePage() {
 
   const router = useRouter();
   const pathname = usePathname();
-  const { showAlert } = useAlert();
+  const { showAlert, showConfirm } = useAlert();
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -182,8 +182,8 @@ export default function ProfilePage() {
     setUserData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleLogout = () => {
-    const confirmLogout = window.confirm("Are you sure you want to logout?");
+  const handleLogout = async () => {
+    const confirmLogout = await showConfirm("Are you sure you want to logout?", "Logout");
     if (confirmLogout) {
       sessionStorage.clear();
       router.push('/Authentication');

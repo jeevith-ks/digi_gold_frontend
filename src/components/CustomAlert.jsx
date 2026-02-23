@@ -3,20 +3,17 @@
 import React, { useEffect, useState } from 'react';
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 
-const CustomAlert = ({ message, type = 'info', title, onClose }) => {
+const CustomAlert = ({ message, type = 'info', title, onClose, onConfirm, isConfirm }) => {
     const [isExiting, setIsExiting] = useState(false);
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            // Auto close after 5 seconds
-            // handleClose();
-        }, 5000);
-        return () => clearTimeout(timer);
-    }, []);
 
     const handleClose = () => {
         setIsExiting(true);
         setTimeout(onClose, 300); // Wait for animation
+    };
+
+    const handleConfirm = () => {
+        setIsExiting(true);
+        setTimeout(onConfirm, 300);
     };
 
     const getTypeStyles = () => {
@@ -47,6 +44,15 @@ const CustomAlert = ({ message, type = 'info', title, onClose }) => {
                     accent: 'bg-amber-500',
                     text: 'text-amber-900',
                     shadow: 'shadow-amber-200/50'
+                };
+            case 'confirm':
+                return {
+                    icon: <AlertCircle className="w-6 h-6 text-blue-500" />,
+                    bg: 'bg-blue-50/90',
+                    border: 'border-blue-200',
+                    accent: 'bg-blue-500',
+                    text: 'text-blue-900',
+                    shadow: 'shadow-blue-200/50'
                 };
             default:
                 return {
@@ -94,23 +100,35 @@ const CustomAlert = ({ message, type = 'info', title, onClose }) => {
                                 {message}
                             </p>
 
-                            {/* Action Button */}
-                            <button
-                                onClick={handleClose}
-                                className={`w-full py-4 px-6 rounded-2xl font-black text-white ${styles.accent} shadow-lg transition-transform active:scale-95 hover:brightness-110 focus:outline-none uppercase tracking-widest text-xs`}
-                            >
-                                Continue
-                            </button>
+                            {/* Action Buttons */}
+                            <div className="flex gap-3 w-full">
+                                {isConfirm && (
+                                    <button
+                                        onClick={handleClose}
+                                        className="flex-1 py-4 px-4 rounded-2xl font-black text-slate-500 bg-white/50 border border-slate-200 shadow-sm transition-transform active:scale-95 hover:bg-white uppercase tracking-widest text-xs"
+                                    >
+                                        Cancel
+                                    </button>
+                                )}
+                                <button
+                                    onClick={isConfirm ? handleConfirm : handleClose}
+                                    className={`flex-1 py-4 px-6 rounded-2xl font-black text-white ${styles.accent} shadow-lg transition-transform active:scale-95 hover:brightness-110 focus:outline-none uppercase tracking-widest text-xs`}
+                                >
+                                    {isConfirm ? 'Confirm' : 'Continue'}
+                                </button>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Close Button (Icon) */}
-                    <button
-                        onClick={handleClose}
-                        className="absolute top-6 right-6 p-2 rounded-full hover:bg-white/20 transition-colors"
-                    >
-                        <X className="w-4 h-4 text-slate-400" />
-                    </button>
+                    {/* Close Button (Icon) - Only show for non-confirm alerts */}
+                    {!isConfirm && (
+                        <button
+                            onClick={handleClose}
+                            className="absolute top-6 right-6 p-2 rounded-full hover:bg-white/20 transition-colors"
+                        >
+                            <X className="w-4 h-4 text-slate-400" />
+                        </button>
+                    )}
                 </div>
             </div>
 

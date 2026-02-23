@@ -13,7 +13,7 @@ export default function SettlementsPage() {
   const [apiError, setApiError] = useState(false);
   const [token, setToken] = useState(null);
   const [isClient, setIsClient] = useState(false);
-  const { showAlert } = useAlert();
+  const { showAlert, showConfirm } = useAlert();
 
   // Initialize client-side
   useEffect(() => {
@@ -122,7 +122,8 @@ export default function SettlementsPage() {
   ];
 
   const handleSettleSIP = async (sipId, sipType) => {
-    if (!confirm('Are you sure you want to settle this SIP? This action cannot be undone.')) return;
+    const isConfirmed = await showConfirm('Are you sure you want to settle this SIP? This action cannot be undone.', 'Settle SIP');
+    if (!isConfirmed) return;
 
     try {
       const response = await fetch('http://65.2.152.254:5000/api/admin/settlements', {
