@@ -33,7 +33,8 @@ export default function ForgotPasswordPage() {
         setIsLoading(true);
 
         try {
-            const response = await fetch("http://65.2.152.254:5000/api/auth/forgot-password", {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://65.2.152.254:5000/api";
+            const response = await fetch(`${apiUrl}/auth/forgot-password`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email })
@@ -69,15 +70,14 @@ export default function ForgotPasswordPage() {
         setIsLoading(true);
 
         try {
-            // Assuming the same endpoint or similar for the update step
-            // The user specified /forgot-password, so let's use it for the full flow if it handles both
-            // Usually, it's a different endpoint for reset, but I'll follow the user's hint
-            const response = await fetch("http://65.2.152.254:5000/api/auth/reset-password", {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://65.2.152.254:5000/api";
+            console.log("Updating password for:", email);
+            const response = await fetch(`${apiUrl}/auth/reset-password`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     email,
-                    otp, // or token
+                    otp,
                     newPassword
                 })
             });
@@ -99,58 +99,69 @@ export default function ForgotPasswordPage() {
     if (!isClient) return null;
 
     return (
-        <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
+        <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-cyan-400 via-teal-400 to-blue-500">
             {/* Animated background elements */}
             <div className="absolute inset-0">
-                <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-white/10 rounded-full blur-3xl"></div>
-                <div className="absolute top-3/4 right-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl"></div>
+                <div className="absolute top-1/4 left-1/4 w-72 h-72 rounded-full border border-white/10"></div>
+                <div className="absolute top-3/4 right-1/4 w-96 h-96 rounded-full border border-white/10"></div>
+                <div className="absolute top-1/2 left-3/4 w-64 h-64 rounded-full border border-white/10"></div>
             </div>
 
-            {/* Floating particles */}
-            <div className="absolute inset-0 overflow-hidden">
-                {particlePositions.map((particle, i) => (
-                    <div
-                        key={i}
-                        className="absolute w-2 h-2 bg-white/20 rounded-full animate-pulse"
-                        style={{
-                            left: `${particle.left}%`,
-                            top: `${particle.top}%`,
-                            animationDelay: `${particle.delay}s`,
-                            animationDuration: `${particle.duration}s`
-                        }}
-                    ></div>
-                ))}
-            </div>
+            {/* Floating particles - only render on client to avoid hydration mismatch */}
+            {isClient && (
+                <div className="absolute inset-0 overflow-hidden">
+                    {particlePositions.map((particle, i) => (
+                        <div
+                            key={i}
+                            className="absolute w-2 h-2 bg-white bg-opacity-30 rounded-full animate-bounce"
+                            style={{
+                                left: `${particle.left}%`,
+                                top: `${particle.top}%`,
+                                animationDelay: `${particle.delay}s`,
+                                animationDuration: `${particle.duration}s`
+                            }}
+                        ></div>
+                    ))}
+                </div>
+            )}
 
             <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
                 <div className="w-full max-w-md">
                     {/* Glassmorphism container */}
-                    <div className="backdrop-blur-xl bg-white/10 rounded-[2.5rem] p-8 shadow-2xl border border-white/20 transition-all duration-500 hover:bg-white/20" style={{
-                        boxShadow: '0 25px 45px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+                    <div className="backdrop-blur-xl bg-white bg-opacity-5 rounded-3xl p-8 shadow-2xl border border-white border-opacity-10 transition-all duration-500 hover:bg-opacity-10 hover:scale-105" style={{
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        backdropFilter: 'blur(20px)',
+                        WebkitBackdropFilter: 'blur(20px)',
+                        boxShadow: '0 25px 45px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
                     }}>
 
                         {/* Back to Login */}
                         <button
                             onClick={() => step === 2 ? setStep(1) : router.push("/Authentication")}
-                            className="flex items-center gap-2 text-white/70 hover:text-white transition-colors mb-8 group"
+                            className="flex items-center gap-2 text-white text-opacity-80 hover:text-white transition-colors mb-8 group"
                         >
                             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                            <span className="text-sm font-bold uppercase tracking-widest">Back</span>
+                            <span className="text-sm font-semibold uppercase tracking-widest">Back to Login</span>
                         </button>
 
                         {/* Header */}
                         <div className="text-center mb-8">
-                            <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-white/10 border border-white/20 flex items-center justify-center shadow-inner">
+                            <div className="w-20 h-20 mx-auto mb-4 rounded-2xl flex items-center justify-center" style={{
+                                background: 'rgba(255, 255, 255, 0.1)',
+                                backdropFilter: 'blur(10px)',
+                                WebkitBackdropFilter: 'blur(10px)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)'
+                            }}>
                                 {step === 1 ? (
                                     <ShieldCheck className="w-10 h-10 text-white" />
                                 ) : (
                                     <Key className="w-10 h-10 text-white" />
                                 )}
                             </div>
-                            <h1 className="text-3xl font-black text-white mb-2 tracking-tight">
+                            <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">
                                 {step === 1 ? 'Forgot Password?' : 'Reset Password'}
                             </h1>
-                            <p className="text-white/70 text-sm font-medium">
+                            <p className="text-white text-opacity-80 text-sm">
                                 {step === 1
                                     ? "Enter your email to receive a reset code"
                                     : "Enter the code sent to your email and your new password"}
@@ -162,7 +173,7 @@ export default function ForgotPasswordPage() {
                             <form onSubmit={handleRequestReset} className="space-y-6">
                                 <div className="relative group">
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                        <Mail className="h-5 w-5 text-white/50 group-focus-within:text-white transition-colors" />
+                                        <Mail className="h-5 w-5 text-white text-opacity-60 group-focus-within:text-white transition-colors" />
                                     </div>
                                     <input
                                         type="email"
@@ -170,31 +181,40 @@ export default function ForgotPasswordPage() {
                                         onChange={(e) => setEmail(e.target.value)}
                                         placeholder="Email Address"
                                         required
-                                        className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white/10 border border-white/15 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all font-medium"
+                                        className="w-full pl-12 pr-4 py-4 rounded-2xl border text-white placeholder-white placeholder-opacity-60 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all duration-300"
+                                        style={{
+                                            background: 'rgba(255, 255, 255, 0.08)',
+                                            backdropFilter: 'blur(10px)',
+                                            WebkitBackdropFilter: 'blur(10px)',
+                                            borderColor: 'rgba(255, 255, 255, 0.15)'
+                                        }}
                                     />
                                 </div>
 
                                 <button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="w-full py-4 bg-white text-purple-600 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-slate-50 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                    className="w-full text-white py-4 px-6 rounded-2xl font-semibold focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all duration-300 flex items-center justify-center group hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                                    style={{
+                                        background: 'rgba(255, 255, 255, 0.15)',
+                                        backdropFilter: 'blur(10px)',
+                                        WebkitBackdropFilter: 'blur(10px)',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)'
+                                    }}
                                 >
-                                    {isLoading ? (
-                                        <div className="w-5 h-5 border-2 border-purple-600/30 border-t-purple-600 rounded-full animate-spin" />
-                                    ) : (
-                                        <>Send Code <ArrowRight className="w-4 h-4" /></>
-                                    )}
+                                    <span>{isLoading ? 'Sending...' : 'Send Reset Code'}</span>
+                                    {!isLoading && <ArrowRight className="ml-2 h-5 w-5 transform group-hover:translate-x-1 transition-transform" />}
                                 </button>
                             </form>
                         )}
 
                         {/* Step 2: Update Password */}
                         {step === 2 && (
-                            <form onSubmit={handleUpdatePassword} className="space-y-5">
+                            <form onSubmit={handleUpdatePassword} className="space-y-6">
                                 {/* OTP Input */}
                                 <div className="relative group">
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                        <ShieldCheck className="h-5 w-5 text-white/50 group-focus-within:text-white transition-colors" />
+                                        <ShieldCheck className="h-5 w-5 text-white text-opacity-60 group-focus-within:text-white transition-colors" />
                                     </div>
                                     <input
                                         type="text"
@@ -202,14 +222,20 @@ export default function ForgotPasswordPage() {
                                         onChange={(e) => setOtp(e.target.value)}
                                         placeholder="Enter 6-digit code"
                                         required
-                                        className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white/10 border border-white/15 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all font-medium"
+                                        className="w-full pl-12 pr-4 py-4 rounded-2xl border text-white placeholder-white placeholder-opacity-60 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all duration-300"
+                                        style={{
+                                            background: 'rgba(255, 255, 255, 0.08)',
+                                            backdropFilter: 'blur(10px)',
+                                            WebkitBackdropFilter: 'blur(10px)',
+                                            borderColor: 'rgba(255, 255, 255, 0.15)'
+                                        }}
                                     />
                                 </div>
 
                                 {/* New Password */}
                                 <div className="relative group">
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                        <Lock className="h-5 w-5 text-white/50 group-focus-within:text-white transition-colors" />
+                                        <Lock className="h-5 w-5 text-white text-opacity-60 group-focus-within:text-white transition-colors" />
                                     </div>
                                     <input
                                         type={showPassword ? "text" : "password"}
@@ -217,21 +243,28 @@ export default function ForgotPasswordPage() {
                                         onChange={(e) => setNewPassword(e.target.value)}
                                         placeholder="New Password"
                                         required
-                                        className="w-full pl-12 pr-12 py-4 rounded-2xl bg-white/10 border border-white/15 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all font-medium"
+                                        className="w-full pl-12 pr-12 py-4 rounded-2xl border text-white placeholder-white placeholder-opacity-60 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all duration-300"
+                                        style={{
+                                            background: 'rgba(255, 255, 255, 0.08)',
+                                            backdropFilter: 'blur(10px)',
+                                            WebkitBackdropFilter: 'blur(10px)',
+                                            borderColor: 'rgba(255, 255, 255, 0.15)'
+                                        }}
+                                        minLength={6}
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute inset-y-0 right-0 pr-4 flex items-center text-white/40 hover:text-white transition-colors"
+                                        className="absolute inset-y-0 right-0 pr-4 flex items-center text-white text-opacity-60 hover:text-white transition-colors"
                                     >
-                                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                                     </button>
                                 </div>
 
                                 {/* Confirm Password */}
                                 <div className="relative group">
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                        <Lock className="h-5 w-5 text-white/50 group-focus-within:text-white transition-colors" />
+                                        <Lock className="h-5 w-5 text-white text-opacity-60 group-focus-within:text-white transition-colors" />
                                     </div>
                                     <input
                                         type="password"
@@ -239,24 +272,34 @@ export default function ForgotPasswordPage() {
                                         onChange={(e) => setConfirmPassword(e.target.value)}
                                         placeholder="Confirm New Password"
                                         required
-                                        className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white/10 border border-white/15 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all font-medium"
+                                        className="w-full pl-12 pr-4 py-4 rounded-2xl border text-white placeholder-white placeholder-opacity-60 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all duration-300"
+                                        style={{
+                                            background: 'rgba(255, 255, 255, 0.08)',
+                                            backdropFilter: 'blur(10px)',
+                                            WebkitBackdropFilter: 'blur(10px)',
+                                            borderColor: 'rgba(255, 255, 255, 0.15)'
+                                        }}
+                                        minLength={6}
                                     />
                                 </div>
 
                                 <button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="w-full py-4 bg-white text-purple-600 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-slate-50 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                    className="w-full text-white py-4 px-6 rounded-2xl font-semibold focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all duration-300 flex items-center justify-center group hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                                    style={{
+                                        background: 'rgba(255, 255, 255, 0.15)',
+                                        backdropFilter: 'blur(10px)',
+                                        WebkitBackdropFilter: 'blur(10px)',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)'
+                                    }}
                                 >
-                                    {isLoading ? (
-                                        <div className="w-5 h-5 border-2 border-purple-600/30 border-t-purple-600 rounded-full animate-spin" />
-                                    ) : (
-                                        'Update Password'
-                                    )}
+                                    <span>{isLoading ? 'Updating...' : 'Update Password'}</span>
+                                    {!isLoading && <ArrowRight className="ml-2 h-5 w-5 transform group-hover:translate-x-1 transition-transform" />}
                                 </button>
 
-                                <p className="text-center text-white/50 text-xs mt-4">
-                                    Didn't receive code? <button type="button" onClick={() => setStep(1)} className="text-white hover:underline">Resend</button>
+                                <p className="text-center text-white text-opacity-60 text-xs mt-4">
+                                    Didn't receive code? <button type="button" onClick={() => setStep(1)} className="text-white font-semibold hover:underline">Resend</button>
                                 </p>
                             </form>
                         )}
