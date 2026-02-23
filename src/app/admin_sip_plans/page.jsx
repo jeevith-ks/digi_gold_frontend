@@ -3,10 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, DollarSign, CalendarRange, FileText, Plus, AlertCircle, ChevronLeft, Shield, Zap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useAlert } from '@/context/AlertContext';
 import '../home-enhanced.css';
 
 const AdminSIPForm = () => {
   const router = useRouter();
+  const { showAlert } = useAlert();
   const [formData, setFormData] = useState({
     Yojna_name: '',
     metal_type: '',
@@ -31,7 +33,7 @@ const AdminSIPForm = () => {
 
       // Check if user is admin and SIP type is fixed
       if (storedUserType && storedUserType !== 'admin') {
-        alert('Only admin users can create SIP plans');
+        showAlert('Only admin users can create SIP plans', "error");
         router.push('/sip-holdings');
         return;
       }
@@ -52,12 +54,12 @@ const AdminSIPForm = () => {
 
     // Double check user is admin and SIP type is fixed
     if (userType !== 'admin') {
-      alert('Only admin users can create SIP plans');
+      showAlert('Only admin users can create SIP plans', "error");
       return;
     }
 
     if (sipType !== 'fixed') {
-      alert('Only Fixed SIP plans can be created by admin');
+      showAlert('Only Fixed SIP plans can be created by admin', "warning");
       return;
     }
 
@@ -65,19 +67,19 @@ const AdminSIPForm = () => {
 
     // Basic validation for Fixed SIP
     if (!formData.Yojna_name || !formData.metal_type || !formData.range_amount || !formData.total_months) {
-      alert('Please fill in all required fields');
+      showAlert('Please fill in all required fields', "warning");
       setIsLoading(false);
       return;
     }
 
     if (parseFloat(formData.range_amount) <= 0) {
-      alert('Range amount must be greater than 0');
+      showAlert('Range amount must be greater than 0', "warning");
       setIsLoading(false);
       return;
     }
 
     if (parseInt(formData.total_months) <= 0) {
-      alert('Total months must be greater than 0');
+      showAlert('Total months must be greater than 0', "warning");
       setIsLoading(false);
       return;
     }
@@ -85,7 +87,7 @@ const AdminSIPForm = () => {
     try {
       const authToken = sessionStorage.getItem('authToken');
       if (!authToken) {
-        alert('Authentication required. Please login again.');
+        showAlert('Authentication required. Please login again.', "error");
         router.push('/Authentication');
         return;
       }
@@ -119,7 +121,7 @@ const AdminSIPForm = () => {
       }
 
       const result = await response.json();
-      alert('Fixed SIP Plan created successfully!');
+      showAlert('Fixed SIP Plan created successfully!', "success");
 
       setFormData({
         Yojna_name: '',
@@ -132,8 +134,8 @@ const AdminSIPForm = () => {
       });
 
     } catch (error) {
-      
-      alert(`Failed to create Fixed SIP plan: ${error.message}`);
+
+      showAlert(`Failed to create Fixed SIP plan: ${error.message}`, "error");
     } finally {
       setIsLoading(false);
     }

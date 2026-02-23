@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Edit2, LogOut, Save, Home, Bell, CreditCard, PiggyBank, User, X, BadgeCheck, Shield, Wallet, AlertCircle, Camera, CheckCircle2, ChevronRight, Lock } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
+import { useAlert } from '@/context/AlertContext';
 
 // Component defined OUTSIDE to prevent focus loss issues
 const RenderInput = ({ label, name, type = 'text', disabled = false, placeholder, icon, userData, onChange, editMode, loading }) => {
@@ -55,6 +56,7 @@ export default function ProfilePage() {
 
   const router = useRouter();
   const pathname = usePathname();
+  const { showAlert } = useAlert();
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -216,7 +218,7 @@ export default function ProfilePage() {
         setEditMode(false);
         fetchUserData();
         // Success notification could be added here if needed, but alert is also fine for critical success
-        alert('Personal details updated successfully!');
+        showAlert('Personal details updated successfully!', "success");
       } else {
         const errData = await response.json().catch(() => ({}));
         setError(errData.message || 'Failed to update personal details');
@@ -228,7 +230,7 @@ export default function ProfilePage() {
   };
 
   const verifyPAN = async () => {
-    if (!userData.panNumber || !userData.panFullName) return alert('Enter PAN details first');
+    if (!userData.panNumber || !userData.panFullName) return showAlert('Enter PAN details first', "warning");
     setIsVerifying(true);
     try {
       const response = await fetch('http://65.2.152.254:5000/api/kyc/verify/pan', {
@@ -238,7 +240,7 @@ export default function ProfilePage() {
       });
       const result = await response.json().catch(() => ({}));
       if (result.success && result.data?.status === 'VALID') {
-        alert('PAN Verified Successfully!');
+        showAlert('PAN Verified Successfully!', "success");
         fetchVerificationStatus();
         fetchKYCData();
       } else {
@@ -260,7 +262,7 @@ export default function ProfilePage() {
         body: JSON.stringify(payload)
       });
       if (res.ok) {
-        alert('PAN Details Saved');
+        showAlert('PAN Details Saved', "success");
         setEditMode(false);
         fetchKYCData();
       } else {
@@ -283,7 +285,7 @@ export default function ProfilePage() {
         })
       });
       if (res.ok) {
-        alert('Bank Details Saved');
+        showAlert('Bank Details Saved', "success");
         setEditMode(false);
         fetchKYCData();
       } else {

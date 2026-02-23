@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useAlert } from '@/context/AlertContext';
 
 // Icons Component
 const Icons = {
@@ -170,7 +171,7 @@ const AdminLogin = ({ onLogin, onClose }) => {
             <Icons.Close />
           </button>
         </div>
-        
+
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -191,7 +192,7 @@ const AdminLogin = ({ onLogin, onClose }) => {
               Demo password: <span className="font-mono">admin123</span>
             </p>
           </div>
-          
+
           <button
             onClick={handleLogin}
             className="w-full bg-purple-600 text-white py-3 rounded-lg font-medium hover:bg-purple-700 transition"
@@ -218,6 +219,7 @@ const ImageUploadModal = ({ onClose, onUpload }) => {
   const [uploading, setUploading] = useState(false);
   const [sizeErrors, setSizeErrors] = useState([]);
   const fileInputRef = useRef(null);
+  const { showAlert } = useAlert();
 
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
@@ -227,7 +229,7 @@ const ImageUploadModal = ({ onClose, onUpload }) => {
     files.forEach((file, index) => {
       const img = new Image();
       const objectUrl = URL.createObjectURL(file);
-      
+
       img.onload = () => {
         if (img.width !== 250 || img.height !== 350) {
           errors.push({
@@ -238,7 +240,7 @@ const ImageUploadModal = ({ onClose, onUpload }) => {
         } else {
           validFiles.push(file);
         }
-        
+
         // Check if this is the last image
         if (index === files.length - 1) {
           setSizeErrors(errors);
@@ -246,27 +248,27 @@ const ImageUploadModal = ({ onClose, onUpload }) => {
             setSelectedFiles(prev => [...prev, ...validFiles]);
           }
         }
-        
+
         URL.revokeObjectURL(objectUrl);
       };
-      
+
       img.src = objectUrl;
     });
   };
 
   const handleUpload = async () => {
     if (selectedFiles.length === 0) {
-      alert('Please select at least one image');
+      showAlert('Please select at least one image', "warning");
       return;
     }
 
     if (!jewelDetails.name || !jewelDetails.price || !jewelDetails.weight) {
-      alert('Please fill in all required fields');
+      showAlert('Please fill in all required fields', "warning");
       return;
     }
 
     setUploading(true);
-    
+
     // Simulate upload process
     setTimeout(() => {
       const newJewels = selectedFiles.map((file, index) => {
@@ -286,8 +288,8 @@ const ImageUploadModal = ({ onClose, onUpload }) => {
       onUpload(newJewels);
       setUploading(false);
       onClose();
-      
-      alert(`Successfully uploaded ${selectedFiles.length} jewel${selectedFiles.length > 1 ? 's' : ''}!`);
+
+      showAlert(`Successfully uploaded ${selectedFiles.length} jewel${selectedFiles.length > 1 ? 's' : ''}!`, "success");
     }, 1500);
   };
 
@@ -389,7 +391,7 @@ const ImageUploadModal = ({ onClose, onUpload }) => {
           {/* Jewel Details Form */}
           <div className="space-y-4">
             <h3 className="font-medium text-gray-700">Jewel Details</h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -398,7 +400,7 @@ const ImageUploadModal = ({ onClose, onUpload }) => {
                 <input
                   type="text"
                   value={jewelDetails.name}
-                  onChange={(e) => setJewelDetails(prev => ({...prev, name: e.target.value}))}
+                  onChange={(e) => setJewelDetails(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   placeholder="e.g., Diamond Ring"
                 />
@@ -411,7 +413,7 @@ const ImageUploadModal = ({ onClose, onUpload }) => {
                 <input
                   type="text"
                   value={jewelDetails.price}
-                  onChange={(e) => setJewelDetails(prev => ({...prev, price: e.target.value}))}
+                  onChange={(e) => setJewelDetails(prev => ({ ...prev, price: e.target.value }))}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   placeholder="e.g., $5,000"
                 />
@@ -424,7 +426,7 @@ const ImageUploadModal = ({ onClose, onUpload }) => {
                 <input
                   type="text"
                   value={jewelDetails.weight}
-                  onChange={(e) => setJewelDetails(prev => ({...prev, weight: e.target.value}))}
+                  onChange={(e) => setJewelDetails(prev => ({ ...prev, weight: e.target.value }))}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   placeholder="e.g., 15g"
                 />
@@ -436,7 +438,7 @@ const ImageUploadModal = ({ onClose, onUpload }) => {
                 </label>
                 <select
                   value={jewelDetails.karat}
-                  onChange={(e) => setJewelDetails(prev => ({...prev, karat: e.target.value}))}
+                  onChange={(e) => setJewelDetails(prev => ({ ...prev, karat: e.target.value }))}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                 >
                   <option value="14K Gold">14K Gold</option>
@@ -454,7 +456,7 @@ const ImageUploadModal = ({ onClose, onUpload }) => {
                 </label>
                 <select
                   value={jewelDetails.category}
-                  onChange={(e) => setJewelDetails(prev => ({...prev, category: e.target.value}))}
+                  onChange={(e) => setJewelDetails(prev => ({ ...prev, category: e.target.value }))}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                 >
                   <option value="Necklace">Necklace</option>
@@ -474,7 +476,7 @@ const ImageUploadModal = ({ onClose, onUpload }) => {
                 </label>
                 <textarea
                   value={jewelDetails.description}
-                  onChange={(e) => setJewelDetails(prev => ({...prev, description: e.target.value}))}
+                  onChange={(e) => setJewelDetails(prev => ({ ...prev, description: e.target.value }))}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   rows="3"
                   placeholder="Describe the jewel..."
@@ -540,12 +542,12 @@ const JewelCard = ({ jewel, onDelete, isAdmin }) => {
           </span>
         </div>
       </div>
-      
+
       {/* Jewel Details */}
       <div className="p-4">
         <h3 className="font-bold text-lg text-gray-800 mb-2">{jewel.name}</h3>
         <p className="text-gray-600 text-sm mb-4">{jewel.description}</p>
-        
+
         <div className="space-y-3">
           {/* Price */}
           <div className="flex items-center gap-2">
@@ -557,7 +559,7 @@ const JewelCard = ({ jewel, onDelete, isAdmin }) => {
               <p className="font-bold text-green-600">{jewel.price}</p>
             </div>
           </div>
-          
+
           {/* Weight */}
           <div className="flex items-center gap-2">
             <div className="p-2 bg-blue-100 rounded-lg">
@@ -568,7 +570,7 @@ const JewelCard = ({ jewel, onDelete, isAdmin }) => {
               <p className="font-medium text-gray-800">{jewel.weight}</p>
             </div>
           </div>
-          
+
           {/* Karat */}
           <div className="flex items-center gap-2">
             <div className="p-2 bg-yellow-100 rounded-lg">
@@ -588,7 +590,7 @@ const JewelCard = ({ jewel, onDelete, isAdmin }) => {
 // Navbar Component
 const Navbar = ({ isAdmin, onLogout, onLoginClick }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  
+
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -614,7 +616,7 @@ const Navbar = ({ isAdmin, onLogout, onLoginClick }) => {
             <a href="/contact" className="text-gray-700 hover:text-purple-600 px-3 py-2 rounded-lg font-medium">
               Contact
             </a>
-            
+
             {/* Admin Button */}
             {isAdmin ? (
               <div className="flex items-center gap-3">
@@ -662,7 +664,7 @@ const Navbar = ({ isAdmin, onLogout, onLoginClick }) => {
             <a href="/contact" className="block text-gray-700 hover:text-purple-600 px-3 py-2 rounded-lg font-medium">
               Contact
             </a>
-            
+
             {isAdmin ? (
               <div className="pt-2 space-y-2">
                 <div className="px-3 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium">
@@ -702,8 +704,8 @@ export default function JewelsGalleryPage() {
 
   // Filter jewels by category
   const categories = ['All', 'Necklace', 'Ring', 'Earrings', 'Bracelet', 'Pendant', 'Bangle'];
-  
-  const filteredJewels = jewels.filter(jewel => 
+
+  const filteredJewels = jewels.filter(jewel =>
     categoryFilter === 'All' || jewel.category === categoryFilter
   );
 
@@ -784,13 +786,13 @@ export default function JewelsGalleryPage() {
   return (
     <>
       <style>{pageStyles}</style>
-      
-      <Navbar 
-        isAdmin={isAdmin} 
+
+      <Navbar
+        isAdmin={isAdmin}
         onLogout={() => setIsAdmin(false)}
         onLoginClick={() => setShowAdminLogin(true)}
       />
-      
+
       <main className="min-h-screen pb-16">
         {/* Hero Section */}
         <div className="relative bg-gradient-to-r from-purple-800 via-purple-700 to-pink-700 text-white py-12 px-4">
@@ -801,7 +803,7 @@ export default function JewelsGalleryPage() {
             <p className="text-lg md:text-xl text-purple-100 max-w-3xl mx-auto mb-8">
               Discover our exquisite collection of handcrafted jewels. Each piece is meticulously designed with precision and passion.
             </p>
-            
+
             {isAdmin && (
               <button
                 onClick={() => setShowUploadModal(true)}
@@ -824,7 +826,7 @@ export default function JewelsGalleryPage() {
                   <span className="text-sm text-gray-500 ml-2">({jewels.length} items)</span>
                 </h2>
               </div>
-              
+
               <div className="flex flex-wrap gap-3">
                 {/* Category Filter */}
                 <div className="flex items-center gap-2">
@@ -834,18 +836,17 @@ export default function JewelsGalleryPage() {
                       <button
                         key={category}
                         onClick={() => setCategoryFilter(category)}
-                        className={`px-3 py-1 rounded-full text-sm font-medium transition ${
-                          categoryFilter === category
+                        className={`px-3 py-1 rounded-full text-sm font-medium transition ${categoryFilter === category
                             ? 'bg-purple-600 text-white'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
+                          }`}
                       >
                         {category}
                       </button>
                     ))}
                   </div>
                 </div>
-                
+
                 {/* Sort Filter */}
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-700">Sort by:</span>
@@ -870,8 +871,8 @@ export default function JewelsGalleryPage() {
           {sortedJewels.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {sortedJewels.map(jewel => (
-                <JewelCard 
-                  key={jewel.id} 
+                <JewelCard
+                  key={jewel.id}
                   jewel={jewel}
                   onDelete={handleJewelDelete}
                   isAdmin={isAdmin}
@@ -972,7 +973,7 @@ export default function JewelsGalleryPage() {
                 <p className="text-gray-400 text-sm">Premium Jewelry Collection</p>
               </div>
             </div>
-            
+
             <div className="text-center md:text-right">
               <p className="text-gray-400">
                 © {new Date().getFullYear()} LuxeJewels. All rights reserved.

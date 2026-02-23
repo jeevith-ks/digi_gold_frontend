@@ -1,10 +1,12 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation'; // ✅ only once
+import { useAlert } from '@/context/AlertContext';
 import { CloudCog, ChevronLeft } from 'lucide-react';
 
 export default function SipPlan() {
   const router = useRouter(); // ✅ declare once here
+  const { showAlert } = useAlert();
 
   const [selectedMetal, setSelectedMetal] = useState('Gold-24k-995');
   const [amount, setAmount] = useState(5000);
@@ -50,7 +52,7 @@ export default function SipPlan() {
 
       return await response.json();
     } catch (error) {
-      
+
       throw error;
     }
   };
@@ -67,7 +69,7 @@ export default function SipPlan() {
       if (!response.ok) throw new Error('Payment verification failed');
       return await response.json();
     } catch (error) {
-      
+
       throw error;
     }
   };
@@ -76,11 +78,11 @@ export default function SipPlan() {
     setPaymentMode("online");
 
     if (!window.Razorpay) {
-      alert("Razorpay SDK failed to load. Please check your connection.");
+      showAlert("Razorpay SDK failed to load. Please check your connection.", "error");
       return;
     }
     if (!amount || amount <= 0) {
-      alert("Please enter a valid amount");
+      showAlert("Please enter a valid amount", "warning");
       return;
     }
 
@@ -170,13 +172,13 @@ export default function SipPlan() {
       if (!response.ok) throw new Error("Failed to save savings plan");
 
       await response.json();
-      alert("Savings plan created successfully ✅");
+      showAlert("Savings plan created successfully ✅", "success");
 
       // ✅ Redirect after success
       router.push("/Sip_card_details");
     } catch (err) {
-      
-      alert("Failed to create savings plan ❌");
+
+      showAlert("Failed to create savings plan ❌", "error");
     }
   };
 
@@ -254,8 +256,8 @@ export default function SipPlan() {
         {/* Payment Status */}
         {paymentStatus && (
           <div className={`text-center font-semibold mb-4 p-3 rounded-lg ${paymentStatus.includes('Success')
-              ? 'text-green-600 bg-green-50'
-              : 'text-red-600 bg-red-50'
+            ? 'text-green-600 bg-green-50'
+            : 'text-red-600 bg-red-50'
             }`}>
             {paymentStatus}
           </div>

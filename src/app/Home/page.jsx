@@ -4,6 +4,7 @@ import { Home, Bell, Gem, Shield, User, Gift, ShoppingCart, ArrowLeftRight, Scal
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
+import { useAlert } from '@/context/AlertContext';
 
 import gold_24k from '../images/24k_gold.png';
 import gold_22k from '../images/22k_gold_v.jpg';
@@ -57,6 +58,7 @@ const PreciousMetalsApp = () => {
 
   const router = useRouter();
   const pathname = usePathname();
+  const { showAlert } = useAlert();
 
   // Initialize user data and fetch market status
   useEffect(() => {
@@ -539,7 +541,7 @@ const PreciousMetalsApp = () => {
       return { success: true, data: verifyData };
     } catch (error) {
 
-      alert(`Payment verification failed: ${error.message}`);
+      showAlert(`Payment verification failed: ${error.message}`, "error");
       return { success: false, error: error.message };
     } finally {
       setProcessingPayment(false);
@@ -552,13 +554,13 @@ const PreciousMetalsApp = () => {
       // Check market status
       const transactionCheck = canPerformTransaction();
       if (!transactionCheck.allowed) {
-        alert(`Cannot process transaction: ${transactionCheck.reason}`);
+        showAlert(`Cannot process transaction: ${transactionCheck.reason}`, "warning");
         return;
       }
 
       // Validate input
       if (!grams || parseFloat(grams) <= 0 || !amount || parseFloat(amount) <= 0) {
-        alert('Please enter valid grams and amount');
+        showAlert('Please enter valid grams and amount', "warning");
         return;
       }
 
@@ -568,14 +570,14 @@ const PreciousMetalsApp = () => {
       const selectedMetalData = metals.find(m => m.id === selectedMetal);
 
       if (!token) {
-        alert('Please login to make a purchase');
+        showAlert('Please login to make a purchase', "info");
         router.push('/login');
         return;
       }
 
       const paymentAmount = parseFloat(amount);
       if (paymentAmount < 1) {
-        alert('Minimum payment amount is ₹1');
+        showAlert('Minimum payment amount is ₹1', "warning");
         return;
       }
 
@@ -730,7 +732,7 @@ const PreciousMetalsApp = () => {
           ondismiss: function () {
 
             setProcessingPayment(false);
-            alert('Payment was cancelled. You can try again.');
+            showAlert('Payment was cancelled. You can try again.', "info");
 
             // Store cancellation in session storage
             const cancellationData = {
@@ -759,7 +761,7 @@ const PreciousMetalsApp = () => {
         };
         sessionStorage.setItem('paymentFailure', JSON.stringify(paymentFailureData));
 
-        alert(`Payment failed: ${response.error.description}. Please try again.`);
+        showAlert(`Payment failed: ${response.error.description}. Please try again.`, "error");
       });
 
       razorpay.open();
@@ -784,14 +786,14 @@ const PreciousMetalsApp = () => {
         router.push('/login');
       }
 
-      alert(`Payment failed: ${errorMessage}`);
+      showAlert(`Payment failed: ${errorMessage}`, "error");
     }
   };
 
   // Handle market toggle
   const handleMarketToggle = async (newStatus) => {
     if (userType !== 'admin') {
-      alert('You do not have admin privileges to control market status.');
+      showAlert('You do not have admin privileges to control market status.', "error");
       return;
     }
 
@@ -800,7 +802,7 @@ const PreciousMetalsApp = () => {
       const token = sessionStorage.getItem('authToken');
 
       if (!token) {
-        alert('Authentication token not found. Please login again.');
+        showAlert('Authentication token not found. Please login again.', "error");
         setIsUpdatingMarket(false);
         return;
       }
@@ -840,14 +842,14 @@ const PreciousMetalsApp = () => {
           await fetchMarketHistory(token);
         }
 
-        alert(data.message || 'Market status updated successfully');
+        showAlert(data.message || 'Market status updated successfully', "success");
       } else {
         const errorData = await response.json();
-        alert(errorData.message || 'Failed to update market status');
+        showAlert(errorData.message || 'Failed to update market status', "error");
       }
     } catch (error) {
 
-      alert('Error updating market status. Please try again.');
+      showAlert('Error updating market status. Please try again.', "error");
     } finally {
       setIsUpdatingMarket(false);
     }
@@ -856,7 +858,7 @@ const PreciousMetalsApp = () => {
   // Update trading hours
   const handleUpdateTradingHours = async () => {
     if (userType !== 'admin') {
-      alert('You do not have admin privileges to update trading hours.');
+      showAlert('You do not have admin privileges to update trading hours.', "error");
       return;
     }
 
@@ -865,7 +867,7 @@ const PreciousMetalsApp = () => {
       const token = sessionStorage.getItem('authToken');
 
       if (!token) {
-        alert('Authentication token not found. Please login again.');
+        showAlert('Authentication token not found. Please login again.', "error");
         setIsUpdatingMarket(false);
         return;
       }
@@ -895,14 +897,14 @@ const PreciousMetalsApp = () => {
           type: 'info'
         });
 
-        alert('Trading hours updated successfully');
+        showAlert('Trading hours updated successfully', "success");
       } else {
         const errorData = await response.json();
-        alert(errorData.message || 'Failed to update trading hours');
+        showAlert(errorData.message || 'Failed to update trading hours', "error");
       }
     } catch (error) {
 
-      alert('Error updating trading hours. Please try again.');
+      showAlert('Error updating trading hours. Please try again.', "error");
     } finally {
       setIsUpdatingMarket(false);
     }
@@ -945,20 +947,20 @@ const PreciousMetalsApp = () => {
   const handleBuyNow = () => {
     const token = sessionStorage.getItem('authToken');
     if (!token) {
-      alert('Please login to make a purchase');
+      showAlert('Please login to make a purchase', "info");
       router.push('/login');
       return;
     }
 
     const transactionCheck = canPerformTransaction();
     if (!transactionCheck.allowed) {
-      alert(`Cannot process transaction: ${transactionCheck.reason}`);
+      showAlert(`Cannot process transaction: ${transactionCheck.reason}`, "warning");
       return;
     }
 
     // Validate input
     if (!grams || parseFloat(grams) <= 0 || !amount || parseFloat(amount) <= 0) {
-      alert('Please enter valid grams and amount');
+      showAlert('Please enter valid grams and amount', "warning");
       return;
     }
 
@@ -970,7 +972,7 @@ const PreciousMetalsApp = () => {
   const handlePaymentMethod = async (method) => {
     const transactionCheck = canPerformTransaction();
     if (!transactionCheck.allowed) {
-      alert(`Cannot process payment: ${transactionCheck.reason}`);
+      showAlert(`Cannot process payment: ${transactionCheck.reason}`, "warning");
       setShowPaymentDialog(false);
       return;
     }
@@ -1070,13 +1072,13 @@ const PreciousMetalsApp = () => {
       const token = sessionStorage.getItem('authToken');
 
       if (!token) {
-        alert('Authentication token not found. Please login again.');
+        showAlert('Authentication token not found. Please login again.', "error");
         setIsSaving(false);
         return;
       }
 
       if (userType !== 'admin') {
-        alert('You do not have admin privileges to update rates.');
+        showAlert('You do not have admin privileges to update rates.', "error");
         setIsSaving(false);
         return;
       }
@@ -1087,19 +1089,19 @@ const PreciousMetalsApp = () => {
       const silver = parseFloat(metalRates['24k-999']);
 
       if (!gold24K || isNaN(gold24K) || gold24K <= 0) {
-        alert('Please enter a valid rate for Gold 24K');
+        showAlert('Please enter a valid rate for Gold 24K', "warning");
         setIsSaving(false);
         return;
       }
 
       if (!gold22K || isNaN(gold22K) || gold22K <= 0) {
-        alert('Please enter a valid rate for Gold 22K');
+        showAlert('Please enter a valid rate for Gold 22K', "warning");
         setIsSaving(false);
         return;
       }
 
       if (!silver || isNaN(silver) || silver <= 0) {
-        alert('Please enter a valid rate for Silver');
+        showAlert('Please enter a valid rate for Silver', "warning");
         setIsSaving(false);
         return;
       }
@@ -1120,7 +1122,7 @@ const PreciousMetalsApp = () => {
       });
 
       if (response.ok) {
-        alert('Rates updated successfully for all users!');
+        showAlert('Rates updated successfully for all users!', "success");
         setEditMode(false);
 
         // Update the metalRates state with the validated numbers
@@ -1137,11 +1139,11 @@ const PreciousMetalsApp = () => {
         });
       } else {
         const errorData = await response.json();
-        alert('Failed to update rates: ' + (errorData.message || 'Unknown error'));
+        showAlert('Failed to update rates: ' + (errorData.message || 'Unknown error'), "error");
       }
     } catch (error) {
 
-      alert('Error updating rates. Please try again.');
+      showAlert('Error updating rates. Please try again.', "error");
     } finally {
       setIsSaving(false);
     }
@@ -1179,7 +1181,7 @@ const PreciousMetalsApp = () => {
       const token = sessionStorage.getItem('authToken');
 
       if (!token) {
-        alert('Please log in to download the Excel file.');
+        showAlert('Please log in to download the Excel file.', "info");
         return;
       }
 
@@ -1192,7 +1194,7 @@ const PreciousMetalsApp = () => {
 
       if (!response.ok) {
         if (response.status === 401) {
-          alert('Session expired. Please log in again.');
+          showAlert('Session expired. Please log in again.', "error");
           sessionStorage.removeItem('authToken');
           return;
         }
@@ -1214,7 +1216,7 @@ const PreciousMetalsApp = () => {
 
     } catch (error) {
 
-      alert('Failed to download Excel file. Please try again.');
+      showAlert('Failed to download Excel file. Please try again.', "error");
     }
   };
 

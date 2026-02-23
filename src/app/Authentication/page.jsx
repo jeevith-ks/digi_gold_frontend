@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, User, Mail, Lock, ArrowRight, Phone } from 'lucide-react';
 import { useRouter } from "next/navigation";
+import { useAlert } from '@/context/AlertContext';
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -19,6 +20,7 @@ export default function AuthPage() {
     userType: 'customer' // Default to customer
   });
   const [isLoading, setIsLoading] = useState(false);
+  const { showAlert } = useAlert();
 
   // Generate consistent particle positions
   const particlePositions = Array.from({ length: 15 }, (_, i) => ({
@@ -85,22 +87,22 @@ export default function AuthPage() {
           sessionStorage.setItem("username", data.user?.username || formData.username);
           sessionStorage.setItem("userType", data.user?.user_type || finalUserType);
 
-          alert("Login successful!");
+          showAlert("Login successful!", "success");
           router.push("/Home");
         } else {
           const errorData = await response.json();
-          
-          alert("Login failed: " + (errorData.message || "Invalid credentials"));
+
+          showAlert("Login failed: " + (errorData.message || "Invalid credentials"), "error");
         }
       } catch (error) {
-        
-        alert("Something went wrong during login!");
+
+        showAlert("Something went wrong during login!", "error");
       }
     } else {
       // Registration logic
       // Basic validation
       if (formData.password !== formData.confirmPassword) {
-        alert("Passwords do not match!");
+        showAlert("Passwords do not match!", "warning");
         setIsLoading(false);
         return;
       }
@@ -113,7 +115,7 @@ export default function AuthPage() {
 
       // Phone number validation (basic)
       if (!formData.phone.trim()) {
-        alert("Phone number is required!");
+        showAlert("Phone number is required!", "warning");
         setIsLoading(false);
         return;
       }
@@ -150,26 +152,26 @@ export default function AuthPage() {
 
           // Show special message for admin registration
           if (isAdminEmail) {
-            alert("Admin account created successfully! You have administrative privileges.");
+            showAlert("Admin account created successfully! You have administrative privileges.", "success", "Admin Created");
           } else {
-            alert("Account created successfully!");
+            showAlert("Account created successfully!", "success");
           }
 
           router.push("/Home");
           resetForm();
         } else {
-          
+
 
           // Handle specific error cases
           if (responseData.message?.includes('already exists')) {
-            alert("User with this email or username already exists!");
+            showAlert("User with this email or username already exists!", "error");
           } else {
-            alert("Failed to create account: " + (responseData.message || "Unknown error"));
+            showAlert("Failed to create account: " + (responseData.message || "Unknown error"), "error");
           }
         }
       } catch (error) {
-        
-        alert("Something went wrong during registration!");
+
+        showAlert("Something went wrong during registration!", "error");
       }
     }
 

@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAlert } from '@/context/AlertContext';
 import { ChevronLeft, RefreshCw, CheckCircle2, XCircle, Clock, AlertCircle, TrendingUp, DollarSign, Calendar, User, FileText, Check, ChevronRight, Home, LayoutDashboard, Wallet, Settings } from 'lucide-react';
 import Link from 'next/link';
 
@@ -12,6 +13,7 @@ export default function SettlementsPage() {
   const [apiError, setApiError] = useState(false);
   const [token, setToken] = useState(null);
   const [isClient, setIsClient] = useState(false);
+  const { showAlert } = useAlert();
 
   // Initialize client-side
   useEffect(() => {
@@ -61,7 +63,7 @@ export default function SettlementsPage() {
       setSettlements(transformApiData(data));
 
     } catch (err) {
-      
+
       setApiError(true);
       // Fallback data
       setSettlements(getSampleData());
@@ -135,14 +137,14 @@ export default function SettlementsPage() {
       const data = await response.json();
 
       if (response.ok) {
-        alert(data.message || 'SIP settled successfully!');
+        showAlert(data.message || 'SIP settled successfully!', "success");
         fetchSettlements();
       } else {
-        alert(data.message || 'Failed to settle SIP');
+        showAlert(data.message || 'Failed to settle SIP', "error");
       }
     } catch (error) {
-      
-      alert('Failed to settle SIP. Please check connection.');
+
+      showAlert('Failed to settle SIP. Please check connection.', "error");
     }
   };
 

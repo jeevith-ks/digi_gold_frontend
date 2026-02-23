@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAlert } from '@/context/AlertContext';
 
 export default function SipHoldings() {
   const [userId, setUserId] = useState(null);
@@ -9,6 +10,7 @@ export default function SipHoldings() {
   const [paymentStatus, setPaymentStatus] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { showAlert } = useAlert();
 
   const handlePayOffline = () => {
     router.push('/payoffline');
@@ -53,12 +55,12 @@ export default function SipHoldings() {
   // online payment per SIP row
   const handlePayOnline = async (sip) => {
     if (!window.Razorpay) {
-      alert('Razorpay SDK not loaded');
+      showAlert('Razorpay SDK not loaded', "error");
       return;
     }
 
     if (!sip.amount || sip.amount <= 0) {
-      alert('Invalid SIP amount');
+      showAlert('Invalid SIP amount', "warning");
       return;
     }
 
@@ -124,7 +126,7 @@ export default function SipHoldings() {
       rzp.open();
       setIsLoading(false);
     } catch (err) {
-      
+
       setPaymentStatus('Payment Init Failed ❌');
       setIsLoading(false);
     }

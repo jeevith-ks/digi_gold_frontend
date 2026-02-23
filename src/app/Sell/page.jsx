@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, Building2, Check, Scale, ArrowLeftRight, ShoppingCart, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAlert } from '@/context/AlertContext';
 
 const SellPage = () => {
   const [selectedMetal, setSelectedMetal] = useState('24k-995');
@@ -16,6 +17,7 @@ const SellPage = () => {
   const [adminPrices, setAdminPrices] = useState(null);
   const [loadingPrices, setLoadingPrices] = useState(true);
   const router = useRouter();
+  const { showAlert } = useAlert();
 
   // Check if user is authenticated on mount and fetch data
   useEffect(() => {
@@ -81,7 +83,7 @@ const SellPage = () => {
 
       setAdminPrices(prices);
     } catch (err) {
-      
+
       setError('Failed to load current prices. Please try again.');
     } finally {
       setLoadingPrices(false);
@@ -112,7 +114,7 @@ const SellPage = () => {
 
       if (!response.ok) {
         const errorText = await response.text();
-        
+
         throw new Error(`Failed to fetch holdings: ${response.status}`);
       }
 
@@ -134,7 +136,7 @@ const SellPage = () => {
       // Process available metals when both holdings and prices are available
       processAvailableMetals(holdingsArray);
     } catch (err) {
-      
+
       setError('Failed to load current balance. Please try again.');
     }
   };
@@ -336,7 +338,7 @@ const SellPage = () => {
       const data = await response.json();
 
       if (response.ok) {
-        alert(data.message || 'Sell successful,Amount will be Credited with in 24Hours');
+        showAlert(data.message || 'Sell successful,Amount will be Credited with in 24Hours', "success");
         setGrams('');
         setAmount('');
 
@@ -350,7 +352,7 @@ const SellPage = () => {
         setError(data.message || 'Sell failed. Please try again.');
       }
     } catch (err) {
-      
+
       setError('Network error. Please check your connection and try again.');
     } finally {
       setLoading(false);
@@ -402,8 +404,8 @@ const SellPage = () => {
                 key={metal.id}
                 onClick={() => handleMetalSelect(metal.id)}
                 className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-colors flex flex-col items-center ${selectedMetal === metal.id
-                    ? 'bg-[#50C2C9] text-white'
-                    : 'bg-gray-200 text-gray-700'
+                  ? 'bg-[#50C2C9] text-white'
+                  : 'bg-gray-200 text-gray-700'
                   }`}
               >
                 <div>{metal.name}</div>
@@ -553,8 +555,8 @@ const SellPage = () => {
           onClick={handleSell}
           disabled={loading || !grams || parseFloat(grams) <= 0 || !selectedMetalAvailable}
           className={`w-full py-4 rounded-lg font-bold text-lg transition-colors ${loading || !grams || parseFloat(grams) <= 0 || !selectedMetalAvailable
-              ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-[#50C2C9] hover:bg-[#3caab0] text-white'
+            ? 'bg-gray-400 cursor-not-allowed'
+            : 'bg-[#50C2C9] hover:bg-[#3caab0] text-white'
             }`}
         >
           {loading ? 'Processing...' : `Sell ${getMetalName(selectedMetal)}`}
