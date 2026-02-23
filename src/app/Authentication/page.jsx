@@ -435,7 +435,8 @@ export default function AuthPage() {
                 <div className="flex justify-end">
                   <button
                     type="button"
-                    className="text-white text-opacity-80 hover:text-white text-sm transition-colors"
+                    onClick={() => router.push("/ForgotPassword")}
+                    className="text-white text-opacity-80 hover:text-white text-sm transition-colors font-semibold"
                   >
                     Forgot password?
                   </button>
