@@ -87,7 +87,7 @@ export default function ProfilePage() {
   // 2. Methods
   const fetchUserData = async () => {
     try {
-      const response = await fetch('http://65.2.152.254:5000/api/user/details', {
+      const response = await fetch('http://localhost:5000/api/user/details', {
         headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' }
       });
       if (response.ok) {
@@ -122,7 +122,7 @@ export default function ProfilePage() {
 
   const fetchKYCData = async () => {
     try {
-      const response = await fetch('http://65.2.152.254:5000/api/kyc/me', {
+      const response = await fetch('http://localhost:5000/api/kyc/me', {
         headers: { 'Authorization': `Bearer ${authToken}` }
       });
       if (response.ok) {
@@ -153,7 +153,7 @@ export default function ProfilePage() {
 
   const fetchVerificationStatus = async () => {
     try {
-      const response = await fetch('http://65.2.152.254:5000/api/kyc/verification/status', {
+      const response = await fetch('http://localhost:5000/api/kyc/verification/status', {
         headers: { 'Authorization': `Bearer ${authToken}` }
       });
       if (response.ok) {
@@ -208,7 +208,7 @@ export default function ProfilePage() {
         ...(userData.dateOfBirth && { dob: userData.dateOfBirth })
       };
 
-      const response = await fetch('http://65.2.152.254:5000/api/user/', {
+      const response = await fetch('http://localhost:5000/api/user/', {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -233,7 +233,7 @@ export default function ProfilePage() {
     if (!userData.panNumber || !userData.panFullName) return showAlert('Enter PAN details first', "warning");
     setIsVerifying(true);
     try {
-      const response = await fetch('http://65.2.152.254:5000/api/kyc/verify/pan', {
+      const response = await fetch('http://localhost:5000/api/kyc/verify/pan', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ pan_number: userData.panNumber.toUpperCase(), full_name: userData.panFullName, dob: userData.dateOfBirth })
@@ -256,7 +256,7 @@ export default function ProfilePage() {
   const updatePanDetails = async () => {
     try {
       const payload = { full_name: userData.panFullName, pan_number: userData.panNumber };
-      const res = await fetch('http://65.2.152.254:5000/api/kyc/pan', {
+      const res = await fetch('http://localhost:5000/api/kyc/pan', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -276,7 +276,7 @@ export default function ProfilePage() {
 
   const updateBankDetails = async () => {
     try {
-      const res = await fetch('http://65.2.152.254:5000/api/kyc/bank', {
+      const res = await fetch('http://localhost:5000/api/kyc/bank', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({

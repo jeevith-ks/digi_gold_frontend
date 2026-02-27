@@ -53,7 +53,7 @@ const SellPage = () => {
         return;
       }
 
-      const response = await fetch('http://65.2.152.254:5000/api/price/', {
+      const response = await fetch('http://localhost:5000/api/price/', {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
@@ -98,7 +98,7 @@ const SellPage = () => {
         return;
       }
 
-      const response = await fetch('http://65.2.152.254:5000/api/holdings', {
+      const response = await fetch('http://localhost:5000/api/holdings', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -326,7 +326,7 @@ const SellPage = () => {
       };
 
 
-      const response = await fetch('http://65.2.152.254:5000/api/transactions/sell', {
+      const response = await fetch('http://localhost:5000/api/transactions/sell', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

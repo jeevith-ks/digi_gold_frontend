@@ -80,7 +80,7 @@ const SIPPage = () => {
         dataToSend[key] = transactionData[key] === null ? null : transactionData[key];
       });
 
-      const response = await fetch('http://65.2.152.254:5000/api/transactions/', {
+      const response = await fetch('http://localhost:5000/api/transactions/', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -95,7 +95,7 @@ const SIPPage = () => {
         return { success: true, data: result };
       } else {
         const errorText = await response.text();
-        
+
 
         try {
           const errorData = JSON.parse(errorText);
@@ -105,7 +105,7 @@ const SIPPage = () => {
         }
       }
     } catch (error) {
-      
+
       return { success: false, error: error.message };
     }
   };
@@ -136,7 +136,7 @@ const SIPPage = () => {
       }
 
       // For both online and offline payments
-      const verifyResponse = await fetch('http://65.2.152.254:5000/api/razorpay/verify-payment', {
+      const verifyResponse = await fetch('http://localhost:5000/api/razorpay/verify-payment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -177,12 +177,12 @@ const SIPPage = () => {
 
         return { success: true, data: verifyData };
       } else {
-        
+
         showNotification(`Payment verification failed: ${verifyData.error || verifyData.message}`, 'error');
         return { success: false, error: verifyData.error || verifyData.message };
       }
     } catch (error) {
-      
+
       showNotification('Payment verification failed. Please contact support.', 'error');
       return { success: false, error: error.message };
     } finally {
@@ -213,7 +213,7 @@ const SIPPage = () => {
         return { success: false, error: verificationResult.error };
       }
     } catch (error) {
-      
+
       return { success: false, error: error.message };
     }
   };
@@ -361,7 +361,7 @@ const SIPPage = () => {
         return;
       }
 
-      const response = await fetch('http://65.2.152.254:5000/api/sip/all', {
+      const response = await fetch('http://localhost:5000/api/sip/all', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -394,7 +394,7 @@ const SIPPage = () => {
         setError(errorData.message || 'Failed to fetch SIP data');
       }
     } catch (err) {
-      
+
       setError('Network error while fetching SIP data');
     } finally {
       setLoading(false);
@@ -412,7 +412,7 @@ const SIPPage = () => {
         return;
       }
 
-      const response = await fetch('http://65.2.152.254:5000/api/sip/', {
+      const response = await fetch('http://localhost:5000/api/sip/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -422,7 +422,7 @@ const SIPPage = () => {
       if (response.ok) {
         const data = await response.json();
 
-       
+
 
         // Transform and set data
         const transformedPlans = transformSIPData(data);
@@ -449,7 +449,7 @@ const SIPPage = () => {
         setError(errorData.message || 'Failed to fetch SIP data');
       }
     } catch (err) {
-      
+
       setError('Network error while fetching SIP data');
     } finally {
       setLoading(false);
@@ -460,7 +460,7 @@ const SIPPage = () => {
   const fetchLatestPrices = async (token) => {
     try {
 
-      const response = await fetch('http://65.2.152.254:5000/api/price/', {
+      const response = await fetch('http://localhost:5000/api/price/', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -475,10 +475,10 @@ const SIPPage = () => {
 
         }
       } else {
-        
+
       }
     } catch (error) {
-      
+
     }
   };
 
@@ -486,7 +486,7 @@ const SIPPage = () => {
   const fetchHoldings = async (token) => {
     try {
 
-      const response = await fetch('http://65.2.152.254:5000/api/holdings', {
+      const response = await fetch('http://localhost:5000/api/holdings', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -498,10 +498,10 @@ const SIPPage = () => {
         const data = await response.json();
 
       } else {
-        
+
       }
     } catch (error) {
-      
+
     }
   };
 
@@ -533,7 +533,7 @@ const SIPPage = () => {
         return;
       }
 
-      const response = await fetch('http://65.2.152.254:5000/api/sip/fixed', {
+      const response = await fetch('http://localhost:5000/api/sip/fixed', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -566,7 +566,7 @@ const SIPPage = () => {
         throw new Error(errorData.message || 'Failed to fetch fixed SIP plans');
       }
     } catch (err) {
-      
+
       setError(err.message || 'Failed to load fixed SIP plans');
     } finally {
       setLoadingFixedSIPs(false);
@@ -603,7 +603,7 @@ const SIPPage = () => {
         return;
       }
 
-      const response = await fetch('http://65.2.152.254:5000/api/sip/fixed/opt', {
+      const response = await fetch('http://localhost:5000/api/sip/fixed/opt', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -645,7 +645,7 @@ const SIPPage = () => {
         throw new Error(errorData.message || 'Failed to choose fixed SIP');
       }
     } catch (err) {
-      
+
       setError(err.message || 'Failed to choose fixed SIP');
       setSelectedFixedSIPId(null);
     } finally {
@@ -663,7 +663,7 @@ const SIPPage = () => {
       }
 
     } catch (err) {
-      
+
     }
   };
 
@@ -828,7 +828,7 @@ const SIPPage = () => {
         year: 'numeric'
       });
     } catch (error) {
-      
+
       return 'N/A';
     }
   };
@@ -1143,7 +1143,7 @@ const SIPPage = () => {
 
 
 
-        const response = await fetch('http://65.2.152.254:5000/api/razorpay/create-order', {
+        const response = await fetch('http://localhost:5000/api/razorpay/create-order', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1166,12 +1166,12 @@ const SIPPage = () => {
         try {
           orderData = JSON.parse(responseText);
         } catch (parseError) {
-          
+
           throw new Error(`Invalid response from server: ${responseText.substring(0, 100)}`);
         }
 
         if (!response.ok) {
-          
+
           throw new Error(orderData.error || orderData.message || `HTTP error! status: ${response.status}`);
         }
 
@@ -1193,7 +1193,7 @@ const SIPPage = () => {
             if (result.success) {
 
             } else {
-              
+
             }
           },
           prefill: {
@@ -1222,14 +1222,14 @@ const SIPPage = () => {
         const razorpay = new window.Razorpay(options);
 
         razorpay.on('payment.failed', function (response) {
-          
+
           showNotification(`Payment failed: ${response.error.description}. Please try again.`, 'error');
         });
 
         razorpay.open();
 
       } catch (error) {
-        
+
 
         // Show more helpful error message
         let errorMessage = error.message;
@@ -1278,6 +1278,14 @@ const SIPPage = () => {
       };
 
       sessionStorage.setItem('offlinePaymentData', JSON.stringify(offlineData));
+
+      // Fix: Save the actual plan SIP type so payoffline page reads it correctly
+      const sipTypeForOffline = selectedPlan.isFixed ? 'fixed' : 'flexible';
+      sessionStorage.setItem('sipType', sipTypeForOffline);
+
+      // Ensure sipId keys are set so payoffline can resolve the amount
+      sessionStorage.setItem('currentSIPId', String(selectedSIPId));
+      sessionStorage.setItem('planId', String(selectedSIPId));
 
       // Navigate to offline payment page
       router.push('/payoffline');
@@ -1340,11 +1348,11 @@ const SIPPage = () => {
         return;
       }
 
-    
+
 
       const enumMetalType = getEnumMetalType(getDisplayMetalType(metalType)); // FIXED
 
-     
+
 
       // Save flexible SIP creation data to session storage
       const sipCreationData = {
@@ -1357,7 +1365,7 @@ const SIPPage = () => {
       };
       sessionStorage.setItem('flexibleSIPCreation', JSON.stringify(sipCreationData));
 
-      const response = await fetch('http://65.2.152.254:5000/api/sip/flexible/create', {
+      const response = await fetch('http://localhost:5000/api/sip/flexible/create', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

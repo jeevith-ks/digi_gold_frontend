@@ -51,7 +51,7 @@ export default function KYCApprovalPage() {
         return;
       }
 
-      const response = await fetch('http://65.2.152.254:5000/api/kyc/me', {
+      const response = await fetch('http://localhost:5000/api/kyc/me', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -110,7 +110,7 @@ export default function KYCApprovalPage() {
         status: 'APPROVED'
       };
 
-      const response = await fetch('http://65.2.152.254:5000/api/kyc/approve', {
+      const response = await fetch('http://localhost:5000/api/kyc/approve', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,

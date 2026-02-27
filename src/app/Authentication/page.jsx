@@ -66,7 +66,7 @@ export default function AuthPage() {
     if (isLogin) {
       // Login logic
       try {
-        const response = await fetch("http://65.2.152.254:5000/api/auth/login", {
+        const response = await fetch("http://localhost:5000/api/auth/login", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
@@ -122,7 +122,7 @@ export default function AuthPage() {
 
       try {
 
-        const response = await fetch("http://65.2.152.254:5000/api/auth/register", {
+        const response = await fetch("http://localhost:5000/api/auth/register", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"

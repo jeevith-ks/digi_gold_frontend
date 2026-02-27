@@ -80,7 +80,7 @@ const SIPPage = () => {
                 dataToSend[key] = transactionData[key] === null ? null : transactionData[key];
             });
 
-            const response = await fetch('http://65.2.152.254:5000/api/transactions/', {
+            const response = await fetch('http://localhost:5000/api/transactions/', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -135,7 +135,7 @@ const SIPPage = () => {
             }
 
             // For both online and offline payments
-            const verifyResponse = await fetch('http://65.2.152.254:5000/api/razorpay/verify-payment', {
+            const verifyResponse = await fetch('http://localhost:5000/api/razorpay/verify-payment', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -360,7 +360,7 @@ const SIPPage = () => {
                 return;
             }
 
-            const response = await fetch('http://65.2.152.254:5000/api/sip/all', {
+            const response = await fetch('http://localhost:5000/api/sip/all', {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -411,7 +411,7 @@ const SIPPage = () => {
                 return;
             }
 
-            const response = await fetch('http://65.2.152.254:5000/api/sip/', {
+            const response = await fetch('http://localhost:5000/api/sip/', {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -457,7 +457,7 @@ const SIPPage = () => {
     const fetchLatestPrices = async (token) => {
         try {
 
-            const response = await fetch('http://65.2.152.254:5000/api/price/', {
+            const response = await fetch('http://localhost:5000/api/price/', {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -480,7 +480,7 @@ const SIPPage = () => {
     // Fetch holdings data for customers
     const fetchHoldings = async (token) => {
         try {
-            const response = await fetch('http://65.2.152.254:5000/api/holdings', {
+            const response = await fetch('http://localhost:5000/api/holdings', {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -528,7 +528,7 @@ const SIPPage = () => {
                 return;
             }
 
-            const response = await fetch('http://65.2.152.254:5000/api/sip/fixed', {
+            const response = await fetch('http://localhost:5000/api/sip/fixed', {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -601,7 +601,7 @@ const SIPPage = () => {
                 return;
             }
 
-            const response = await fetch('http://65.2.152.254:5000/api/sip/fixed/opt', {
+            const response = await fetch('http://localhost:5000/api/sip/fixed/opt', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -1129,7 +1129,7 @@ const SIPPage = () => {
 
 
 
-                const response = await fetch('http://65.2.152.254:5000/api/razorpay/create-order', {
+                const response = await fetch('http://localhost:5000/api/razorpay/create-order', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1265,6 +1265,14 @@ const SIPPage = () => {
 
             sessionStorage.setItem('offlinePaymentData', JSON.stringify(offlineData));
 
+            // Fix: Save the actual plan SIP type so payoffline page reads it correctly
+            const sipTypeForOffline = selectedPlan.isFixed ? 'fixed' : 'flexible';
+            sessionStorage.setItem('sipType', sipTypeForOffline);
+
+            // Ensure sipId keys are set so payoffline can resolve the amount
+            sessionStorage.setItem('currentSIPId', String(selectedSIPId));
+            sessionStorage.setItem('planId', String(selectedSIPId));
+
             // Navigate to offline payment page
             router.push('/payoffline');
         }
@@ -1340,7 +1348,7 @@ const SIPPage = () => {
             };
             sessionStorage.setItem('flexibleSIPCreation', JSON.stringify(sipCreationData));
 
-            const response = await fetch('http://65.2.152.254:5000/api/sip/flexible/create', {
+            const response = await fetch('http://localhost:5000/api/sip/flexible/create', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,

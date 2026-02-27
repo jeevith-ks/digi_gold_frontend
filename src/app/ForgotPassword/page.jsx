@@ -33,7 +33,7 @@ export default function ForgotPasswordPage() {
         setIsLoading(true);
 
         try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://65.2.152.254:5000/api";
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
             const response = await fetch(`${apiUrl}/auth/forgot-password`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -70,7 +70,7 @@ export default function ForgotPasswordPage() {
         setIsLoading(true);
 
         try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://65.2.152.254:5000/api";
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
             console.log("Updating password for:", email);
             const response = await fetch(`${apiUrl}/auth/reset-password`, {
                 method: "POST",

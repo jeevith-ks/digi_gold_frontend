@@ -40,7 +40,7 @@ export default function SettlementsPage() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-      const response = await fetch('http://65.2.152.254:5000/api/admin/completed-settled-sips', {
+      const response = await fetch('http://localhost:5000/api/admin/completed-settled-sips', {
         signal: controller.signal,
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -126,7 +126,7 @@ export default function SettlementsPage() {
     if (!isConfirmed) return;
 
     try {
-      const response = await fetch('http://65.2.152.254:5000/api/admin/settlements', {
+      const response = await fetch('http://localhost:5000/api/admin/settlements', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

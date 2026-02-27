@@ -24,7 +24,7 @@ export default function StatementsPage() {
           return;
         }
 
-        const response = await fetch('http://65.2.152.254:5000/api/transactions/', {
+        const response = await fetch('http://localhost:5000/api/transactions/', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
